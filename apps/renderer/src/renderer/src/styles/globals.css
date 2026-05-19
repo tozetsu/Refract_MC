@@ -1,25 +1,25 @@
-@import './themes/default-dark.css';
 @import 'tailwindcss';
 
+/* Default dark theme values — ThemeEngine overrides --color-* at runtime */
 @theme {
-  --color-bg-base:        var(--bg-base);
-  --color-bg-surface:     var(--bg-surface);
-  --color-bg-overlay:     var(--bg-overlay);
-  --color-bg-hover:       var(--bg-hover);
-  --color-text-primary:   var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-muted:     var(--text-muted);
-  --color-accent:         var(--accent);
-  --color-accent-hover:   var(--accent-hover);
-  --color-accent-fg:      var(--accent-fg);
-  --color-success:        var(--success);
-  --color-warning:        var(--warning);
-  --color-error:          var(--error);
-  --color-border:         var(--border);
-  --radius:               var(--radius);
+  --color-bg-base:        #0f0f13;
+  --color-bg-surface:     #1a1a24;
+  --color-bg-overlay:     #252532;
+  --color-bg-hover:       #2e2e3d;
+  --color-text-primary:   #f0f0f5;
+  --color-text-secondary: #9191a8;
+  --color-text-muted:     #55556a;
+  --color-accent:         #7c6af7;
+  --color-accent-hover:   #9585ff;
+  --color-accent-fg:      #ffffff;
+  --color-success:        #4ade80;
+  --color-warning:        #fbbf24;
+  --color-error:          #f87171;
+  --color-border:         #2e2e3d;
 }
 
 :root {
+  --radius:                  8px;
   --sidebar-width:           240px;
   --sidebar-collapsed-width: 64px;
   --titlebar-height:         40px;

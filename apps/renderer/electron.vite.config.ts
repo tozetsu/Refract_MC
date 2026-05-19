@@ -1,6 +1,7 @@
 import { resolve } from 'path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
 
 const workspaceAlias = {
@@ -26,6 +27,6 @@ export default defineConfig({
         ...workspaceAlias,
       },
     },
-    plugins: [react(), TanStackRouterVite()],
+    plugins: [tailwindcss(), react(), TanStackRouterVite()],
   },
 })

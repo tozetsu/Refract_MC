@@ -13,7 +13,13 @@ class ThemeEngine {
   private applyColors(colors: Record<string, string> | object): void {
     const root = document.documentElement
     for (const [key, value] of Object.entries(colors)) {
-      root.style.setProperty(`--${key}`, value)
+      if (key === 'radius') {
+        // radius is not a Tailwind color — use --radius directly
+        root.style.setProperty('--radius', value)
+      } else {
+        // Tailwind v4 generates bg-*, text-* utilities from --color-* variables
+        root.style.setProperty(`--color-${key}`, value)
+      }
     }
   }
 
