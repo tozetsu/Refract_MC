@@ -1,41 +1,95 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=VT323&display=swap');
 @import 'tailwindcss';
 
-/* Default dark theme values — ThemeEngine overrides --color-* at runtime */
+/* ── Tailwind design tokens ──────────────────────────────────────────────── */
 @theme {
-  --color-bg-base:        #0f0f13;
-  --color-bg-surface:     #1a1a24;
-  --color-bg-overlay:     #252532;
-  --color-bg-hover:       #2e2e3d;
-  --color-text-primary:   #f0f0f5;
-  --color-text-secondary: #9191a8;
-  --color-text-muted:     #55556a;
-  --color-accent:         #7c6af7;
-  --color-accent-hover:   #9585ff;
+  --color-bg-base:        #1a1b1f;
+  --color-bg-surface:     #232428;
+  --color-bg-overlay:     #2a2b30;
+  --color-bg-hover:       #34353a;
+  --color-text-primary:   #e6e4df;
+  --color-text-secondary: #b8b6b1;
+  --color-text-muted:     #80828a;
+  --color-accent:         #5b9c3a;
+  --color-accent-hover:   #7cc24f;
   --color-accent-fg:      #ffffff;
-  --color-success:        #4ade80;
-  --color-warning:        #fbbf24;
-  --color-error:          #f87171;
-  --color-border:         #2e2e3d;
+  --color-success:        #5b9c3a;
+  --color-warning:        #e4b33b;
+  --color-error:          #d93b3b;
+  --color-border:         #3b3c41;
 }
 
+/* ── CSS vars used directly by components ────────────────────────────────── */
 :root {
-  --radius:                  8px;
-  --sidebar-width:           240px;
+  --bg:        #1a1b1f;
+  --surface:   #232428;
+  --surface-2: #2a2b30;
+  --surface-3: #34353a;
+  --border-r:  #3b3c41;
+  --border-2:  #4a4b50;
+  --line:      #2f3035;
+
+  --ink:   #e6e4df;
+  --ink-2: #b8b6b1;
+  --ink-3: #80828a;
+  --ink-4: #5b5d65;
+
+  --sb:     #1f2024;
+  --sb-line:#303136;
+
+  --grass:    #5b9c3a;
+  --grass-hi: #7cc24f;
+  --grass-lo: #3f7128;
+  --gold:     #e4b33b;
+  --redstone: #d93b3b;
+  --diamond:  #4fb8e8;
+
+  --accent:      var(--grass);
+  --accent-hi:   var(--grass-hi);
+  --accent-lo:   var(--grass-lo);
+  --accent-tint: rgba(91,156,58,.15);
+
+  --radius:                  6px;
+  --radius-lg:               8px;
+  --sidebar-width:           232px;
   --sidebar-collapsed-width: 64px;
-  --titlebar-height:         40px;
-  --statusbar-height:        28px;
+  --titlebar-height:         34px;
+  --statusbar-height:        30px;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* ── Base ────────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body, #root {
   height: 100%;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  color: var(--ink);
+  background: #0e0f12;
+  overflow: hidden;
+}
+
+/* Stone-tile checker desk background visible around the window */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-conic-gradient(#15161a 0% 25%, #181a1f 0% 50%) 0 0 / 64px 64px;
+  opacity: .6;
+  z-index: 0;
 }
 
 .drag-region    { -webkit-app-region: drag; }
 .no-drag-region { -webkit-app-region: no-drag; }
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: 99px;
+  border: 2px solid var(--bg);
+  background-clip: padding-box;
+}

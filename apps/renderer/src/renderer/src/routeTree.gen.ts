@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as ModpacksIndexRouteImport } from './routes/modpacks/index'
 import { Route as BrowseIndexRouteImport } from './routes/browse/index'
+import { Route as AccountIndexRouteImport } from './routes/account/index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,39 +25,57 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
   path: '/settings/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ModpacksIndexRoute = ModpacksIndexRouteImport.update({
+  id: '/modpacks/',
+  path: '/modpacks/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BrowseIndexRoute = BrowseIndexRouteImport.update({
   id: '/browse/',
   path: '/browse/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountIndexRoute = AccountIndexRouteImport.update({
+  id: '/account/',
+  path: '/account/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/account/': typeof AccountIndexRoute
   '/browse/': typeof BrowseIndexRoute
+  '/modpacks/': typeof ModpacksIndexRoute
   '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/account': typeof AccountIndexRoute
   '/browse': typeof BrowseIndexRoute
+  '/modpacks': typeof ModpacksIndexRoute
   '/settings': typeof SettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/account/': typeof AccountIndexRoute
   '/browse/': typeof BrowseIndexRoute
+  '/modpacks/': typeof ModpacksIndexRoute
   '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/browse/' | '/settings/'
+  fullPaths: '/' | '/account/' | '/browse/' | '/modpacks/' | '/settings/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/browse' | '/settings'
-  id: '__root__' | '/' | '/browse/' | '/settings/'
+  to: '/' | '/account' | '/browse' | '/modpacks' | '/settings'
+  id: '__root__' | '/' | '/account/' | '/browse/' | '/modpacks/' | '/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AccountIndexRoute: typeof AccountIndexRoute
   BrowseIndexRoute: typeof BrowseIndexRoute
+  ModpacksIndexRoute: typeof ModpacksIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
@@ -75,6 +95,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/modpacks/': {
+      id: '/modpacks/'
+      path: '/modpacks'
+      fullPath: '/modpacks/'
+      preLoaderRoute: typeof ModpacksIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/browse/': {
       id: '/browse/'
       path: '/browse'
@@ -82,12 +109,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BrowseIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/account/': {
+      id: '/account/'
+      path: '/account'
+      fullPath: '/account/'
+      preLoaderRoute: typeof AccountIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AccountIndexRoute: AccountIndexRoute,
   BrowseIndexRoute: BrowseIndexRoute,
+  ModpacksIndexRoute: ModpacksIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
 export const routeTree = rootRouteImport

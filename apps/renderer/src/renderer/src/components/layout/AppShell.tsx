@@ -3,31 +3,25 @@ import { TitleBar } from './TitleBar'
 import { Sidebar } from './Sidebar'
 import { StatusBar } from './StatusBar'
 
-interface Props {
-  children: ReactNode
-}
-
-export function AppShell({ children }: Props) {
+export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div
-      className="h-screen overflow-hidden grid bg-bg-base"
-      style={{
-        gridTemplateAreas: '"titlebar" "body" "statusbar"',
-        gridTemplateRows: 'var(--titlebar-height) 1fr var(--statusbar-height)',
-      }}
-    >
-      <div style={{ gridArea: 'titlebar' }}>
-        <TitleBar />
-      </div>
-
-      <div style={{ gridArea: 'body' }} className="flex overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 overflow-auto">
+    <div style={{
+      height: '100vh',
+      display: 'grid',
+      gridTemplateColumns: 'var(--sidebar-width) 1fr',
+      gridTemplateRows: 'var(--titlebar-height) 1fr',
+      overflow: 'hidden',
+      background: 'var(--bg)',
+      position: 'relative',
+      zIndex: 1,
+      boxShadow: '0 0 0 1px var(--border-r) inset, 0 24px 60px -10px rgba(0,0,0,.6)',
+    }}>
+      <TitleBar />
+      <Sidebar />
+      <div style={{ gridRow:'2/3', gridColumn:'2/3', display:'flex', flexDirection:'column', minHeight:0, minWidth:0, overflow:'hidden', background:'var(--bg)' }}>
+        <div style={{ flex:1, minHeight:0, overflowY:'auto', overflowX:'hidden', padding:'24px 28px 28px' }}>
           {children}
-        </main>
-      </div>
-
-      <div style={{ gridArea: 'statusbar' }}>
+        </div>
         <StatusBar />
       </div>
     </div>
