@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/renderer/src/*"]
+    },
+    "jsx": "react-jsx",
+    "outDir": "./out"
+  },
+  "include": ["src/renderer/src"]
+}

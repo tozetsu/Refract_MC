@@ -1,0 +1,21 @@
+:root {
+  --bg-base:        #0f0f13;
+  --bg-surface:     #1a1a24;
+  --bg-overlay:     #252532;
+  --bg-hover:       #2e2e3d;
+
+  --text-primary:   #f0f0f5;
+  --text-secondary: #9191a8;
+  --text-muted:     #55556a;
+
+  --accent:         #7c6af7;
+  --accent-hover:   #9585ff;
+  --accent-fg:      #ffffff;
+
+  --success:        #4ade80;
+  --warning:        #fbbf24;
+  --error:          #f87171;
+
+  --border:         #2e2e3d;
+  --radius:         8px;
+}

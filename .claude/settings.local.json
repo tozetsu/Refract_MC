@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install *)",
+      "PowerShell(pnpm install *)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell($pnpm = \"$env:USERPROFILE\\\\AppData\\\\Local\\\\pnpm\\\\bin\\\\pnpm.ps1\"; Set-Location \"C:\\\\Users\\\\rshev\\\\Projects\\\\mc-launcher\"; & $pnpm install)",
+      "PowerShell($env:PATH = \"$env:USERPROFILE\\\\AppData\\\\Local\\\\pnpm\\\\bin;$env:PATH\"; Set-Location \"C:\\\\Users\\\\rshev\\\\Projects\\\\mc-launcher\"; & \"$env:USERPROFILE\\\\AppData\\\\Local\\\\pnpm\\\\bin\\\\pnpm.ps1\" install)",
+      "PowerShell($env:PATH = \"$env:USERPROFILE\\\\AppData\\\\Local\\\\pnpm\\\\bin;$env:PATH\"; Set-Location \"C:\\\\Users\\\\rshev\\\\Projects\\\\mc-launcher\"; & \"$env:USERPROFILE\\\\AppData\\\\Local\\\\pnpm\\\\bin\\\\pnpm.ps1\" dev)",
+      "PowerShell(New-Item *)",
+      "PowerShell($env:PATH = \"$env:USERPROFILE\\\\AppData\\\\Local\\\\pnpm\\\\bin;$env:PATH\"; Set-Location \"C:\\\\Users\\\\rshev\\\\Projects\\\\mc-launcher\\\\apps\\\\renderer\"; & \"$env:USERPROFILE\\\\AppData\\\\Local\\\\pnpm\\\\bin\\\\pnpm.ps1\" typecheck 2>&1)",
+      "PowerShell($env:PATH = \"$env:USERPROFILE\\\\AppData\\\\Local\\\\pnpm\\\\bin;$env:PATH\"; Set-Location \"C:\\\\Users\\\\rshev\\\\Projects\\\\mc-launcher\"; & \"$env:USERPROFILE\\\\AppData\\\\Local\\\\pnpm\\\\bin\\\\pnpm.ps1\" install 2>&1)"
+    ]
+  }
+}
