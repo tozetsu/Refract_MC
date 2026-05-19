@@ -3,7 +3,9 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/renderer/src/*"]
+      "@/*":               ["./src/renderer/src/*"],
+      "@refract/core":       ["../../packages/core/src/index.ts"],
+      "@refract/plugin-api": ["../../packages/plugin-api/src/index.ts"]
     },
     "jsx": "react-jsx",
     "outDir": "./out"

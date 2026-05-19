@@ -6,6 +6,13 @@ export const api = {
     get: () => ipcRenderer.invoke('config.get'),
     set: <K extends string>(key: K, value: unknown) => ipcRenderer.invoke('config.set', key, value),
   },
+  instance: {
+    list:      ()                                              => ipcRenderer.invoke('instance.list'),
+    getById:   (id: string)                                   => ipcRenderer.invoke('instance.getById', id),
+    create:    (input: unknown)                               => ipcRenderer.invoke('instance.create', input),
+    update:    (id: string, patch: unknown)                   => ipcRenderer.invoke('instance.update', id, patch),
+    delete:    (id: string, deleteFiles: boolean)             => ipcRenderer.invoke('instance.delete', id, deleteFiles),
+  },
   window: {
     minimize: (): void => ipcRenderer.send('window:minimize'),
     maximize: (): void => ipcRenderer.send('window:maximize'),

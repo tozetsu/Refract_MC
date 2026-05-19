@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import type { ElectronAPI } from '@electron-toolkit/preload'
+import type { Instance, CreateInstanceInput } from '@refract/core'
 
 declare global {
   interface Window {
@@ -20,6 +21,13 @@ declare global {
           }>
         }>
         set: (key: string, value: unknown) => Promise<void>
+      }
+      instance: {
+        list:    () => Promise<Instance[]>
+        getById: (id: string) => Promise<Instance | null>
+        create:  (input: CreateInstanceInput) => Promise<Instance>
+        update:  (id: string, patch: Partial<Instance>) => Promise<Instance>
+        delete:  (id: string, deleteFiles: boolean) => Promise<void>
       }
       window: {
         minimize: () => void
