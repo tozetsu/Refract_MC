@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Instance, MinecraftVersion } from '@refract/core'
 import { PixelScene, loaderToScene } from '@/components/ui/PixelScene'
 import { ChevLeftIcon, ChevRightIcon } from '@/components/ui/BlockIcons'
@@ -93,7 +93,7 @@ function PlayButton({ onClick, disabled = false, label = 'PLAY' }: { onClick?: (
   )
 }
 
-function HeroCard({ instance, onLaunch, onEdit, canLaunch, isRunning }: { instance: Instance; onLaunch: () => void; onEdit: () => void; canLaunch: boolean; isRunning: boolean }) {
+function HeroCard({ instance, onLaunch, onEdit, onConsole, canLaunch, isRunning }: { instance: Instance; onLaunch: () => void; onEdit: () => void; onConsole: () => void; canLaunch: boolean; isRunning: boolean }) {
   const label = isRunning ? 'STOP' : instance.isInstalled ? 'PLAY' : 'INSTALL'
   return (
     <div style={{
@@ -147,6 +147,24 @@ function HeroCard({ instance, onLaunch, onEdit, canLaunch, isRunning }: { instan
         )}
         <div style={{ marginTop: 'auto', display: 'flex', gap: 8, paddingTop: 10 }}>
           <PlayButton onClick={onLaunch} disabled={false} label={label} />
+          {isRunning && (
+            <button
+              onClick={onConsole}
+              style={{
+                fontFamily: "'VT323',monospace",
+                fontSize: 14, letterSpacing: '.08em',
+                color: 'var(--grass)',
+                background: 'rgba(74,196,100,.1)',
+                border: '1px solid rgba(74,196,100,.3)',
+                borderRadius: 3,
+                padding: '0 10px',
+                height: 40,
+                cursor: 'pointer',
+              }}
+            >
+              CONSOLE
+            </button>
+          )}
           <button
             onClick={onEdit}
             style={{
@@ -158,6 +176,7 @@ function HeroCard({ instance, onLaunch, onEdit, canLaunch, isRunning }: { instan
               padding: '0 14px',
               height: 40,
               cursor: 'pointer',
+              marginLeft: isRunning ? 0 : 'auto',
             }}
           >
             Edit
@@ -250,6 +269,52 @@ function EmptyState({ onOpen }: { onOpen: () => void }) {
   )
 }
 
+function ConsoleModal({ instanceName, lines, onClose }: { instanceName: string; lines: string[]; onClose: () => void }) {
+  const bottomRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [lines])
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      background: 'rgba(0,0,0,.72)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }} onClick={onClose}>
+      <div style={{
+        width: '72vw', maxWidth: 900, height: '70vh',
+        background: '#0d0d0d',
+        border: '1px solid var(--border-r)',
+        borderRadius: 'var(--radius)',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+      }} onClick={e => e.stopPropagation()}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '8px 14px',
+          borderBottom: '1px solid rgba(255,255,255,.07)',
+          background: '#111',
+          flexShrink: 0,
+        }}>
+          <span style={{ fontFamily: "'VT323',monospace", fontSize: 16, color: 'var(--grass)', letterSpacing: '.1em' }}>
+            CONSOLE — {instanceName}
+          </span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>✕</button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 14px' }}>
+          {lines.length === 0
+            ? <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--ink-4)' }}>Waiting for output…</span>
+            : lines.map((line, i) => (
+              <div key={i} style={{
+                fontFamily: 'monospace', fontSize: 11, color: line.includes('ERROR') || line.includes('Exception') ? '#ff6b6b' : line.includes('WARN') ? '#ffd93d' : '#b0c4b1',
+                lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+              }}>{line}</div>
+            ))
+          }
+          <div ref={bottomRef} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Library() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Instance | null>(null)
@@ -262,6 +327,8 @@ function Library() {
   const [installing, setInstalling] = useState<{ instanceId: string; name: string } | null>(null)
   const [runningIds, setRunningIds] = useState<Set<string>>(new Set())
   const [mcVersions, setMcVersions] = useState<MinecraftVersion[]>([])
+  const [consoleLogs, setConsoleLogs] = useState<Map<string, string[]>>(new Map())
+  const [consoleOpen, setConsoleOpen] = useState<string | null>(null)
 
   const { data: instances = [], isLoading } = useInstances()
   const createInstance = useCreateInstance()
@@ -346,6 +413,20 @@ function Library() {
   useEffect(() => {
     const unsub = api.mc.onExit(({ instanceId }) => {
       setRunningIds(prev => { const n = new Set(prev); n.delete(instanceId); return n })
+    })
+    return () => { if (typeof unsub === 'function') unsub() }
+  }, [])
+
+  // Accumulate MC log lines per instance
+  useEffect(() => {
+    const unsub = api.mc.onLog(({ instanceId, line }) => {
+      const lines = line.split(/\r?\n/).filter(l => l.length > 0)
+      setConsoleLogs(prev => {
+        const next = new Map(prev)
+        const existing = next.get(instanceId) ?? []
+        next.set(instanceId, [...existing, ...lines].slice(-2000))
+        return next
+      })
     })
     return () => { if (typeof unsub === 'function') unsub() }
   }, [])
@@ -462,6 +543,7 @@ function Library() {
                 instance={heroInstance}
                 onLaunch={() => handleLaunch(heroInstance)}
                 onEdit={() => setEditTarget(heroInstance)}
+                onConsole={() => setConsoleOpen(heroInstance.id)}
                 canLaunch={canLaunchMinecraft}
                 isRunning={runningIds.has(heroInstance.id)}
               />
@@ -569,6 +651,17 @@ function Library() {
           }}
         />
       )}
+
+      {consoleOpen && (() => {
+        const inst = instances.find(i => i.id === consoleOpen)
+        return (
+          <ConsoleModal
+            instanceName={inst?.name ?? consoleOpen}
+            lines={consoleLogs.get(consoleOpen) ?? []}
+            onClose={() => setConsoleOpen(null)}
+          />
+        )
+      })()}
     </div>
   )
 }

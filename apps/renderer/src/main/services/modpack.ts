@@ -5,7 +5,7 @@ import { BrowserWindow } from 'electron'
 import { paths } from './paths'
 import { downloadFile } from './download'
 import { getProjectVersions, getPrimaryFile, fetchVersionList } from '@refract/core'
-import { createAndSaveInstance, updateInstance } from './instance-store'
+import { createAndSaveInstance, updateInstance, deleteInstance } from './instance-store'
 import { installMinecraft } from './minecraft/downloader'
 import type { Instance } from '@refract/core'
 
@@ -38,13 +38,17 @@ const CONTENT_DIRS: Record<ContentType, string> = {
 // ── ZIP extraction using built-in OS tools (no JDK required) ─────────────────
 
 async function extractZip(zipPath: string, destDir: string): Promise<void> {
+  // Ensure fresh destination so ZipFile::ExtractToDirectory doesn't collide
+  if (existsSync(destDir)) rmSync(destDir, { recursive: true, force: true })
   mkdirSync(destDir, { recursive: true })
 
   await new Promise<void>((res, rej) => {
     if (process.platform === 'win32') {
-      // Expand-Archive only accepts .zip extension — copy to a temp .zip path first
-      const zipAlias = zipPath.replace(/\.[^.]+$/, '.zip')
-      const cmd = `Copy-Item -LiteralPath "${zipPath}" -Destination "${zipAlias}" -Force; Expand-Archive -LiteralPath "${zipAlias}" -DestinationPath "${destDir}" -Force; Remove-Item -LiteralPath "${zipAlias}" -Force`
+      // Use .NET ZipFile directly — unlike Expand-Archive it accepts any file extension
+      const cmd = [
+        'Add-Type -AssemblyName System.IO.Compression.FileSystem',
+        `[System.IO.Compression.ZipFile]::ExtractToDirectory('${zipPath.replace(/'/g, "''")}', '${destDir.replace(/'/g, "''")}')`,
+      ].join('; ')
       execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', cmd], { timeout: 120_000 }, (err) => {
         if (err) rej(new Error(`ZIP extraction failed: ${err.message}`))
         else res()
@@ -164,11 +168,9 @@ export async function installModpack(
     const manifestLoader = loaderFromDeps(index.dependencies ?? {}) ?? modLoader
     const loaderVersion  = loaderVersionFromDeps(index.dependencies ?? {})
 
-    if (manifestMc !== instance.minecraftVersion || manifestLoader !== instance.modLoader) {
-      updateInstance(instance.id, { minecraftVersion: manifestMc, modLoader: manifestLoader })
-      instance.minecraftVersion = manifestMc
-      instance.modLoader = manifestLoader
-    }
+    updateInstance(instance.id, { minecraftVersion: manifestMc, modLoader: manifestLoader, modLoaderVersion: loaderVersion })
+    instance.minecraftVersion = manifestMc
+    instance.modLoader = manifestLoader
 
     // ── 4. Download mod files ───────────────────────────────────────────────
     const clientFiles = (index.files ?? []).filter(f => f.env?.client !== 'unsupported')
@@ -220,6 +222,7 @@ export async function installModpack(
 
   } catch (err) {
     try { rmSync(join(paths.instances, instance.id), { recursive: true, force: true }) } catch { /* ignore */ }
+    try { deleteInstance(instance.id, false) } catch { /* ignore */ }
     mainWindow.webContents.send('modpack:done', { projectId, error: err instanceof Error ? err.message : String(err) })
     throw err
   } finally {
