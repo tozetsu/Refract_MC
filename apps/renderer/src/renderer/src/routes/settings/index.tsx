@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { api, type AppConfig, type SafeAccount } from '@/lib/api'
 import { useThemeStore } from '@/stores/theme'
+import { useAvatarStore } from '@/stores/avatar'
 import { compressImage } from '@/lib/image'
 
 export const Route = createFileRoute('/settings/')({
@@ -27,7 +28,8 @@ function Settings() {
   const [toast, setToast] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
-  const [avatars, setAvatars] = useState<Record<string, string>>({})
+  const avatars = useAvatarStore((s) => s.avatars)
+  const setAvatarStore = useAvatarStore((s) => s.setAvatar)
   const [pickingFor, setPickingFor] = useState<string | null>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
@@ -46,23 +48,13 @@ function Settings() {
     refresh().catch((err) => setError(err instanceof Error ? err.message : String(err)))
   }, [])
 
-  useEffect(() => {
-    const loaded: Record<string, string> = {}
-    for (const acc of accounts) {
-      const stored = localStorage.getItem(`avatar:${acc.uuid}`)
-      if (stored) loaded[acc.uuid] = stored
-    }
-    setAvatars(loaded)
-  }, [accounts])
-
   async function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     const uuid = pickingFor
     if (!file || !uuid) return
     try {
       const dataUrl = await compressImage(file, 200)
-      localStorage.setItem(`avatar:${uuid}`, dataUrl)
-      setAvatars(prev => ({ ...prev, [uuid]: dataUrl }))
+      setAvatarStore(uuid, dataUrl)
     } catch { /* ignore */ }
     e.target.value = ''
     setPickingFor(null)

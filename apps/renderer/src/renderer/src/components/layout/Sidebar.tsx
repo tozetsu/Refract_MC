@@ -1,6 +1,9 @@
 import { Link, useMatchRoute } from '@tanstack/react-router'
-import type { ComponentType } from 'react'
+import { useEffect, useRef, useState, type ComponentType } from 'react'
 import { LibraryIcon, ModsIcon, ModpacksIcon, AccountIcon, CogIcon, SignOutIcon } from '../ui/BlockIcons'
+import { useAvatarStore } from '@/stores/avatar'
+import { compressImage } from '@/lib/image'
+import { api, type SafeAccount } from '@/lib/api'
 
 const NAV: Array<{ to: string; label: string; Icon: ComponentType; exact: boolean }> = [
   { to: '/',          label: 'Instance Library', Icon: LibraryIcon,  exact: true  },
@@ -42,6 +45,107 @@ function NavItem({ to, label, Icon, exact }: typeof NAV[number]) {
   )
 }
 
+function AvatarBlock() {
+  const [account, setAccount] = useState<SafeAccount | null>(null)
+  const [hover, setHover] = useState(false)
+  const avatars = useAvatarStore((s) => s.avatars)
+  const setAvatar = useAvatarStore((s) => s.setAvatar)
+  const removeAvatar = useAvatarStore((s) => s.removeAvatar)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    api.auth.active().then(setAccount).catch(() => setAccount(null))
+    const id = window.setInterval(() => {
+      api.auth.active().then(setAccount).catch(() => setAccount(null))
+    }, 5000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  async function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !account) return
+    try {
+      const dataUrl = await compressImage(file, 200)
+      setAvatar(account.uuid, dataUrl)
+    } catch { /* ignore */ }
+    e.target.value = ''
+  }
+
+  async function signOut() {
+    if (!account) return
+    try {
+      await api.auth.logout(account.uuid)
+      removeAvatar(account.uuid)
+      setAccount(null)
+    } catch { /* ignore */ }
+  }
+
+  const avatar = account ? avatars[account.uuid] : undefined
+  const initial = account?.username[0]?.toUpperCase() ?? '?'
+
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:10, padding:'4px 6px 14px', borderBottom:'1px solid var(--sb-line)', marginBottom:10 }}>
+      <input ref={fileInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleImagePick} />
+
+      {/* Avatar */}
+      <div
+        onClick={() => account && fileInputRef.current?.click()}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        style={{
+          width:38, height:38, flexShrink:0,
+          border:`1px solid ${hover && account ? 'var(--accent)' : '#000'}`,
+          position:'relative', overflow:'hidden',
+          background:'#1a1f2e', cursor: account ? 'pointer' : 'default',
+          transition:'border-color .14s',
+        }}
+      >
+        {avatar ? (
+          <img src={avatar} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+        ) : (
+          <div style={{
+            width:'100%', height:'100%',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontFamily:"'VT323',monospace", fontSize:20, color:'var(--ink-3)',
+          }}>
+            {initial}
+          </div>
+        )}
+        {hover && account && (
+          <div style={{
+            position:'absolute', inset:0, background:'rgba(0,0,0,.55)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontFamily:"'VT323',monospace", fontSize:11, letterSpacing:'.06em', color:'#fff',
+          }}>
+            ✎
+          </div>
+        )}
+      </div>
+
+      {/* Name + status */}
+      <div style={{ minWidth:0, flex:1 }}>
+        <div style={{ fontFamily:"'VT323',monospace", fontSize:18, letterSpacing:'.10em', color:'var(--ink)', lineHeight:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+          {account ? account.username.toUpperCase() : 'GUEST'}
+        </div>
+        <div style={{ fontFamily:"'VT323',monospace", fontSize:12, color: account?.canPlayMinecraft ? 'var(--grass)' : 'var(--gold)', letterSpacing:'.04em', lineHeight:1.4 }}>
+          {account ? (account.canPlayMinecraft ? 'PLAY ENABLED' : 'CONTENT ONLY') : 'NOT SIGNED IN'}
+        </div>
+      </div>
+
+      {/* Sign out icon */}
+      {account && (
+        <button
+          onClick={signOut}
+          title="Sign out"
+          style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-4)', padding:4, display:'flex', opacity:.7 }}
+        >
+          <SignOutIcon />
+        </button>
+      )}
+    </div>
+  )
+}
+
 export function Sidebar() {
   return (
     <aside style={{
@@ -50,25 +154,7 @@ export function Sidebar() {
       display:'flex', flexDirection:'column',
       padding:'14px 12px 12px', minHeight:0, overflowY:'auto',
     }}>
-      {/* Steve profile */}
-      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'4px 6px 14px', borderBottom:'1px solid var(--sb-line)', marginBottom:10 }}>
-        <div style={{ width:38, height:38, flexShrink:0, border:'1px solid #000', imageRendering:'pixelated', position:'relative', overflow:'hidden', background:'#1a1f2e' }}>
-          <div style={{
-            position:'absolute', inset:4, imageRendering:'pixelated',
-            background:`
-              linear-gradient(#2d251a 0 25%, transparent 25%),
-              linear-gradient(90deg, transparent 20%, #fff 20% 28%, #3b6df0 28% 36%, transparent 36% 64%, #fff 64% 72%, #3b6df0 72% 80%, transparent 80%) 0 50%/100% 16% no-repeat,
-              linear-gradient(#5b3a2a,#5b3a2a) 35% 75%/30% 8% no-repeat,
-              #d4a26a
-            `,
-          }} />
-          <div style={{ position:'absolute', left:2, right:2, top:2, height:6, background:'#1a1f2e' }} />
-        </div>
-        <div>
-          <div style={{ fontFamily:"'VT323',monospace", fontSize:18, letterSpacing:'.10em', color:'var(--ink)', lineHeight:1 }}>REFRACT</div>
-          <div style={{ fontFamily:"'VT323',monospace", fontSize:13, color:'var(--ink-4)', letterSpacing:'.04em', lineHeight:1.4 }}>v0.3.1-beta</div>
-        </div>
-      </div>
+      <AvatarBlock />
 
       {/* Nav */}
       <div style={{ fontSize:10, fontWeight:600, letterSpacing:'.16em', textTransform:'uppercase', color:'var(--ink-4)', padding:'10px 8px 6px' }}>Navigate</div>
@@ -100,10 +186,6 @@ export function Sidebar() {
           <div style={{ width:18, height:18, display:'flex', alignItems:'center', justifyContent:'center' }}><CogIcon /></div>
           <span>Settings</span>
         </Link>
-        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:4, color:'var(--ink-2)', fontSize:13, fontWeight:500, cursor:'default', border:'1px solid transparent' }}>
-          <div style={{ width:18, height:18, display:'flex', alignItems:'center', justifyContent:'center' }}><SignOutIcon /></div>
-          <span>Sign Out</span>
-        </div>
       </div>
     </aside>
   )
