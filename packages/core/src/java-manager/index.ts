@@ -1,4 +1,4 @@
-import { execSync } from 'child_process'
+import { execSync, spawnSync } from 'child_process'
 import { existsSync, readdirSync } from 'fs'
 import { join } from 'path'
 
@@ -10,12 +10,17 @@ export interface JavaInstallation {
 
 function probeJava(javaExe: string): JavaInstallation | null {
   try {
-    const out = execSync(`"${javaExe}" -XshowSettings:property -version 2>&1`, { timeout: 5000 }).toString()
+    // spawnSync doesn't throw on non-zero exit (java -XshowSettings exits 255)
+    const result = spawnSync(javaExe, ['-XshowSettings:property', '-version'], {
+      timeout: 5000,
+      encoding: 'utf8',
+    })
+    const out = (result.stdout ?? '') + (result.stderr ?? '')
     const vMatch = out.match(/java\.version\s*=\s*([\d._]+)/) ?? out.match(/version "([^"]+)"/)
     const major = vMatch ? parseMajor(vMatch[1]) : 0
     if (!major) return null
     const vendor = out.match(/java\.vendor\s*=\s*(.+)/)?.[1]?.trim() ?? 'Unknown'
-    const home = join(javaExe, '..', '..').replace(/[\\/]bin[\\/]java(\.exe)?$/i, '')
+    const home = join(javaExe, '..', '..').normalize()
     return { version: major, path: home, vendor }
   } catch {
     return null
