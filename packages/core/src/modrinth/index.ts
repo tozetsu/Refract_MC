@@ -1,5 +1,8 @@
 const BASE = 'https://api.modrinth.com/v2'
 
+export type ModrinthProjectType = 'mod' | 'modpack' | 'resourcepack' | 'shader' | 'datapack'
+export type ModrinthSortIndex = 'relevance' | 'downloads' | 'follows' | 'newest' | 'updated'
+
 export interface ModrinthProject {
   project_id: string
   slug: string
@@ -7,11 +10,26 @@ export interface ModrinthProject {
   description: string
   categories: string[]
   downloads: number
+  follows?: number
   icon_url: string | null
   latest_version?: string
   versions?: string[]
   loaders?: string[]
   game_versions?: string[]
+  project_type?: ModrinthProjectType
+  date_created?: string
+  date_modified?: string
+}
+
+export interface ModrinthSearchOptions {
+  query?: string
+  projectType?: ModrinthProjectType
+  gameVersion?: string
+  loader?: string
+  category?: string
+  sortIndex?: ModrinthSortIndex
+  limit?: number
+  offset?: number
 }
 
 export interface ModrinthSearchResult {
@@ -66,6 +84,26 @@ export async function searchMods(
     limit: String(limit),
     offset: String(offset),
     index: 'relevance',
+  })
+
+  const res = await fetch(`${BASE}/search?${params}`)
+  if (!res.ok) throw new Error(`Modrinth search failed: ${res.status}`)
+  return res.json() as Promise<ModrinthSearchResult>
+}
+
+export async function searchContent(opts: ModrinthSearchOptions): Promise<ModrinthSearchResult> {
+  const { query = '', projectType = 'modpack', gameVersion, loader, category, sortIndex = 'downloads', limit = 20, offset = 0 } = opts
+  const facets: string[][] = [[`project_type:${projectType}`]]
+  if (gameVersion) facets.push([`versions:${gameVersion}`])
+  if (loader) facets.push([`categories:${loader}`])
+  if (category) facets.push([`categories:${category}`])
+
+  const params = new URLSearchParams({
+    query,
+    facets: JSON.stringify(facets),
+    limit: String(limit),
+    offset: String(offset),
+    index: sortIndex,
   })
 
   const res = await fetch(`${BASE}/search?${params}`)

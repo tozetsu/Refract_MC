@@ -185,6 +185,10 @@ function createBrowserApi(): RefractAPI {
         const { searchMods } = await import('@refract/core')
         return searchMods(query, gameVersion, loader, category, limit, offset)
       },
+      searchContent: async (opts) => {
+        const { searchContent } = await import('@refract/core')
+        return searchContent(opts)
+      },
       versions: async (projectId: string, gameVersion?: string, loader?: string) => {
         const { getProjectVersions } = await import('@refract/core')
         return getProjectVersions(projectId, gameVersion, loader)
@@ -195,6 +199,12 @@ function createBrowserApi(): RefractAPI {
         const { fetchGameVersions } = await import('@refract/core')
         return fetchGameVersions()
       },
+      contentInstall: async () => { throw new Error('Content install requires the Electron app.') },
+    },
+    modpack: {
+      install: async () => { throw new Error('Modpack install requires the Electron app.') },
+      onProgress: () => () => undefined,
+      onDone: () => () => undefined,
     },
     mc: {
       versions: async () => {

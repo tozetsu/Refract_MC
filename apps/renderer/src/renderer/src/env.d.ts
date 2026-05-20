@@ -129,10 +129,17 @@ declare global {
       }
       modrinth: {
         search: (query: string, gameVersion?: string, loader?: string, category?: string, limit?: number, offset?: number) => Promise<import('@refract/core').ModrinthSearchResult>
+        searchContent: (opts: import('@refract/core').ModrinthSearchOptions) => Promise<import('@refract/core').ModrinthSearchResult>
         versions: (projectId: string, gameVersion?: string, loader?: string) => Promise<import('@refract/core').ModrinthVersion[]>
         install: (instanceId: string, projectId: string, projectName: string, versionId?: string) => Promise<import('@refract/core').InstalledMod>
         uninstall: (instanceId: string, projectId: string) => Promise<void>
         gameVersions: () => Promise<import('@refract/core').ModrinthGameVersion[]>
+        contentInstall: (instanceId: string, projectId: string, projectName: string, contentType: string, versionId?: string) => Promise<void>
+      }
+      modpack: {
+        install: (name: string, projectId: string, versionId?: string) => Promise<import('@refract/core').Instance>
+        onProgress: (cb: (data: { projectId: string; step: string; percent: number }) => void) => () => void
+        onDone: (cb: (data: { projectId: string; instanceId?: string; error?: string }) => void) => () => void
       }
       mc: {
         versions: () => Promise<import('@refract/core').MinecraftVersion[]>

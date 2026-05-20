@@ -50,6 +50,8 @@ export const api = {
   modrinth: {
     search:    (query: string, gameVersion?: string, loader?: string, category?: string, limit?: number, offset?: number) =>
       ipcRenderer.invoke('modrinth.search', query, gameVersion, loader, category, limit, offset),
+    searchContent: (opts: import('@refract/core').ModrinthSearchOptions) =>
+      ipcRenderer.invoke('modrinth.searchContent', opts),
     versions:  (projectId: string, gameVersion?: string, loader?: string) =>
       ipcRenderer.invoke('modrinth.versions', projectId, gameVersion, loader),
     install:   (instanceId: string, projectId: string, projectName: string, versionId?: string) =>
@@ -58,6 +60,22 @@ export const api = {
       ipcRenderer.invoke('modrinth.uninstall', instanceId, projectId),
     gameVersions: (): Promise<import('@refract/core').ModrinthGameVersion[]> =>
       ipcRenderer.invoke('modrinth.gameVersions'),
+    contentInstall: (instanceId: string, projectId: string, projectName: string, contentType: string, versionId?: string) =>
+      ipcRenderer.invoke('modpack.content.install', instanceId, projectId, projectName, contentType, versionId),
+  },
+  modpack: {
+    install: (name: string, projectId: string, versionId?: string): Promise<import('@refract/core').Instance> =>
+      ipcRenderer.invoke('modpack.install', name, projectId, versionId),
+    onProgress: (cb: (data: { projectId: string; step: string; percent: number }) => void) => {
+      const handler = (_e: IpcRendererEvent, data: Parameters<typeof cb>[0]) => cb(data)
+      ipcRenderer.on('modpack:progress', handler)
+      return () => ipcRenderer.off('modpack:progress', handler)
+    },
+    onDone: (cb: (data: { projectId: string; instanceId?: string; error?: string }) => void) => {
+      const handler = (_e: IpcRendererEvent, data: Parameters<typeof cb>[0]) => cb(data)
+      ipcRenderer.on('modpack:done', handler)
+      return () => ipcRenderer.off('modpack:done', handler)
+    },
   },
   mc: {
     versions:  (): Promise<import('@refract/core').MinecraftVersion[]> => ipcRenderer.invoke('mc.versions'),

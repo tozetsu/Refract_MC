@@ -1,6 +1,7 @@
 import { handleIpc } from './handle'
 import { installMod, uninstallMod } from '../services/modrinth'
-import { searchMods, getProjectVersions, fetchGameVersions } from '@refract/core'
+import { searchMods, searchContent, getProjectVersions, fetchGameVersions } from '@refract/core'
+import type { ModrinthSearchOptions } from '@refract/core'
 
 export function registerModrinthIpc(): void {
   handleIpc('modrinth.search', async (_event, query, gameVersion, loader, category, limit, offset) =>
@@ -36,4 +37,8 @@ export function registerModrinthIpc(): void {
   )
 
   handleIpc('modrinth.gameVersions', () => fetchGameVersions())
+
+  handleIpc('modrinth.searchContent', async (_event, opts) =>
+    searchContent(opts as ModrinthSearchOptions)
+  )
 }
