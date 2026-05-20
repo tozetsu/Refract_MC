@@ -42,8 +42,9 @@ async function extractZip(zipPath: string, destDir: string): Promise<void> {
 
   await new Promise<void>((res, rej) => {
     if (process.platform === 'win32') {
-      // Expand-Archive is built into PowerShell 5.0+ (all Windows 10+ installs)
-      const cmd = `Expand-Archive -LiteralPath "${zipPath}" -DestinationPath "${destDir}" -Force`
+      // Expand-Archive only accepts .zip extension — copy to a temp .zip path first
+      const zipAlias = zipPath.replace(/\.[^.]+$/, '.zip')
+      const cmd = `Copy-Item -LiteralPath "${zipPath}" -Destination "${zipAlias}" -Force; Expand-Archive -LiteralPath "${zipAlias}" -DestinationPath "${destDir}" -Force; Remove-Item -LiteralPath "${zipAlias}" -Force`
       execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', cmd], { timeout: 120_000 }, (err) => {
         if (err) rej(new Error(`ZIP extraction failed: ${err.message}`))
         else res()
