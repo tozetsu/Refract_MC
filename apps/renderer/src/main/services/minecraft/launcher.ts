@@ -104,7 +104,7 @@ export async function launchInstance(
   mkdirSync(join(gameDir, 'mods'), { recursive: true })
   mkdirSync(join(gameDir, 'saves'), { recursive: true })
 
-  const accessToken = await getOrRefreshMinecraftToken(account.uuid)
+  const { token: accessToken, xuid, clientId } = await getOrRefreshMinecraftToken(account.uuid)
 
   const cmd = buildLaunchCommand({
     versionId: instance.minecraftVersion,
@@ -121,6 +121,8 @@ export async function launchInstance(
       username: account.username,
       uuid: account.uuid,
       accessToken,
+      xuid,
+      clientId,
       userType: account.type === 'microsoft' ? 'msa' : 'legacy',
     },
   })

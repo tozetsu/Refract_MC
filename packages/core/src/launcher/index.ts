@@ -16,18 +16,33 @@ export interface LaunchContext {
     username: string
     uuid: string
     accessToken: string
-    userType: 'msa' | 'legacy' | 'offline'
+    xuid: string
+    clientId: string
+    userType: 'msa' | 'legacy'
   }
 }
 
 const OS_NAME = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'osx' : 'linux'
+
+// Features we support — anything not listed here defaults to false
+const LAUNCHER_FEATURES: Record<string, boolean> = {
+  is_demo_user: false,
+  has_custom_resolution: false,
+  has_quick_plays_support: false,
+  is_quick_play_singleplayer: false,
+  is_quick_play_multiplayer: false,
+  is_quick_play_realms: false,
+}
 
 function ruleApplies(rules: LibraryRule[]): boolean {
   if (!rules.length) return true
   let result = false
   for (const r of rules) {
     const osMatch = !r.os?.name || r.os.name === OS_NAME
-    if (osMatch) result = r.action === 'allow'
+    const featuresMatch = !r.features || Object.entries(r.features).every(
+      ([k, v]) => (LAUNCHER_FEATURES[k] ?? false) === v
+    )
+    if (osMatch && featuresMatch) result = r.action === 'allow'
   }
   return result
 }
@@ -83,14 +98,14 @@ export function buildLaunchCommand(ctx: LaunchContext): string[] {
     game_directory: ctx.gameDir,
     assets_root: ctx.assetsDir,
     assets_index_name: assetIndex,
-    auth_uuid: ctx.auth.uuid,
+    auth_uuid: ctx.auth.uuid.replace(/-/g, ''),
     auth_access_token: ctx.auth.accessToken,
-    auth_xuid: '',
+    auth_xuid: ctx.auth.xuid,
     user_type: ctx.auth.userType,
     version_type: 'release',
     resolution_width: '854',
     resolution_height: '480',
-    clientid: '',
+    clientid: ctx.auth.clientId,
   }
 
   const jvmBase = [

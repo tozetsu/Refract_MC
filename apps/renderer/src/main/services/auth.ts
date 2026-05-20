@@ -114,27 +114,32 @@ function decrypt(raw: string): string {
   throw new Error('Cannot decrypt token: safeStorage unavailable')
 }
 
-export async function getOrRefreshMinecraftToken(accountUuid: string): Promise<string> {
+export async function getOrRefreshMinecraftToken(accountUuid: string): Promise<{ token: string; xuid: string; clientId: string }> {
   const config = getConfig()
   const account = config.accounts.find(a => a.uuid === accountUuid)
   if (!account) throw new Error('Account not found')
-  if (account.type !== 'microsoft') return 'offline'
+  const clientId = getMicrosoftClientId()
+
+  if (account.type !== 'microsoft') {
+    return { token: 'offline', xuid: '', clientId: '' }
+  }
 
   const isExpired = !account.expiresAt || Date.now() > account.expiresAt - 5 * 60 * 1000
 
   if (!isExpired && account.encryptedAccessToken) {
-    try { return decrypt(account.encryptedAccessToken) } catch { /* fall through to refresh */ }
+    try {
+      return { token: decrypt(account.encryptedAccessToken), xuid: account.xuid ?? '', clientId }
+    } catch { /* fall through to refresh */ }
   }
 
   if (!account.encryptedRefreshToken) {
     if (!isExpired && account.encryptedAccessToken) {
-      try { return decrypt(account.encryptedAccessToken) } catch { /* fall through */ }
+      try { return { token: decrypt(account.encryptedAccessToken), xuid: account.xuid ?? '', clientId } } catch { /* fall through */ }
     }
     throw new Error('Minecraft session expired. Please sign in again via Accounts.')
   }
 
   const refreshToken = decrypt(account.encryptedRefreshToken)
-  const clientId = getMicrosoftClientId()
 
   const msToken = await postForm<MicrosoftTokenResponse>(MS_TOKEN_URL, {
     grant_type: 'refresh_token',
@@ -143,12 +148,13 @@ export async function getOrRefreshMinecraftToken(accountUuid: string): Promise<s
     scope: MS_SCOPE,
   })
 
-  const xbl = await postJson<{ Token: string; DisplayClaims: { xui: Array<{ uhs: string }> } }>(XBL_AUTH_URL, {
+  const xbl = await postJson<{ Token: string; DisplayClaims: { xui: Array<{ uhs: string; xid?: string }> } }>(XBL_AUTH_URL, {
     Properties: { AuthMethod: 'RPS', SiteName: 'user.auth.xboxlive.com', RpsTicket: `d=${msToken.access_token}` },
     RelyingParty: 'http://auth.xboxlive.com',
     TokenType: 'JWT',
   })
   const userHash = xbl.DisplayClaims.xui[0]?.uhs
+  const xuid = xbl.DisplayClaims.xui[0]?.xid ?? account.xuid ?? ''
   if (!userHash) throw new Error('Xbox Live did not return a user hash during token refresh.')
 
   const xsts = await postJson<{ Token: string }>(XSTS_AUTH_URL, {
@@ -161,12 +167,13 @@ export async function getOrRefreshMinecraftToken(accountUuid: string): Promise<s
     identityToken: `XBL3.0 x=${userHash};${xsts.Token}`,
   })
 
+  account.xuid = xuid
   account.encryptedAccessToken = encrypt(mcToken.access_token)
   if (msToken.refresh_token) account.encryptedRefreshToken = encrypt(msToken.refresh_token)
   account.expiresAt = Date.now() + mcToken.expires_in * 1000
   saveConfig(config)
 
-  return mcToken.access_token
+  return { token: mcToken.access_token, xuid, clientId }
 }
 
 function toSafeAccount(account: AppConfig['accounts'][number]): SafeAccount {
@@ -237,6 +244,7 @@ export async function completeMicrosoftLogin(deviceCode: string): Promise<SafeAc
   })
 
   const userHash = xbl.DisplayClaims.xui[0]?.uhs
+  const xuid = xbl.DisplayClaims.xui[0]?.xid ?? ''
   if (!userHash) throw new Error('Xbox Live response did not include a user hash.')
 
   const xsts = await postJson<{ Token: string }>(XSTS_AUTH_URL, {
@@ -265,6 +273,7 @@ export async function completeMicrosoftLogin(deviceCode: string): Promise<SafeAc
     uuid: profile.id,
     username: profile.name,
     type: 'microsoft',
+    xuid,
     expiresAt: Date.now() + mcToken.expires_in * 1000,
     encryptedAccessToken: encrypt(mcToken.access_token),
     encryptedRefreshToken: msToken.refresh_token ? encrypt(msToken.refresh_token) : undefined,

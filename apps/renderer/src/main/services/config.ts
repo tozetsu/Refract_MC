@@ -10,6 +10,7 @@ export interface AppConfig {
     uuid: string
     username: string
     type: 'microsoft' | 'offline' | 'yggdrasil'
+    xuid?: string
     expiresAt?: number
     encryptedAccessToken?: string
     encryptedRefreshToken?: string
