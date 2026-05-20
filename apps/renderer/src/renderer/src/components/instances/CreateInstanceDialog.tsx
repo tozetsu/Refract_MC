@@ -4,15 +4,7 @@ import type React from 'react'
 import type { ModLoader } from '@refract/core'
 import { PixelScene, loaderToScene } from '@/components/ui/PixelScene'
 import { compressImage } from '@/lib/image'
-
-const MC_VERSIONS = [
-  '1.21.5', '1.21.4', '1.21.3', '1.21.2', '1.21.1', '1.21',
-  '1.20.6', '1.20.4', '1.20.2', '1.20.1', '1.20',
-  '1.19.4', '1.19.2', '1.19',
-  '1.18.2', '1.18.1', '1.18',
-  '1.17.1', '1.16.5', '1.15.2', '1.14.4',
-  '1.12.2', '1.8.9', '1.7.10',
-]
+import { McVersionSelect } from './McVersionSelect'
 
 const MOD_LOADERS: Array<{ value: ModLoader | ''; label: string }> = [
   { value: '',         label: 'Vanilla'  },
@@ -148,9 +140,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate }: Props) {
               </Field>
 
               <Field label="MC VERSION">
-                <select value={mcVersion} onChange={e => setMcVersion(e.target.value)} style={selectSt}>
-                  {MC_VERSIONS.map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
+                <McVersionSelect value={mcVersion} onChange={setMcVersion} selectStyle={selectSt} />
               </Field>
 
               <Field label="MOD LOADER">

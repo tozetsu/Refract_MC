@@ -6,7 +6,7 @@ import { ChevLeftIcon, ChevRightIcon } from '@/components/ui/BlockIcons'
 import { CreateInstanceDialog } from '@/components/instances/CreateInstanceDialog'
 import { EditInstanceDialog } from '@/components/instances/EditInstanceDialog'
 import { InstallProgress } from '@/components/minecraft/InstallProgress'
-import { useInstances, useCreateInstance, useUpdateInstance } from '@/hooks/use-instances'
+import { useInstances, useCreateInstance, useUpdateInstance, useDeleteInstance } from '@/hooks/use-instances'
 import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/')({
@@ -266,6 +266,7 @@ function Library() {
   const { data: instances = [], isLoading } = useInstances()
   const createInstance = useCreateInstance()
   const updateInstance = useUpdateInstance()
+  const deleteInstance = useDeleteInstance()
 
   const clock = useClock()
   const timeStr = clock.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
@@ -352,10 +353,19 @@ function Library() {
     return () => { if (typeof unsub === 'function') unsub() }
   }, [])
 
-  const visibleInstances = instances.slice(carouselPage * 3, carouselPage * 3 + 3)
+  const tabInstances = (() => {
+    if (carouselTab === 'pinned') return instances.filter(i => i.pinned)
+    if (carouselTab === 'recent') return [...instances].sort((a, b) => {
+      const at = a.lastPlayed ?? a.createdAt
+      const bt = b.lastPlayed ?? b.createdAt
+      return bt.localeCompare(at)
+    })
+    return instances
+  })()
+  const visibleInstances = tabInstances.slice(carouselPage * 3, carouselPage * 3 + 3)
   const heroInstance = visibleInstances[0] ?? null
   const previewInstances = visibleInstances.slice(1, 3)
-  const totalPages = Math.max(1, Math.ceil(instances.length / 3))
+  const totalPages = Math.max(1, Math.ceil(tabInstances.length / 3))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -436,6 +446,18 @@ function Library() {
           </div>
         ) : instances.length === 0 ? (
           <EmptyState onOpen={() => setCreateOpen(true)} />
+        ) : tabInstances.length === 0 ? (
+          <div style={{
+            height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+            background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)',
+          }}>
+            <div style={{ fontFamily: "'VT323',monospace", fontSize: 18, color: 'var(--ink-4)', letterSpacing: '.08em' }}>
+              {carouselTab === 'pinned' ? 'NO PINNED INSTANCES' : 'NOTHING HERE'}
+            </div>
+            {carouselTab === 'pinned' && (
+              <div style={{ fontSize: 12, color: 'var(--ink-4)' }}>Open Edit on any instance and enable the pin toggle.</div>
+            )}
+          </div>
         ) : (
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
             {heroInstance && (
@@ -526,6 +548,12 @@ function Library() {
         onSave={async (id, patch) => {
           const inst = await updateInstance.mutateAsync({ id, patch })
           void recordActivity(`Edited "${inst.name}"`)
+        }}
+        onDelete={async (id) => {
+          const inst = instances.find(i => i.id === id)
+          await deleteInstance.mutateAsync({ id, deleteFiles: false })
+          setEditTarget(null)
+          if (inst) void recordActivity(`Deleted "${inst.name}"`)
         }}
       />
 

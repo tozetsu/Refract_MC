@@ -27,6 +27,7 @@ export interface Instance {
   createdAt: string
   mods?: InstalledMod[]
   isInstalled?: boolean
+  pinned?: boolean
 }
 
 export type CreateInstanceInput = Omit<Instance, 'id' | 'createdAt' | 'totalTimePlayed' | 'mods' | 'isInstalled'>

@@ -4,15 +4,7 @@ import type React from 'react'
 import type { Instance, ModLoader } from '@refract/core'
 import { PixelScene, loaderToScene } from '@/components/ui/PixelScene'
 import { compressImage } from '@/lib/image'
-
-const MC_VERSIONS = [
-  '1.21.5', '1.21.4', '1.21.3', '1.21.2', '1.21.1', '1.21',
-  '1.20.6', '1.20.4', '1.20.2', '1.20.1', '1.20',
-  '1.19.4', '1.19.2', '1.19',
-  '1.18.2', '1.18.1', '1.18',
-  '1.17.1', '1.16.5', '1.15.2', '1.14.4',
-  '1.12.2', '1.8.9', '1.7.10',
-]
+import { McVersionSelect } from './McVersionSelect'
 
 const MOD_LOADERS: Array<{ value: ModLoader | ''; label: string }> = [
   { value: '',         label: 'Vanilla'  },
@@ -40,15 +32,18 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSave: (id: string, patch: Partial<Instance>) => Promise<void>
+  onDelete?: (id: string) => Promise<void>
 }
 
-export function EditInstanceDialog({ instance, open, onOpenChange, onSave }: Props) {
+export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDelete }: Props) {
   const [name, setName]           = useState('')
   const [mcVersion, setMcVersion] = useState('1.21.1')
   const [modLoader, setModLoader] = useState<ModLoader | ''>('')
   const [memoryMb, setMemoryMb]   = useState(2048)
   const [coverImage, setCoverImage] = useState('')
+  const [pinned, setPinned]       = useState(false)
   const [loading, setLoading]     = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -58,6 +53,8 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave }: Pro
       setModLoader(instance.modLoader ?? '')
       setMemoryMb(instance.memoryMb)
       setCoverImage(instance.iconPath ?? '')
+      setPinned(instance.pinned ?? false)
+      setConfirmDelete(false)
     }
   }, [instance])
 
@@ -77,7 +74,19 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave }: Pro
     if (!instance || !name.trim()) return
     setLoading(true)
     try {
-      await onSave(instance.id, { name: name.trim(), minecraftVersion: mcVersion, modLoader: modLoader || undefined, memoryMb, iconPath: coverImage || undefined })
+      await onSave(instance.id, { name: name.trim(), minecraftVersion: mcVersion, modLoader: modLoader || undefined, memoryMb, iconPath: coverImage || undefined, pinned })
+      onOpenChange(false)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!instance || !onDelete) return
+    if (!confirmDelete) { setConfirmDelete(true); return }
+    setLoading(true)
+    try {
+      await onDelete(instance.id)
       onOpenChange(false)
     } finally {
       setLoading(false)
@@ -141,9 +150,7 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave }: Pro
               </Field>
 
               <Field label="MC VERSION">
-                <select value={mcVersion} onChange={e => setMcVersion(e.target.value)} style={selectSt}>
-                  {MC_VERSIONS.map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
+                <McVersionSelect value={mcVersion} onChange={setMcVersion} selectStyle={selectSt} />
               </Field>
 
               <Field label="MOD LOADER">
@@ -184,9 +191,36 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave }: Pro
                 </div>
               </Field>
 
+              {/* Pin toggle */}
+              <label style={{ display:'flex', alignItems:'center', gap:7, cursor:'pointer', userSelect:'none', marginTop:2 }}>
+                <input
+                  type="checkbox" checked={pinned} onChange={e => setPinned(e.target.checked)}
+                  style={{ cursor:'pointer', accentColor:'var(--accent)' }}
+                />
+                <span style={{ fontFamily:"'VT323',monospace", fontSize:13, letterSpacing:'.08em', color: pinned ? 'var(--accent)' : 'var(--ink-4)' }}>
+                  📌 PIN THIS INSTANCE
+                </span>
+              </label>
+
               <div style={{ flex:1 }} />
 
               <div style={{ display:'flex', gap:8, paddingTop:12, borderTop:'1px solid var(--line)' }}>
+                {onDelete && (
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={loading}
+                    style={{
+                      height:38, padding:'0 12px', borderRadius:3, border:'none', cursor: loading ? 'not-allowed' : 'pointer',
+                      background: confirmDelete ? 'rgba(217,59,59,.25)' : 'transparent',
+                      color: 'var(--redstone)',
+                      outline: `1px solid ${confirmDelete ? 'var(--redstone)' : 'rgba(217,59,59,.4)'}`,
+                      fontSize:12, fontWeight:700, flexShrink:0, transition:'background .15s',
+                    }}
+                  >
+                    {confirmDelete ? 'CONFIRM DELETE?' : 'Delete'}
+                  </button>
+                )}
                 <Dialog.Close asChild>
                   <button type="button" disabled={loading} style={cancelSt}>Cancel</button>
                 </Dialog.Close>
