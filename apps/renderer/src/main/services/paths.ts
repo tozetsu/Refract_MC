@@ -2,25 +2,26 @@ import { app } from 'electron'
 import { join } from 'path'
 import { mkdirSync } from 'fs'
 
-const userData = app.getPath('userData')
+function getUserData() {
+  return app.getPath('userData')
+}
 
 export const paths = {
-  userData,
-  instances: join(userData, 'instances'),
-  themes:    join(userData, 'themes'),
-  plugins:   join(userData, 'plugins'),
-  java:      join(userData, 'java'),
-  assets:    join(userData, 'assets'),
-  libraries: join(userData, 'libraries'),
-  versions:  join(userData, 'versions'),
-  cache:     join(userData, 'cache'),
-  logs:      join(userData, 'logs'),
+  get userData()    { return getUserData() },
+  get instances()   { return join(getUserData(), 'instances') },
+  get themes()      { return join(getUserData(), 'themes') },
+  get plugins()     { return join(getUserData(), 'plugins') },
+  get java()        { return join(getUserData(), 'java') },
+  get assets()      { return join(getUserData(), 'assets') },
+  get libraries()   { return join(getUserData(), 'libraries') },
+  get versions()    { return join(getUserData(), 'versions') },
+  get cache()       { return join(getUserData(), 'cache') },
+  get logs()        { return join(getUserData(), 'logs') },
 } as const
 
 export function ensureAppDirs(): void {
-  for (const dir of Object.values(paths)) {
-    if (dir !== userData) {
-      mkdirSync(dir, { recursive: true })
-    }
+  const base = getUserData()
+  for (const key of ['instances','themes','plugins','java','assets','libraries','versions','cache','logs'] as const) {
+    mkdirSync(join(base, key), { recursive: true })
   }
 }

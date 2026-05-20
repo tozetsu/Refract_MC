@@ -17,7 +17,7 @@ export interface AppConfig {
   }>
 }
 
-const CONFIG_PATH = join(paths.userData, 'config.json')
+function getConfigPath() { return join(paths.userData, 'config.json') }
 
 const DEFAULTS: AppConfig = {
   activeAccountId: null,
@@ -30,13 +30,13 @@ let cache: AppConfig | null = null
 
 export function loadConfig(): AppConfig {
   if (cache) return cache
-  if (!existsSync(CONFIG_PATH)) {
+  if (!existsSync(getConfigPath())) {
     cache = { ...DEFAULTS }
     saveConfig(cache)
     return cache
   }
   try {
-    cache = JSON.parse(readFileSync(CONFIG_PATH, 'utf-8')) as AppConfig
+    cache = JSON.parse(readFileSync(getConfigPath(), 'utf-8')) as AppConfig
     // merge in any missing defaults added in future versions
     cache = { ...DEFAULTS, ...cache }
     return cache
@@ -48,7 +48,7 @@ export function loadConfig(): AppConfig {
 
 export function saveConfig(config: AppConfig): void {
   cache = config
-  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8')
+  writeFileSync(getConfigPath(), JSON.stringify(config, null, 2), 'utf-8')
 }
 
 export function getConfig(): AppConfig {

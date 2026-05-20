@@ -1,9 +1,13 @@
 import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerAllIpcHandlers } from './ipc'
 import { ensureAppDirs } from './services/paths'
 import { loadConfig } from './services/config'
+import { installProcessErrorLogging, logError } from './services/logger'
+
+installProcessErrorLogging()
+
+const isDev = !app.isPackaged
 
 function createWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
@@ -29,7 +33,7 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+  if (isDev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
@@ -41,9 +45,11 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(() => {
   ensureAppDirs()
   loadConfig()
-  electronApp.setAppUserModelId('com.refract')
+  if (process.platform === 'win32') app.setAppUserModelId('com.refract')
   app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+    window.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12') { window.webContents.toggleDevTools(); event.preventDefault() }
+    })
   })
 
   const mainWindow = createWindow()
@@ -52,6 +58,8 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+}).catch((error) => {
+  logError('main:appReady', error)
 })
 
 app.on('window-all-closed', () => {
