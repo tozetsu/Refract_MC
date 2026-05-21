@@ -135,18 +135,22 @@ export function buildLaunchCommand(ctx: LaunchContext): string[] {
   let jvmArgs: string[]
   let gameArgs: string[]
 
-  if (mainJson.arguments) {
-    jvmArgs = [
-      ...jvmBase,
-      ...resolveArgs(mainJson.arguments.jvm, vars),
-    ]
-    gameArgs = resolveArgs(mainJson.arguments.game, vars)
-  } else if (mainJson.minecraftArguments) {
-    jvmArgs = [
-      ...jvmBase,
-      '-cp', vars['classpath'],
-    ]
-    gameArgs = substituteVars(mainJson.minecraftArguments, vars).split(' ')
+  // Fabric/Forge JSONs are overlays — they extend vanilla args, not replace them.
+  // Always build from versionJson args, then append the overlay's extra args.
+  const baseJson = ctx.versionJson
+  const overlayJson = ctx.fabricJson !== ctx.versionJson ? ctx.fabricJson : undefined
+
+  if (baseJson.arguments) {
+    const baseJvm  = resolveArgs(baseJson.arguments.jvm, vars)
+    const extraJvm = overlayJson?.arguments ? resolveArgs(overlayJson.arguments.jvm, vars) : []
+    jvmArgs = [...jvmBase, ...baseJvm, ...extraJvm]
+
+    const baseGame  = resolveArgs(baseJson.arguments.game, vars)
+    const extraGame = overlayJson?.arguments ? resolveArgs(overlayJson.arguments.game, vars) : []
+    gameArgs = [...baseGame, ...extraGame]
+  } else if (baseJson.minecraftArguments) {
+    jvmArgs = [...jvmBase, '-cp', vars['classpath']]
+    gameArgs = substituteVars(baseJson.minecraftArguments, vars).split(' ')
   } else {
     jvmArgs = [...jvmBase, '-cp', vars['classpath']]
     gameArgs = []
