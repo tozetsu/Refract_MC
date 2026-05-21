@@ -32,7 +32,7 @@ export const api = {
     getById:    (id: string)                                   => ipcRenderer.invoke('instance.getById', id),
     create:     (input: unknown)                               => ipcRenderer.invoke('instance.create', input),
     update:     (id: string, patch: unknown)                   => ipcRenderer.invoke('instance.update', id, patch),
-    delete:     (id: string, deleteFiles: boolean)             => ipcRenderer.invoke('instance.delete', id, deleteFiles),
+    delete:     (id: string)                                   => ipcRenderer.invoke('instance.delete', id),
     openFolder: (id: string)                                   => ipcRenderer.invoke('instance.openFolder', id),
   },
   window: {

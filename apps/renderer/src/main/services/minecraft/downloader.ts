@@ -1,4 +1,5 @@
 import { join, relative, resolve } from 'path'
+import { resolveInstanceDir } from '../instance-store'
 import { existsSync, createWriteStream, mkdirSync, rmSync, copyFileSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { createUnzip } from 'zlib'
 import { pipeline } from 'stream/promises'
@@ -45,7 +46,7 @@ export function clientJarPath(versionId: string): string {
 }
 
 export function nativesDir(instanceId: string): string {
-  return join(paths.instances, instanceId, 'minecraft', 'natives')
+  return join(resolveInstanceDir(instanceId), 'minecraft', 'natives')
 }
 
 export function libraryPath(libPath: string): string {

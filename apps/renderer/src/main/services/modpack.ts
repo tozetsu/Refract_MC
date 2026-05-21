@@ -5,7 +5,7 @@ import { BrowserWindow } from 'electron'
 import { paths } from './paths'
 import { downloadFile } from './download'
 import { getProjectVersions, getPrimaryFile, fetchVersionList } from '@refract/core'
-import { createAndSaveInstance, updateInstance, deleteInstance } from './instance-store'
+import { createAndSaveInstance, updateInstance, deleteInstance, resolveInstanceDir } from './instance-store'
 import { installMinecraft } from './minecraft/downloader'
 import type { Instance } from '@refract/core'
 
@@ -138,7 +138,7 @@ export async function installModpack(
     memoryMb: 4096,
   })
 
-  const gameDir   = join(paths.instances, instance.id, 'minecraft')
+  const gameDir   = join(resolveInstanceDir(instance.id), 'minecraft')
   mkdirSync(join(gameDir, 'mods'), { recursive: true })
 
   const tempDir   = join(paths.cache, `mrpack-${instance.id}`)
@@ -219,7 +219,7 @@ export async function installModpack(
     return instance
 
   } catch (err) {
-    try { rmSync(join(paths.instances, instance.id), { recursive: true, force: true }) } catch { /* ignore */ }
+    try { rmSync(resolveInstanceDir(instance.id), { recursive: true, force: true }) } catch { /* ignore */ }
     try { deleteInstance(instance.id, false) } catch { /* ignore */ }
     mainWindow.webContents.send('modpack:done', { projectId, error: err instanceof Error ? err.message : String(err) })
     throw err
@@ -301,7 +301,7 @@ export async function installModpackFromFile(
 
       report('Creating instance', 5)
       const instance = createAndSaveInstance({ name, minecraftVersion: mcVersion, modLoader, memoryMb: 4096 })
-      const gameDir = join(paths.instances, instance.id, 'minecraft')
+      const gameDir = join(resolveInstanceDir(instance.id), 'minecraft')
       mkdirSync(join(gameDir, 'mods'), { recursive: true })
 
       try {
@@ -338,7 +338,7 @@ export async function installModpackFromFile(
         mainWindow.webContents.send('modpack:done', { projectId: importId, instanceId: instance.id })
         return instance
       } catch (err) {
-        try { rmSync(join(paths.instances, instance.id), { recursive: true, force: true }) } catch { /* ignore */ }
+        try { rmSync(resolveInstanceDir(instance.id), { recursive: true, force: true }) } catch { /* ignore */ }
         try { deleteInstance(instance.id, false) } catch { /* ignore */ }
         throw err
       }
@@ -362,7 +362,7 @@ export async function installModpackFromFile(
 
       report('Creating instance', 5)
       const instance = createAndSaveInstance({ name, minecraftVersion: mcVersion, modLoader, memoryMb: 4096 })
-      const gameDir = join(paths.instances, instance.id, 'minecraft')
+      const gameDir = join(resolveInstanceDir(instance.id), 'minecraft')
       mkdirSync(join(gameDir, 'mods'), { recursive: true })
 
       try {
@@ -399,7 +399,7 @@ export async function installModpackFromFile(
         mainWindow.webContents.send('modpack:done', { projectId: importId, instanceId: instance.id })
         return instance
       } catch (err) {
-        try { rmSync(join(paths.instances, instance.id), { recursive: true, force: true }) } catch { /* ignore */ }
+        try { rmSync(resolveInstanceDir(instance.id), { recursive: true, force: true }) } catch { /* ignore */ }
         try { deleteInstance(instance.id, false) } catch { /* ignore */ }
         throw err
       }
@@ -409,7 +409,7 @@ export async function installModpackFromFile(
     const name = instanceName || basename(filePath, '.zip') || 'Imported Pack'
     report('Creating instance', 5)
     const instance = createAndSaveInstance({ name, minecraftVersion: '1.21.1', memoryMb: 4096 })
-    const gameDir = join(paths.instances, instance.id, 'minecraft')
+    const gameDir = join(resolveInstanceDir(instance.id), 'minecraft')
 
     try {
       report('Copying files', 10)
@@ -429,7 +429,7 @@ export async function installModpackFromFile(
       mainWindow.webContents.send('modpack:done', { projectId: importId, instanceId: instance.id })
       return instance
     } catch (err) {
-      try { rmSync(join(paths.instances, instance.id), { recursive: true, force: true }) } catch { /* ignore */ }
+      try { rmSync(resolveInstanceDir(instance.id), { recursive: true, force: true }) } catch { /* ignore */ }
       try { deleteInstance(instance.id, false) } catch { /* ignore */ }
       throw err
     }
@@ -465,7 +465,7 @@ export async function installContentPack(
   if (!file) throw new Error(`No download file found for ${projectName}.`)
 
   const subDir    = CONTENT_DIRS[contentType]
-  const destFolder = join(paths.instances, instanceId, 'minecraft', subDir)
+  const destFolder = join(resolveInstanceDir(instanceId), 'minecraft', subDir)
   const safeName  = basename(file.filename)
   const destPath  = resolve(destFolder, safeName)
   if (relative(destFolder, destPath).startsWith('..')) throw new Error(`Unsafe filename: ${file.filename}`)

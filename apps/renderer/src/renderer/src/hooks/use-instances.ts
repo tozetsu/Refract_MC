@@ -29,8 +29,7 @@ export function useUpdateInstance() {
 export function useDeleteInstance() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, deleteFiles }: { id: string; deleteFiles: boolean }) =>
-      api.instance.delete(id, deleteFiles),
+    mutationFn: (id: string) => api.instance.delete(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['instances'] }),
   })
 }

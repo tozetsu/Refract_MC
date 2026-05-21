@@ -1,7 +1,7 @@
 import { join, basename, relative, resolve } from 'path'
 import { paths } from './paths'
 import { downloadFile } from './download'
-import { updateInstance, getInstanceById } from './instance-store'
+import { updateInstance, getInstanceById, resolveInstanceDir } from './instance-store'
 import type { InstalledMod } from '@refract/core'
 import { getProjectVersions, getPrimaryFile } from '@refract/core'
 
@@ -31,7 +31,7 @@ export async function installMod(
   const file = getPrimaryFile(targetVersion)
   if (!file) throw new Error(`No download file found for ${projectName} ${targetVersion.version_number}`)
 
-  const modsDir = join(paths.instances, instanceId, 'minecraft', 'mods')
+  const modsDir = join(resolveInstanceDir(instanceId), 'minecraft', 'mods')
   const safeName = basename(file.filename)
   const dest = resolve(modsDir, safeName)
   if (relative(modsDir, dest).startsWith('..')) {
@@ -64,7 +64,7 @@ export async function uninstallMod(instanceId: string, projectId: string): Promi
   const mod = instance.mods?.find(m => m.projectId === projectId)
   if (!mod) return
 
-  const modsDir = join(paths.instances, instanceId, 'minecraft', 'mods')
+  const modsDir = join(resolveInstanceDir(instanceId), 'minecraft', 'mods')
   const modPath = resolve(modsDir, basename(mod.fileName))
   if (relative(modsDir, modPath).startsWith('..')) return
   try {

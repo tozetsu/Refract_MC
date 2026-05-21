@@ -10,7 +10,7 @@ import { handleIpc } from './handle'
 import { shell } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
-import { paths } from '../services/paths'
+import { resolveInstanceDir } from '../services/instance-store'
 
 export function registerInstanceIpc(): void {
   handleIpc('instance.list', () => listInstances())
@@ -27,15 +27,12 @@ export function registerInstanceIpc(): void {
       updateInstance(String(id), patch as Partial<Omit<Instance, 'id' | 'createdAt'>>)
   )
 
-  handleIpc(
-    'instance.delete',
-    (_event, id, deleteFiles) => {
-      deleteInstance(String(id), Boolean(deleteFiles))
-    }
-  )
+  handleIpc('instance.delete', (_event, id) => {
+    deleteInstance(String(id))
+  })
 
   handleIpc('instance.openFolder', (_event, id) => {
-    const gameDir = join(paths.instances, String(id), 'minecraft')
+    const gameDir = join(resolveInstanceDir(String(id)), 'minecraft')
     if (!existsSync(gameDir)) mkdirSync(gameDir, { recursive: true })
     shell.openPath(gameDir)
   })

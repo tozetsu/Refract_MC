@@ -684,7 +684,7 @@ function Library() {
         }}
         onDelete={async (id) => {
           const inst = instances.find(i => i.id === id)
-          await deleteInstance.mutateAsync({ id, deleteFiles: false })
+          await deleteInstance.mutateAsync(id)
           setEditTarget(null)
           if (inst) void recordActivity(`Deleted "${inst.name}"`)
         }}

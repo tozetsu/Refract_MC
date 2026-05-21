@@ -116,7 +116,7 @@ declare global {
         getById:    (id: string) => Promise<Instance | null>
         create:     (input: CreateInstanceInput) => Promise<Instance>
         update:     (id: string, patch: Partial<Instance>) => Promise<Instance>
-        delete:     (id: string, deleteFiles: boolean) => Promise<void>
+        delete:     (id: string) => Promise<void>
         openFolder: (id: string) => Promise<void>
       }
       window: {

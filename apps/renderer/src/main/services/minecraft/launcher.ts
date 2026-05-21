@@ -3,6 +3,7 @@ import { existsSync, readFileSync, mkdirSync } from 'fs'
 import { spawn, ChildProcess } from 'child_process'
 import { BrowserWindow } from 'electron'
 import { paths } from '../paths'
+import { resolveInstanceDir } from '../instance-store'
 import { getConfig } from '../config'
 import { getOrRefreshMinecraftToken } from '../auth'
 import type { VersionJson } from '@refract/core'
@@ -100,7 +101,7 @@ export async function launchInstance(
   const requiredJava = versionJson.javaVersion?.majorVersion ?? 8
   const { exe: javaExe, version: javaVersion } = await resolveJava(requiredJava, instance.javaPath)
 
-  const gameDir = join(paths.instances, instanceId, 'minecraft')
+  const gameDir = join(resolveInstanceDir(instanceId), 'minecraft')
   mkdirSync(join(gameDir, 'mods'), { recursive: true })
   mkdirSync(join(gameDir, 'saves'), { recursive: true })
 

@@ -162,7 +162,7 @@ function createBrowserApi(): RefractAPI {
         saveInstances(instances.map((instance) => instance.id === id ? updated : instance))
         return updated
       },
-      delete: async (id) => {
+      delete: async (id: string) => {
         saveInstances(getInstances().filter((instance) => instance.id !== id))
       },
       openFolder: async () => undefined,

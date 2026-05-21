@@ -14,6 +14,7 @@ export interface InstalledMod {
 export interface Instance {
   id: string
   name: string
+  folderName?: string   // human-readable folder on disk; falls back to id for legacy instances
   minecraftVersion: string
   modLoader?: ModLoader
   modLoaderVersion?: string
