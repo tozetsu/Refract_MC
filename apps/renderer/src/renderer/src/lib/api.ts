@@ -210,6 +210,8 @@ function createBrowserApi(): RefractAPI {
     },
     modpack: {
       install: async () => { throw new Error('Modpack install requires the Electron app.') },
+      openFileDialog: async () => null,
+      installFromFile: async () => { throw new Error('Modpack install requires the Electron app.') },
       onProgress: () => () => undefined,
       onDone: () => () => undefined,
     },
@@ -221,6 +223,7 @@ function createBrowserApi(): RefractAPI {
       java: async () => [],
       isRunning: async () => false,
       install: async () => { throw new Error('MC install requires the Electron app.') },
+      repair: async () => { throw new Error('MC repair requires the Electron app.') },
       launch: async () => { throw new Error('MC launch requires the Electron app.') },
       stop: async () => undefined,
       onProgress: () => () => undefined,

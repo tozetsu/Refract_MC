@@ -85,8 +85,8 @@ export const api = {
   },
   mods: {
     list:   (instanceId: string) => ipcRenderer.invoke('mods.list', instanceId),
-    toggle: (instanceId: string, filename: string) => ipcRenderer.invoke('mods.toggle', instanceId, filename),
-    delete: (instanceId: string, filename: string) => ipcRenderer.invoke('mods.delete', instanceId, filename),
+    toggle: (instanceId: string, filename: string, type: string) => ipcRenderer.invoke('mods.toggle', instanceId, filename, type),
+    delete: (instanceId: string, filename: string, type: string) => ipcRenderer.invoke('mods.delete', instanceId, filename, type),
   },
   mc: {
     versions:  (): Promise<import('@refract/core').MinecraftVersion[]> => ipcRenderer.invoke('mc.versions'),
