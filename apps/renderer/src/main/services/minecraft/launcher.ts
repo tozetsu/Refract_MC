@@ -148,8 +148,9 @@ export async function launchInstance(
 
   const proc = spawn(exe, args, {
     cwd: gameDir,
-    detached: false,
+    detached: true,
   })
+  proc.unref()
 
   runningProcesses.set(instanceId, proc)
 
@@ -157,21 +158,25 @@ export async function launchInstance(
   instanceStore.updateInstance(instanceId, { lastPlayed: new Date().toISOString() })
   void setGameActivity(instanceId, instance.name, instance.minecraftVersion, instance.modLoader)
 
+  function send(channel: string, payload: unknown) {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload)
+  }
+
   proc.stdout?.on('data', (data: Buffer) => {
-    mainWindow.webContents.send('mc:log', { instanceId, line: data.toString(), stream: 'stdout' })
+    send('mc:log', { instanceId, line: data.toString(), stream: 'stdout' })
   })
   proc.stderr?.on('data', (data: Buffer) => {
-    mainWindow.webContents.send('mc:log', { instanceId, line: data.toString(), stream: 'stderr' })
+    send('mc:log', { instanceId, line: data.toString(), stream: 'stderr' })
   })
   proc.on('exit', (code) => {
     runningProcesses.delete(instanceId)
     void clearGameActivity(instanceId)
-    mainWindow.webContents.send('mc:exit', { instanceId, code })
+    send('mc:exit', { instanceId, code })
   })
   proc.on('error', (err) => {
     runningProcesses.delete(instanceId)
     void clearGameActivity(instanceId)
-    mainWindow.webContents.send('mc:exit', { instanceId, code: -1, error: err.message })
+    send('mc:exit', { instanceId, code: -1, error: err.message })
   })
 }
 
