@@ -1,6 +1,6 @@
 import { join, relative, resolve, basename, dirname } from 'path'
-import { existsSync, mkdirSync, rmSync, readdirSync, copyFileSync, readFileSync } from 'fs'
-import { execFile } from 'child_process'
+import { existsSync, mkdirSync, rmSync, readdirSync, copyFileSync, readFileSync, openSync, closeSync, readSync, fstatSync, writeFileSync } from 'fs'
+import { inflateRawSync } from 'zlib'
 import { BrowserWindow } from 'electron'
 import { paths } from './paths'
 import { downloadFile } from './download'
@@ -35,32 +35,92 @@ const CONTENT_DIRS: Record<ContentType, string> = {
   datapack:     'datapacks',
 }
 
-// ── ZIP extraction using built-in OS tools (no JDK required) ─────────────────
+// ── ZIP extraction — pure Node.js, supports Windows long paths via \\?\ ───────
+
+function winLong(p: string): string {
+  if (process.platform !== 'win32') return p
+  if (p.startsWith('\\\\')) return p
+  return '\\\\?\\' + p.replace(/\//g, '\\')
+}
 
 async function extractZip(zipPath: string, destDir: string): Promise<void> {
-  // Ensure fresh destination so ZipFile::ExtractToDirectory doesn't collide
   if (existsSync(destDir)) rmSync(destDir, { recursive: true, force: true })
   mkdirSync(destDir, { recursive: true })
 
-  await new Promise<void>((res, rej) => {
-    if (process.platform === 'win32') {
-      // Pass paths via env vars — avoids all PowerShell quoting/splatting issues
-      // (paths with @, spaces, parens, etc. are unsafe as string literals in -Command)
-      const cmd = 'Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory($env:_ZIP_SRC, $env:_ZIP_DST)'
-      const env = { ...process.env, _ZIP_SRC: zipPath, _ZIP_DST: destDir }
-      execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', cmd], { timeout: 120_000, env }, (err) => {
-        if (err) rej(new Error(`ZIP extraction failed: ${err.message}`))
-        else res()
-      })
-    } else {
-      execFile('unzip', ['-o', zipPath, '-d', destDir], { timeout: 120_000 }, (err) => {
-        if (err) rej(new Error(`ZIP extraction failed: ${err.message}`))
-        else res()
-      })
-    }
-  })
+  const fd = openSync(zipPath, 'r')
+  try {
+    const fileSize = fstatSync(fd).size
+    if (fileSize < 22) throw new Error('Not a valid ZIP file')
 
-  // Post-extraction Zip Slip guard: remove any entries that escaped destDir
+    // Locate EOCD by scanning from end
+    const searchSize = Math.min(65557, fileSize)
+    const tail = Buffer.alloc(searchSize)
+    readSync(fd, tail, 0, searchSize, fileSize - searchSize)
+
+    let eocdRel = -1
+    for (let i = tail.length - 22; i >= 0; i--) {
+      if (tail[i] === 0x50 && tail[i+1] === 0x4b && tail[i+2] === 0x05 && tail[i+3] === 0x06) {
+        eocdRel = i; break
+      }
+    }
+    if (eocdRel < 0) throw new Error('ZIP: EOCD signature not found')
+
+    const totalEntries = tail.readUInt16LE(eocdRel + 10)
+    let cdPos = tail.readUInt32LE(eocdRel + 16)
+
+    for (let i = 0; i < totalEntries; i++) {
+      const cdhdr = Buffer.alloc(46)
+      readSync(fd, cdhdr, 0, 46, cdPos)
+      if (cdhdr.readUInt32LE(0) !== 0x02014b50) throw new Error(`ZIP: bad central directory entry at ${i}`)
+
+      const method      = cdhdr.readUInt16LE(10)
+      const compSize    = cdhdr.readUInt32LE(20)
+      const uncompSize  = cdhdr.readUInt32LE(24)
+      const fnLen       = cdhdr.readUInt16LE(28)
+      const extraLen    = cdhdr.readUInt16LE(30)
+      const commentLen  = cdhdr.readUInt16LE(32)
+      const lhdrOffset  = cdhdr.readUInt32LE(42)
+
+      const nameBuf = Buffer.alloc(fnLen)
+      readSync(fd, nameBuf, 0, fnLen, cdPos + 46)
+      const name = nameBuf.toString('utf8')
+      cdPos += 46 + fnLen + extraLen + commentLen
+
+      // Zip Slip guard
+      const destPath = join(destDir, name)
+      if (relative(destDir, resolve(destPath)).startsWith('..')) continue
+
+      if (name.endsWith('/') || (compSize === 0 && uncompSize === 0 && !name.includes('.'))) {
+        mkdirSync(winLong(destPath), { recursive: true })
+        continue
+      }
+
+      mkdirSync(winLong(dirname(destPath)), { recursive: true })
+
+      // Find data start via local file header
+      const lhdr = Buffer.alloc(30)
+      readSync(fd, lhdr, 0, 30, lhdrOffset)
+      const dataStart = lhdrOffset + 30 + lhdr.readUInt16LE(26) + lhdr.readUInt16LE(28)
+
+      const compBuf = Buffer.alloc(compSize)
+      readSync(fd, compBuf, 0, compSize, dataStart)
+
+      let data: Buffer
+      if (method === 0) {
+        data = compBuf
+      } else if (method === 8) {
+        data = inflateRawSync(compBuf)
+      } else {
+        throw new Error(`ZIP: unsupported compression method ${method} in "${name}"`)
+      }
+
+      writeFileSync(winLong(destPath), data)
+    }
+  } finally {
+    closeSync(fd)
+  }
+
+  // Post-extraction Zip Slip guard on remainder
   validateExtractedDir(destDir, destDir)
 }
 
