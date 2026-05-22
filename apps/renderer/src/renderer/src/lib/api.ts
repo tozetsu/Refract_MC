@@ -13,6 +13,8 @@ const DEFAULT_CONFIG: AppConfig = {
   activeAccountId: null,
   activeThemeId: 'dark',
   windowBounds: { width: 1280, height: 800 },
+  defaultMemoryMb: 2048,
+  onboardingDone: false,
   accounts: [],
 }
 
@@ -166,6 +168,8 @@ function createBrowserApi(): RefractAPI {
         saveInstances(getInstances().filter((instance) => instance.id !== id))
       },
       openFolder: async () => undefined,
+      export: async () => null,
+      duplicate: async () => null,
     },
     window: {
       minimize: () => undefined,
@@ -203,11 +207,20 @@ function createBrowserApi(): RefractAPI {
         return fetchGameVersions()
       },
       contentInstall: async () => { throw new Error('Content install requires the Electron app.') },
+      checkModUpdates: async () => [],
+      applyModUpdates: async () => [],
     },
     mods: {
-      list:   async () => [],
-      toggle: async () => { throw new Error('Mod management requires the Electron app.') },
-      delete: async () => { throw new Error('Mod management requires the Electron app.') },
+      list:         async () => [],
+      toggle:       async () => { throw new Error('Mod management requires the Electron app.') },
+      delete:       async () => { throw new Error('Mod management requires the Electron app.') },
+      installLocal: async () => { throw new Error('Mod install requires the Electron app.') },
+    },
+    java: {
+      managedList: async () => [],
+      requiredFor: async () => 21,
+      download:    async () => { throw new Error('Java download requires the Electron app.') },
+      onProgress:  () => () => undefined,
     },
     friends: {
       list:   async () => [],
@@ -232,6 +245,12 @@ function createBrowserApi(): RefractAPI {
       repair: async () => { throw new Error('MC repair requires the Electron app.') },
       launch: async () => { throw new Error('MC launch requires the Electron app.') },
       stop: async () => undefined,
+      crashReport: async () => null,
+      worlds: async () => [],
+      deleteWorld: async () => undefined,
+      screenshots: async () => [],
+      openScreenshot: async () => undefined,
+      servers: async () => [],
       onProgress: () => () => undefined,
       onLog: () => () => undefined,
       onExit: () => () => undefined,

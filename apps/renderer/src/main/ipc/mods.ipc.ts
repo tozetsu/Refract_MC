@@ -1,5 +1,5 @@
-import { join } from 'path'
-import { readdirSync, renameSync, rmSync, statSync, existsSync, readFileSync, openSync, readSync, fstatSync, closeSync } from 'fs'
+import { join, basename } from 'path'
+import { readdirSync, renameSync, rmSync, statSync, existsSync, readFileSync, openSync, readSync, fstatSync, closeSync, mkdirSync, copyFileSync } from 'fs'
 import { inflateRawSync } from 'zlib'
 import { handleIpc } from './handle'
 import { resolveInstanceDir } from '../services/instance-store'
@@ -183,6 +183,16 @@ export function registerModsIpc(): void {
       ? join(dir, file.slice(0, -'.disabled'.length))
       : join(dir, file + '.disabled')
     renameSync(src, dst)
+  })
+
+  handleIpc('mods.installLocal', (_e, instanceId: unknown, srcPath: unknown) => {
+    const id = String(instanceId)
+    const src = String(srcPath)
+    const filename = basename(src)
+    const modsDir = contentDir(id, 'mods')
+    if (!existsSync(modsDir)) mkdirSync(modsDir, { recursive: true })
+    copyFileSync(src, join(modsDir, filename))
+    return filename
   })
 
   handleIpc('mods.delete', (_e, instanceId, filename, type) => {

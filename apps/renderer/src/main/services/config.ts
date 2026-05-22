@@ -6,6 +6,8 @@ export interface AppConfig {
   activeAccountId: string | null
   activeThemeId: string
   windowBounds: { width: number; height: number; x?: number; y?: number }
+  defaultMemoryMb: number
+  onboardingDone: boolean
   accounts: Array<{
     uuid: string
     username: string
@@ -24,6 +26,8 @@ const DEFAULTS: AppConfig = {
   activeAccountId: null,
   activeThemeId: 'dark',
   windowBounds: { width: 1280, height: 800 },
+  defaultMemoryMb: 2048,
+  onboardingDone: false,
   accounts: [],
 }
 

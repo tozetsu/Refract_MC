@@ -35,15 +35,17 @@ interface Props {
   onSave: (id: string, patch: Partial<Instance>) => Promise<void>
   onDelete?: (id: string) => Promise<void>
   onRepair?: (id: string) => void
+  onDuplicate?: (id: string) => Promise<void>
 }
 
-export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDelete, onRepair }: Props) {
+export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDelete, onRepair, onDuplicate }: Props) {
   const [name, setName]           = useState('')
   const [mcVersion, setMcVersion] = useState('1.21.1')
   const [modLoader, setModLoader] = useState<ModLoader | ''>('')
   const [memoryMb, setMemoryMb]   = useState(2048)
   const [coverImage, setCoverImage] = useState('')
   const [pinned, setPinned]       = useState(false)
+  const [groupId, setGroupId]     = useState('')
   const [javaPath, setJavaPath]   = useState('')
   const [javas, setJavas]         = useState<JavaInstallation[]>([])
   const [loading, setLoading]     = useState(false)
@@ -58,6 +60,7 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
       setMemoryMb(instance.memoryMb)
       setCoverImage(instance.iconPath ?? '')
       setPinned(instance.pinned ?? false)
+      setGroupId(instance.groupId ?? '')
       setJavaPath(instance.javaPath ?? '')
       setConfirmDelete(false)
       api.mc.java().then(setJavas).catch(() => setJavas([]))
@@ -80,7 +83,7 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
     if (!instance || !name.trim()) return
     setLoading(true)
     try {
-      await onSave(instance.id, { name: name.trim(), minecraftVersion: mcVersion, modLoader: modLoader || undefined, memoryMb, iconPath: coverImage || undefined, pinned, javaPath: javaPath || undefined })
+      await onSave(instance.id, { name: name.trim(), minecraftVersion: mcVersion, modLoader: modLoader || undefined, memoryMb, iconPath: coverImage || undefined, pinned, groupId: groupId.trim() || undefined, javaPath: javaPath || undefined })
       onOpenChange(false)
     } finally {
       setLoading(false)
@@ -197,6 +200,16 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
                 </div>
               </Field>
 
+              <Field label="GROUP">
+                <input
+                  type="text"
+                  value={groupId}
+                  onChange={e => setGroupId(e.target.value)}
+                  placeholder="e.g. Modded, Vanilla, Survival…"
+                  style={inputSt}
+                />
+              </Field>
+
               <Field label="JAVA OVERRIDE">
                 <select
                   value={javaPath}
@@ -255,6 +268,26 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
                     }}
                   >
                     Repair
+                  </button>
+                )}
+                {onDuplicate && (
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={async () => {
+                      if (!instance) return
+                      setLoading(true)
+                      try { await onDuplicate(instance.id); onOpenChange(false) }
+                      finally { setLoading(false) }
+                    }}
+                    style={{
+                      height:38, padding:'0 12px', borderRadius:3, border:'1px solid var(--border-r)',
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      background:'var(--surface-2)', color:'var(--ink-3)',
+                      fontSize:12, fontWeight:600, flexShrink:0,
+                    }}
+                  >
+                    Duplicate
                   </button>
                 )}
                 <Dialog.Close asChild>

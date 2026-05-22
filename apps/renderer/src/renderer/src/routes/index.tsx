@@ -1,15 +1,17 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect, useRef } from 'react'
+import type React from 'react'
 import type { Instance, MinecraftVersion } from '@refract/core'
 import { PixelScene, loaderToScene } from '@/components/ui/PixelScene'
 import { ChevLeftIcon, ChevRightIcon } from '@/components/ui/BlockIcons'
 import { CreateInstanceDialog } from '@/components/instances/CreateInstanceDialog'
 import { EditInstanceDialog } from '@/components/instances/EditInstanceDialog'
 import { InstanceModsDialog } from '@/components/instances/InstanceModsDialog'
+import { ServersDialog } from '@/components/instances/ServersDialog'
 import { InstallProgress } from '@/components/minecraft/InstallProgress'
 import { useInstances, useCreateInstance, useUpdateInstance, useDeleteInstance } from '@/hooks/use-instances'
-import { api } from '@/lib/api'
+import { api, type AppConfig } from '@/lib/api'
 
 export const Route = createFileRoute('/')({
   component: Library,
@@ -17,32 +19,36 @@ export const Route = createFileRoute('/')({
 
 type ActiveAccount = Awaited<ReturnType<typeof api.auth.active>>
 
-const CHANGELOG_URL = 'https://raw.githubusercontent.com/ShevRuslan1/Refract_MC/main/CHANGELOG.md'
+const RELEASES_URL = 'https://api.github.com/repos/ShevRuslan1/Refract_MC/releases'
 
-interface ChangelogEntry { version: string; notes: string[] }
+interface ChangelogEntry { version: string; notes: string[]; date?: string }
 
-function parseChangelog(text: string): ChangelogEntry[] {
-  const entries: ChangelogEntry[] = []
-  let current: ChangelogEntry | null = null
-  for (const raw of text.split('\n')) {
+type GitHubRelease = { tag_name: string; name: string; body: string; published_at: string; draft: boolean; prerelease: boolean }
+
+function parseReleaseBody(body: string): string[] {
+  const notes: string[] = []
+  for (const raw of (body ?? '').split('\n')) {
     const line = raw.trim()
-    const vMatch = line.match(/^##\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/)
-    if (vMatch) {
-      if (current) entries.push(current)
-      current = { version: vMatch[1], notes: [] }
-    } else if (current && line.startsWith('- ')) {
-      current.notes.push(line.slice(2).trim())
-    }
+    if (line.startsWith('- ') || line.startsWith('* ')) notes.push(line.slice(2).trim())
   }
-  if (current) entries.push(current)
-  return entries
+  return notes
+}
+
+function releasesToChangelog(releases: GitHubRelease[]): ChangelogEntry[] {
+  return releases
+    .filter(r => !r.draft && !r.prerelease)
+    .map(r => ({
+      version: r.tag_name.replace(/^v/, ''),
+      notes: parseReleaseBody(r.body),
+      date: r.published_at ? new Date(r.published_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : undefined,
+    }))
+    .filter(e => e.notes.length > 0)
 }
 
 const FALLBACK_WHATS_NEW: ChangelogEntry[] = [
-  { version: '0.5.1', notes: ['All instance cards now uniform with PLAY, MODS, CONSOLE, Edit', 'Java detector scans Minecraft launcher bundled runtimes', 'Forge/NeoForge install and launch support'] },
-  { version: '0.4.0', notes: ['Activity log, live panels, full Microsoft OAuth flow'] },
-  { version: '0.3.0', notes: ['Avatar/cover image picker, PixelScene previews'] },
-  { version: '0.1.0', notes: ['Core IPC, config service, and instance management'] },
+  { version: '0.6.0', notes: ['Java Manager — auto-download Temurin JRE from settings', 'Instance search bar and group tags', 'Drag-and-drop .jar onto instance card to install mod'] },
+  { version: '0.5.1', notes: ['Mod update checker with one-click Update All', 'Server list viewer with copy-IP', 'Instance export as ZIP, duplicate instance'] },
+  { version: '0.5.0', notes: ['Worlds browser with delete, Screenshots grid', 'Crash report viewer on non-zero MC exit', 'First-run onboarding flow'] },
 ]
 
 type ActivityEntry = { id: string; label: string; ts: number }
@@ -115,29 +121,67 @@ function PlayButton({ onClick, disabled = false, label = 'PLAY' }: { onClick?: (
   )
 }
 
-function InstanceCard({ instance, onLaunch, onEdit, onConsole, onMods, onOpenFolder, canLaunch, isRunning, hasLogs }: { instance: Instance; onLaunch: () => void; onEdit: () => void; onConsole: () => void; onMods: () => void; onOpenFolder: () => void; canLaunch: boolean; isRunning: boolean; hasLogs: boolean }) {
+function requiredJava(mcVersion: string): number {
+  const parts = mcVersion.split('.').map(Number)
+  const minor = parts[1] ?? 0
+  const patch = parts[2] ?? 0
+  if (minor >= 21 || (minor === 20 && patch >= 5)) return 21
+  if (minor >= 17) return 17
+  return 8
+}
+
+function InstanceCard({ instance, onLaunch, onEdit, onConsole, onMods, onOpenFolder, onServers, onDropJar, canLaunch, isRunning, hasLogs, updateCount, javaOk }: { instance: Instance; onLaunch: () => void; onEdit: () => void; onConsole: () => void; onMods: () => void; onOpenFolder: () => void; onServers: () => void; onDropJar: (path: string) => void; canLaunch: boolean; isRunning: boolean; hasLogs: boolean; updateCount: number; javaOk: boolean }) {
+  const [dragOver, setDragOver] = useState(false)
   const label = isRunning ? 'STOP' : instance.isInstalled ? 'PLAY' : 'INSTALL'
   return (
-    <div style={{
-      flex: '1 1 0',
-      minWidth: 0,
-      background: 'var(--surface)',
-      border: '1px solid var(--border-r)',
-      borderRadius: 'var(--radius)',
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-    }}>
+    <div
+      onDragOver={e => { e.preventDefault(); if ([...e.dataTransfer.items].some(i => i.kind === 'file')) setDragOver(true) }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={e => {
+        e.preventDefault()
+        setDragOver(false)
+        const file = e.dataTransfer.files[0]
+        if (file && (file as File & { path?: string }).path) {
+          onDropJar((file as File & { path: string }).path)
+        }
+      }}
+      style={{
+        width: 300,
+        flexShrink: 0,
+        outline: dragOver ? '2px solid var(--accent)' : 'none',
+        background: 'var(--surface)',
+        border: '1px solid var(--border-r)',
+        borderRadius: 'var(--radius)',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
       <div style={{ height: 160, position: 'relative', overflow: 'hidden' }}>
         {instance.iconPath
           ? <img src={instance.iconPath} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
           : <PixelScene name={loaderToScene(instance.modLoader)} style={{ width: '100%', height: '100%' }} />
         }
+        {dragOver && (
+          <div style={{ position:'absolute', inset:0, background:'rgba(79,184,232,.25)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2 }}>
+            <div style={{ fontFamily:"'VT323',monospace", fontSize:18, color:'#fff', letterSpacing:'.1em', background:'rgba(0,0,0,.6)', padding:'6px 16px', borderRadius:4 }}>DROP MOD</div>
+          </div>
+        )}
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0,
           background: 'linear-gradient(transparent, rgba(0,0,0,.6))',
           height: 60,
         }} />
+        {!javaOk && instance.isInstalled && (
+          <div style={{
+            position: 'absolute', top: 8, left: 8,
+            background: 'rgba(196,148,50,.9)',
+            borderRadius: 3, padding: '2px 7px',
+            fontFamily: "'VT323',monospace", fontSize: 12,
+            color: '#000', letterSpacing: '.06em',
+          }}>
+            ⚠ Java {requiredJava(instance.minecraftVersion)}
+          </div>
+        )}
         <div style={{
           position: 'absolute', top: 8, right: 8,
           background: 'rgba(0,0,0,.55)',
@@ -168,66 +212,84 @@ function InstanceCard({ instance, onLaunch, onEdit, onConsole, onMods, onOpenFol
             Sign in or create a profile to play.
           </div>
         )}
-        <div style={{ marginTop: 'auto', display: 'flex', gap: 8, paddingTop: 10 }}>
-          <PlayButton onClick={onLaunch} disabled={false} label={label} />
-          {(isRunning || hasLogs) && (
+        <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {/* Primary row: PLAY + CONSOLE */}
+          <div style={{ display: 'flex', gap: 6 }}>
+            <PlayButton onClick={onLaunch} disabled={false} label={label} />
+            {(isRunning || hasLogs) && (
+              <button
+                onClick={onConsole}
+                style={{
+                  fontFamily: "'VT323',monospace",
+                  fontSize: 14, letterSpacing: '.08em',
+                  color: isRunning ? 'var(--grass)' : 'var(--ink-3)',
+                  background: isRunning ? 'rgba(74,196,100,.1)' : 'var(--surface-2)',
+                  border: `1px solid ${isRunning ? 'rgba(74,196,100,.3)' : 'var(--border-r)'}`,
+                  borderRadius: 3, padding: '0 12px', height: 40, cursor: 'pointer',
+                }}
+              >
+                {isRunning ? 'CONSOLE' : 'LOG'}
+              </button>
+            )}
+          </div>
+          {/* Secondary row: MODS · SRV · Edit · Folder */}
+          <div style={{ display: 'flex', gap: 6 }}>
             <button
-              onClick={onConsole}
+              onClick={onMods}
               style={{
-                fontFamily: "'VT323',monospace",
-                fontSize: 14, letterSpacing: '.08em',
-                color: isRunning ? 'var(--grass)' : 'var(--ink-3)',
-                background: isRunning ? 'rgba(74,196,100,.1)' : 'var(--surface-2)',
-                border: `1px solid ${isRunning ? 'rgba(74,196,100,.3)' : 'var(--border-r)'}`,
-                borderRadius: 3,
-                padding: '0 10px',
-                height: 40,
-                cursor: 'pointer',
+                fontFamily: "'VT323',monospace", fontSize: 13, letterSpacing: '.06em',
+                color: 'var(--ink-2)', flex: 1,
+                background: 'var(--surface-2)', border: `1px solid ${updateCount > 0 ? 'var(--gold)' : 'var(--border-r)'}`,
+                borderRadius: 3, height: 32, cursor: 'pointer', position: 'relative',
               }}
             >
-              {isRunning ? 'CONSOLE' : 'LOG'}
+              MODS
+              {updateCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: -5, right: -5,
+                  background: 'var(--gold)', color: '#000',
+                  fontSize: 9, fontFamily: 'sans-serif', fontWeight: 700,
+                  borderRadius: 8, padding: '1px 4px', lineHeight: 1.4,
+                }}>
+                  {updateCount}
+                </span>
+              )}
             </button>
-          )}
-          <button
-            onClick={onMods}
-            style={{
-              fontFamily: "'VT323',monospace", fontSize: 14, letterSpacing: '.06em',
-              color: 'var(--ink-2)',
-              background: 'var(--surface-2)', border: '1px solid var(--border-r)',
-              borderRadius: 3, padding: '0 10px', height: 40, cursor: 'pointer',
-            }}
-          >
-            MODS
-          </button>
-          <button
-            onClick={onEdit}
-            style={{
-              fontSize: 12, fontWeight: 500,
-              color: 'var(--ink-3)',
-              background: 'var(--surface-2)',
-              border: '1px solid var(--border-r)',
-              borderRadius: 3,
-              padding: '0 14px',
-              height: 40,
-              cursor: 'pointer',
-            }}
-          >
-            Edit
-          </button>
-          <button
-            onClick={onOpenFolder}
-            title="Open instance folder"
-            style={{
-              width: 40, height: 40, flexShrink: 0,
-              background: 'var(--surface-2)',
-              border: '1px solid var(--border-r)',
-              borderRadius: 3, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 16,
-            }}
-          >
-            📁
-          </button>
+            <button
+              onClick={onServers}
+              style={{
+                fontFamily: "'VT323',monospace", fontSize: 13, letterSpacing: '.06em',
+                color: 'var(--ink-2)', flex: 1,
+                background: 'var(--surface-2)', border: '1px solid var(--border-r)',
+                borderRadius: 3, height: 32, cursor: 'pointer',
+              }}
+            >
+              SRV
+            </button>
+            <button
+              onClick={onEdit}
+              style={{
+                fontSize: 11, fontWeight: 600, color: 'var(--ink-3)', flex: 1,
+                background: 'var(--surface-2)', border: '1px solid var(--border-r)',
+                borderRadius: 3, height: 32, cursor: 'pointer',
+              }}
+            >
+              Edit
+            </button>
+            <button
+              onClick={onOpenFolder}
+              title="Open instance folder"
+              style={{
+                width: 32, height: 32, flexShrink: 0,
+                background: 'var(--surface-2)', border: '1px solid var(--border-r)',
+                borderRadius: 3, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 14,
+              }}
+            >
+              📁
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -270,6 +332,91 @@ function EmptyState({ onOpen }: { onOpen: () => void }) {
       </button>
     </div>
   )
+}
+
+function CrashReportModal({ instanceName, text, onClose, onOpenConsole }: { instanceName: string; text: string; onClose: () => void; onOpenConsole: () => void }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 210, background: 'rgba(0,0,0,.8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div style={{ width: '72vw', maxWidth: 860, height: '75vh', background: '#0d0d0d', border: '1px solid rgba(217,59,59,.6)', borderRadius: 'var(--radius)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid rgba(217,59,59,.3)', background: 'rgba(217,59,59,.08)', flexShrink: 0 }}>
+          <div>
+            <span style={{ fontFamily: "'VT323',monospace", fontSize: 18, color: '#ff6b6b', letterSpacing: '.1em' }}>MINECRAFT CRASHED</span>
+            <span style={{ fontSize: 12, color: 'var(--ink-4)', marginLeft: 12 }}>{instanceName}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onOpenConsole} style={{ height: 30, padding: '0 12px', fontSize: 11, fontWeight: 700, background: 'var(--surface-2)', color: 'var(--ink)', border: '1px solid var(--border-r)', borderRadius: 3, cursor: 'pointer' }}>View Console</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>✕</button>
+          </div>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px' }}>
+          <pre style={{ fontFamily: 'monospace', fontSize: 11, color: '#e8e8e8', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', lineHeight: 1.5 }}>{text}</pre>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function OnboardingModal({ step, onNext, onClose, onAddAccount, onNewInstance }: { step: number; onNext: () => void; onClose: () => void; onAddAccount: () => void; onNewInstance: () => void }) {
+  const steps = [
+    {
+      title: 'Welcome to Refract',
+      body: 'Your open-source Minecraft launcher. Manage instances, mods, and resource packs — all in one place.',
+      footer: (
+        <button onClick={onNext} style={primaryBtnStyle}>Get Started →</button>
+      ),
+    },
+    {
+      title: 'Step 1 — Add your profile',
+      body: 'Continue as Guest for offline play, or sign in with Microsoft to verify Java Edition ownership and unlock multiplayer.',
+      footer: (
+        <div style={{ display: 'flex', gap: 10 }}>
+          <Link to="/account" onClick={onAddAccount} style={{ ...primaryBtnStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>Go to Accounts</Link>
+          <button onClick={onNext} style={secondaryBtnStyle}>Skip for now →</button>
+        </div>
+      ),
+    },
+    {
+      title: 'Step 2 — Create your first instance',
+      body: 'An instance is a self-contained Minecraft installation. You can have multiple instances with different versions and mods side by side.',
+      footer: (
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onNewInstance} style={primaryBtnStyle}>New Instance</button>
+          <button onClick={onClose} style={secondaryBtnStyle}>Done</button>
+        </div>
+      ),
+    },
+  ]
+  const current = steps[step]
+  if (!current) return null
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 205, background: 'rgba(0,0,0,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 460, background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {steps.map((_, i) => (
+              <div key={i} style={{ width: 24, height: 4, borderRadius: 2, background: i <= step ? 'var(--accent)' : 'var(--surface-3)' }} />
+            ))}
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>✕</button>
+        </div>
+        <div style={{ padding: '28px 24px' }}>
+          <div style={{ fontFamily: "'VT323',monospace", fontSize: 22, color: 'var(--accent)', letterSpacing: '.06em', marginBottom: 14 }}>{current.title}</div>
+          <p style={{ fontSize: 13, color: 'var(--ink-3)', lineHeight: 1.6, margin: '0 0 24px' }}>{current.body}</p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>{current.footer}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const primaryBtnStyle: React.CSSProperties = {
+  height: 36, padding: '0 18px', background: 'var(--accent)', color: '#fff',
+  border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 700,
+  boxShadow: 'inset 0 -2px 0 var(--accent-lo)',
+}
+const secondaryBtnStyle: React.CSSProperties = {
+  height: 36, padding: '0 14px', background: 'var(--surface-2)', color: 'var(--ink)',
+  border: '1px solid var(--border-r)', borderRadius: 4, cursor: 'pointer', fontSize: 13, fontWeight: 600,
 }
 
 function ConsoleModal({ instanceName, lines, onClose }: { instanceName: string; lines: string[]; onClose: () => void }) {
@@ -333,8 +480,17 @@ function Library() {
   const [consoleLogs, setConsoleLogs] = useState<Map<string, string[]>>(new Map())
   const [consoleOpen, setConsoleOpen] = useState<string | null>(null)
   const [modsTarget, setModsTarget] = useState<Instance | null>(null)
+  const [serversTarget, setServersTarget] = useState<Instance | null>(null)
+  const [updateCounts, setUpdateCounts] = useState<Map<string, number>>(new Map())
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null)
+  const [javas, setJavas] = useState<import('@refract/core').JavaInstallation[]>([])
+  const [jarToast, setJarToast] = useState<string | null>(null)
   const [whatsNew, setWhatsNew] = useState<ChangelogEntry[]>(FALLBACK_WHATS_NEW)
   const [fileImport, setFileImport] = useState<{ importId: string; step: string; percent: number; name: string } | null>(null)
+  const [onboardingStep, setOnboardingStep] = useState<number | null>(null)
+  const [crashReport, setCrashReport] = useState<{ instanceId: string; text: string } | null>(null)
+  const [appConfig, setAppConfig] = useState<AppConfig | null>(null)
 
   const queryClient = useQueryClient()
   const { data: instances = [], isLoading } = useInstances()
@@ -353,18 +509,27 @@ function Library() {
   }, [])
 
   useEffect(() => {
+    api.config.get()
+      .then(cfg => {
+        setAppConfig(cfg)
+        if (!cfg.onboardingDone) setOnboardingStep(0)
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     api.activity.list()
       .then(setActivity)
       .catch(() => setActivity([]))
   }, [])
 
-  // Fetch latest changelog from GitHub
+  // Fetch releases from GitHub
   useEffect(() => {
-    fetch(CHANGELOG_URL)
-      .then(r => r.ok ? r.text() : Promise.reject())
-      .then(text => {
-        const parsed = parseChangelog(text)
-        if (parsed.length) setWhatsNew(parsed)
+    fetch(RELEASES_URL, { headers: { Accept: 'application/vnd.github+json' } })
+      .then(r => r.ok ? r.json() as Promise<GitHubRelease[]> : Promise.reject())
+      .then(releases => {
+        const entries = releasesToChangelog(releases)
+        if (entries.length) setWhatsNew(entries)
       })
       .catch(() => { /* keep fallback */ })
   }, [])
@@ -374,6 +539,33 @@ function Library() {
     const id = setInterval(() => setTick(t => t + 1), 60_000)
     return () => clearInterval(id)
   }, [])
+
+  // Load Java list once
+  useEffect(() => {
+    api.mc.java().then(setJavas).catch(() => setJavas([]))
+  }, [])
+
+  // Background mod update check whenever instances load
+  useEffect(() => {
+    if (instances.length === 0) return
+    for (const inst of instances) {
+      if (!inst.isInstalled) continue
+      api.modrinth.checkModUpdates(inst.id)
+        .then(updates => {
+          const count = updates.filter(u => u.hasUpdate).length
+          setUpdateCounts(prev => {
+            if ((prev.get(inst.id) ?? 0) === count) return prev
+            const next = new Map(prev); next.set(inst.id, count); return next
+          })
+        })
+        .catch(() => {})
+    }
+  }, [instances])
+
+  function dismissOnboarding() {
+    setOnboardingStep(null)
+    api.config.set('onboardingDone', true).catch(() => {})
+  }
 
   async function recordActivity(label: string): Promise<void> {
     try {
@@ -469,8 +661,19 @@ function Library() {
         setLaunchToast(`Minecraft crashed: ${error}`)
         setTimeout(() => setLaunchToast(null), 6000)
       } else if (typeof code === 'number' && code !== 0) {
-        setLaunchToast(`Minecraft exited with code ${code}. Check the Console for details.`)
-        setTimeout(() => setLaunchToast(null), 6000)
+        api.mc.crashReport(instanceId)
+          .then(text => {
+            if (text) {
+              setCrashReport({ instanceId, text })
+            } else {
+              setLaunchToast(`Minecraft exited with code ${code}. Check the Console for details.`)
+              setTimeout(() => setLaunchToast(null), 6000)
+            }
+          })
+          .catch(() => {
+            setLaunchToast(`Minecraft exited with code ${code}. Check the Console for details.`)
+            setTimeout(() => setLaunchToast(null), 6000)
+          })
       }
     })
     return () => { if (typeof unsub === 'function') unsub() }
@@ -490,14 +693,19 @@ function Library() {
     return () => { if (typeof unsub === 'function') unsub() }
   }, [])
 
+  const groups = [...new Set(instances.map(i => i.groupId).filter(Boolean) as string[])].sort()
+
   const tabInstances = (() => {
-    if (carouselTab === 'pinned') return instances.filter(i => i.pinned)
-    if (carouselTab === 'recent') return [...instances].sort((a, b) => {
+    let base = instances
+    if (searchQuery) base = base.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    if (selectedGroup) base = base.filter(i => i.groupId === selectedGroup)
+    if (carouselTab === 'pinned') return base.filter(i => i.pinned)
+    if (carouselTab === 'recent') return [...base].sort((a, b) => {
       const at = a.lastPlayed ?? a.createdAt
       const bt = b.lastPlayed ?? b.createdAt
       return bt.localeCompare(at)
     })
-    return instances
+    return base
   })()
   const visibleInstances = tabInstances.slice(carouselPage * 3, carouselPage * 3 + 3)
   const totalPages = Math.max(1, Math.ceil(tabInstances.length / 3))
@@ -522,6 +730,37 @@ function Library() {
 
       {/* Instance carousel */}
       <div>
+        {/* Search + group filter row */}
+        {instances.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setCarouselPage(0) }}
+              placeholder="Search instances…"
+              style={{
+                height: 28, padding: '0 10px', background: 'var(--bg)',
+                border: '1px solid var(--border-r)', borderRadius: 3,
+                color: 'var(--ink)', fontSize: 12, outline: 'none', width: 180,
+              }}
+            />
+            {groups.map(g => (
+              <button
+                key={g}
+                onClick={() => { setSelectedGroup(selectedGroup === g ? null : g); setCarouselPage(0) }}
+                style={{
+                  height: 28, padding: '0 10px', borderRadius: 3, fontSize: 11, fontWeight: 500, cursor: 'pointer',
+                  background: selectedGroup === g ? 'var(--accent-tint)' : 'var(--surface-2)',
+                  border: `1px solid ${selectedGroup === g ? 'var(--accent)' : 'var(--border-r)'}`,
+                  color: selectedGroup === g ? 'var(--ink)' : 'var(--ink-3)',
+                }}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Header row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -595,20 +834,36 @@ function Library() {
           </div>
         ) : (
           <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
-            {visibleInstances.map(inst => (
-              <InstanceCard
-                key={inst.id}
-                instance={inst}
-                onLaunch={() => handleLaunch(inst)}
-                onEdit={() => setEditTarget(inst)}
-                onConsole={() => setConsoleOpen(inst.id)}
-                onMods={() => setModsTarget(inst)}
-                onOpenFolder={() => api.instance.openFolder(inst.id)}
-                canLaunch={canLaunchMinecraft}
-                isRunning={runningIds.has(inst.id)}
-                hasLogs={(consoleLogs.get(inst.id)?.length ?? 0) > 0}
-              />
-            ))}
+            {visibleInstances.map(inst => {
+              const needed = requiredJava(inst.minecraftVersion)
+              const javaOk = javas.some(j => j.version >= needed)
+              return (
+                <InstanceCard
+                  key={inst.id}
+                  instance={inst}
+                  onLaunch={() => handleLaunch(inst)}
+                  onEdit={() => setEditTarget(inst)}
+                  onConsole={() => setConsoleOpen(inst.id)}
+                  onMods={() => setModsTarget(inst)}
+                  onOpenFolder={() => api.instance.openFolder(inst.id)}
+                  onServers={() => setServersTarget(inst)}
+                  onDropJar={async (path) => {
+                    try {
+                      await api.mods.installLocal(inst.id, path)
+                      setJarToast(`Mod installed to "${inst.name}"`)
+                    } catch (e) {
+                      setJarToast(`Install failed: ${e instanceof Error ? e.message : String(e)}`)
+                    }
+                    setTimeout(() => setJarToast(null), 3500)
+                  }}
+                  canLaunch={canLaunchMinecraft}
+                  isRunning={runningIds.has(inst.id)}
+                  hasLogs={(consoleLogs.get(inst.id)?.length ?? 0) > 0}
+                  updateCount={updateCounts.get(inst.id) ?? 0}
+                  javaOk={javaOk}
+                />
+              )
+            })}
           </div>
         )}
       </div>
@@ -620,7 +875,10 @@ function Library() {
           <Panel title="What's New">
             {whatsNew.slice(0, 4).map(item => (
               <div key={item.version} style={{ padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
-                <span style={{ fontFamily: "'VT323',monospace", fontSize: 13, color: 'var(--accent)', letterSpacing: '.06em' }}>v{item.version}</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                  <span style={{ fontFamily: "'VT323',monospace", fontSize: 13, color: 'var(--accent)', letterSpacing: '.06em' }}>v{item.version}</span>
+                  {item.date && <span style={{ fontSize: 10, color: 'var(--ink-4)' }}>{item.date}</span>}
+                </div>
                 <ul style={{ margin: '3px 0 0', paddingLeft: 14, listStyle: 'disc' }}>
                   {item.notes.slice(0, 3).map((n, i) => (
                     <li key={i} style={{ fontSize: 11, color: 'var(--ink-3)', lineHeight: 1.5 }}>{n}</li>
@@ -643,6 +901,24 @@ function Library() {
               </div>
             ))}
           </Panel>
+        </div>
+      )}
+
+      {/* Jar drop toast */}
+      {jarToast && (
+        <div style={{
+          position: 'fixed', bottom: 72, left: '50%', transform: 'translateX(-50%)',
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 18px',
+          background: 'var(--surface-2)',
+          border: '1px solid var(--border-r)',
+          borderRadius: 'var(--radius)',
+          boxShadow: '0 8px 24px rgba(0,0,0,.5)',
+          fontSize: 13, color: 'var(--ink)',
+          zIndex: 50,
+        }}>
+          <div style={{ width: 8, height: 8, background: 'var(--grass)', flexShrink: 0 }} />
+          {jarToast}
         </div>
       )}
 
@@ -699,6 +975,12 @@ function Library() {
             setTimeout(() => setLaunchToast(null), 4000)
           })
         }}
+        onDuplicate={async (id) => {
+          const inst = instances.find(i => i.id === id)
+          await api.instance.duplicate(id)
+          void queryClient.invalidateQueries({ queryKey: ['instances'] })
+          if (inst) void recordActivity(`Duplicated "${inst.name}"`)
+        }}
       />
 
       {installing && (
@@ -738,6 +1020,17 @@ function Library() {
         instance={modsTarget}
         open={modsTarget !== null}
         onOpenChange={(v) => { if (!v) setModsTarget(null) }}
+        onUpdateApplied={(instanceId) => {
+          api.modrinth.checkModUpdates(instanceId)
+            .then(updates => setUpdateCounts(prev => { const next = new Map(prev); next.set(instanceId, updates.filter(u => u.hasUpdate).length); return next }))
+            .catch(() => {})
+        }}
+      />
+
+      <ServersDialog
+        instance={serversTarget}
+        open={serversTarget !== null}
+        onOpenChange={(v) => { if (!v) setServersTarget(null) }}
       />
 
       {consoleOpen && (() => {
@@ -750,6 +1043,28 @@ function Library() {
           />
         )
       })()}
+
+      {crashReport && (() => {
+        const inst = instances.find(i => i.id === crashReport.instanceId)
+        return (
+          <CrashReportModal
+            instanceName={inst?.name ?? crashReport.instanceId}
+            text={crashReport.text}
+            onClose={() => setCrashReport(null)}
+            onOpenConsole={() => { setCrashReport(null); setConsoleOpen(crashReport.instanceId) }}
+          />
+        )
+      })()}
+
+      {onboardingStep !== null && (
+        <OnboardingModal
+          step={onboardingStep}
+          onNext={() => setOnboardingStep(s => s !== null ? Math.min(s + 1, 2) : null)}
+          onClose={dismissOnboarding}
+          onAddAccount={dismissOnboarding}
+          onNewInstance={() => { dismissOnboarding(); setCreateOpen(true) }}
+        />
+      )}
     </div>
   )
 }

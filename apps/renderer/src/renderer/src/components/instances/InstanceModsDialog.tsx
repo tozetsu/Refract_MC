@@ -11,15 +11,24 @@ type ContentEntry = {
   sizeKb: number
   iconDataUrl?: string
 }
+type WorldEntry = { name: string; lastModified: number; sizeKb: number }
+type ScreenshotEntry = { filename: string; sizeKb: number; timestamp: number; dataUrl: string | null }
+type ModUpdateEntry = {
+  filename: string; projectId: string; latestVersionId: string
+  latestVersionName: string; latestFilename: string; downloadUrl: string; hasUpdate: boolean
+}
 
-type TabFilter = 'all' | ContentType
+type TabFilter = 'all' | ContentType | 'worlds' | 'screenshots' | 'updates'
 
-const TABS: Array<{ id: TabFilter; label: string }> = [
+const CONTENT_TABS: Array<{ id: TabFilter; label: string }> = [
   { id: 'all',          label: 'All'            },
   { id: 'mod',          label: 'Mods'           },
   { id: 'resourcepack', label: 'Resource Packs' },
   { id: 'shader',       label: 'Shaders'        },
   { id: 'datapack',     label: 'Datapacks'      },
+  { id: 'worlds',       label: 'Worlds'         },
+  { id: 'screenshots',  label: 'Screenshots'    },
+  { id: 'updates',      label: 'Updates'        },
 ]
 
 const TYPE_COLOR: Record<ContentType, string> = {
@@ -35,20 +44,47 @@ const EMPTY_MSG: Record<TabFilter, string> = {
   resourcepack: 'NO RESOURCE PACKS',
   shader:       'NO SHADERS',
   datapack:     'NO DATAPACKS',
+  worlds:       'NO WORLDS YET',
+  screenshots:  'NO SCREENSHOTS YET',
+  updates:      'ALL MODS UP TO DATE',
 }
 
 interface Props {
   instance: Instance | null
   open: boolean
   onOpenChange: (v: boolean) => void
+  onUpdateApplied?: (instanceId: string) => void
 }
 
-export function InstanceModsDialog({ instance, open, onOpenChange }: Props) {
-  const [items, setItems]     = useState<ContentEntry[]>([])
-  const [tab, setTab]         = useState<TabFilter>('all')
-  const [loading, setLoading] = useState(false)
-  const [busy, setBusy]       = useState<Set<string>>(new Set())
-  const [error, setError]     = useState<string | null>(null)
+function formatDate(ts: number): string {
+  const d = new Date(ts)
+  const now = Date.now()
+  const diff = now - ts
+  const days = Math.floor(diff / 86400_000)
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  if (days < 7) return `${days} days ago`
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function formatSize(kb: number): string {
+  if (kb >= 1024 * 1024) return `${(kb / 1024 / 1024).toFixed(1)} GB`
+  if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`
+  return `${kb} KB`
+}
+
+export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateApplied }: Props) {
+  const [items, setItems]                = useState<ContentEntry[]>([])
+  const [worlds, setWorlds]              = useState<WorldEntry[]>([])
+  const [screenshots, setScreenshots]    = useState<ScreenshotEntry[]>([])
+  const [modUpdates, setModUpdates]      = useState<ModUpdateEntry[]>([])
+  const [tab, setTab]                    = useState<TabFilter>('all')
+  const [loading, setLoading]            = useState(false)
+  const [busy, setBusy]                  = useState<Set<string>>(new Set())
+  const [error, setError]                = useState<string | null>(null)
+  const [exporting, setExporting]        = useState(false)
+  const [exportMsg, setExportMsg]        = useState<string | null>(null)
+  const [updatingAll, setUpdatingAll]    = useState(false)
 
   const load = useCallback(async () => {
     if (!instance) return
@@ -64,20 +100,61 @@ export function InstanceModsDialog({ instance, open, onOpenChange }: Props) {
     }
   }, [instance])
 
+  const loadWorlds = useCallback(async () => {
+    if (!instance) return
+    setLoading(true)
+    setError(null)
+    try { setWorlds(await api.mc.worlds(instance.id)) }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    finally { setLoading(false) }
+  }, [instance])
+
+  const loadScreenshots = useCallback(async () => {
+    if (!instance) return
+    setLoading(true)
+    setError(null)
+    try { setScreenshots(await api.mc.screenshots(instance.id)) }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    finally { setLoading(false) }
+  }, [instance])
+
+  const loadUpdates = useCallback(async () => {
+    if (!instance) return
+    setLoading(true)
+    setError(null)
+    try { setModUpdates(await api.modrinth.checkModUpdates(instance.id)) }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    finally { setLoading(false) }
+  }, [instance])
+
   useEffect(() => {
-    if (open) { setItems([]); setTab('all'); load() }
+    if (!open) return
+    setItems([]); setWorlds([]); setScreenshots([]); setModUpdates([]); setTab('all'); setError(null)
+    load()
   }, [open, load])
+
+  useEffect(() => {
+    if (!open) return
+    if (tab === 'worlds') loadWorlds()
+    else if (tab === 'screenshots') loadScreenshots()
+    else if (tab === 'updates') loadUpdates()
+  }, [tab, open, loadWorlds, loadScreenshots, loadUpdates])
 
   if (!open || !instance) return null
 
-  const visible = tab === 'all' ? items : items.filter(it => it.type === tab)
+  const isContentTab = (tab !== 'worlds' && tab !== 'screenshots' && tab !== 'updates')
+  const visible = isContentTab ? (tab === 'all' ? items : items.filter(it => it.type === tab)) : []
+  const updatesAvailable = modUpdates.filter(u => u.hasUpdate)
 
-  const counts: Record<TabFilter, number> = {
+  const counts: Partial<Record<TabFilter, number>> = {
     all:          items.length,
     mod:          items.filter(i => i.type === 'mod').length,
     resourcepack: items.filter(i => i.type === 'resourcepack').length,
     shader:       items.filter(i => i.type === 'shader').length,
     datapack:     items.filter(i => i.type === 'datapack').length,
+    worlds:       worlds.length,
+    screenshots:  screenshots.length,
+    updates:      updatesAvailable.length,
   }
 
   async function handleToggle(entry: ContentEntry) {
@@ -102,6 +179,32 @@ export function InstanceModsDialog({ instance, open, onOpenChange }: Props) {
     }
   }
 
+  async function handleDeleteWorld(worldName: string) {
+    if (!instance) return
+    setBusy(prev => new Set([...prev, worldName]))
+    try {
+      await api.mc.deleteWorld(instance.id, worldName)
+      setWorlds(prev => prev.filter(w => w.name !== worldName))
+    } catch { /* ignore */ } finally {
+      setBusy(prev => { const n = new Set(prev); n.delete(worldName); return n })
+    }
+  }
+
+  async function handleExport() {
+    if (!instance || exporting) return
+    setExporting(true)
+    setExportMsg(null)
+    try {
+      const path = await api.instance.export(instance.id)
+      if (path) setExportMsg(`Exported to ${path}`)
+    } catch (e) {
+      setExportMsg(`Export failed: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setExporting(false)
+      setTimeout(() => setExportMsg(null), 5000)
+    }
+  }
+
   return (
     <div
       style={{
@@ -113,7 +216,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange }: Props) {
     >
       <div
         style={{
-          width: 580, maxHeight: '80vh',
+          width: 640, maxHeight: '85vh',
           background: 'var(--surface)',
           border: '1px solid var(--border-r)',
           borderRadius: 'var(--radius)',
@@ -139,7 +242,50 @@ export function InstanceModsDialog({ instance, open, onOpenChange }: Props) {
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <button
-              onClick={load}
+              onClick={handleExport}
+              disabled={exporting}
+              title="Export instance as ZIP"
+              style={{
+                fontSize: 11, color: 'var(--ink-3)',
+                background: 'var(--surface-2)', border: '1px solid var(--border-r)',
+                borderRadius: 3, padding: '3px 10px', cursor: exporting ? 'not-allowed' : 'pointer',
+                opacity: exporting ? .6 : 1,
+              }}
+            >
+              {exporting ? 'Exporting…' : 'Export ZIP'}
+            </button>
+            {tab === 'updates' && updatesAvailable.length > 0 && (
+              <button
+                onClick={async () => {
+                  if (!instance || updatingAll) return
+                  setUpdatingAll(true)
+                  try {
+                    await api.modrinth.applyModUpdates(
+                      instance.id,
+                      updatesAvailable.map(u => ({ filename: u.filename, downloadUrl: u.downloadUrl, newFilename: u.latestFilename }))
+                    )
+                    await loadUpdates()
+                    onUpdateApplied?.(instance.id)
+                  } catch { /* ignore */ } finally {
+                    setUpdatingAll(false)
+                  }
+                }}
+                disabled={updatingAll}
+                style={{
+                  fontSize: 11, color: '#fff',
+                  background: updatingAll ? 'var(--surface-3)' : 'var(--accent)',
+                  border: 'none',
+                  borderRadius: 3, padding: '3px 10px',
+                  cursor: updatingAll ? 'not-allowed' : 'pointer',
+                  opacity: updatingAll ? 0.6 : 1,
+                  fontWeight: 600,
+                }}
+              >
+                {updatingAll ? 'Updating…' : `Update All (${updatesAvailable.length})`}
+              </button>
+            )}
+            <button
+              onClick={tab === 'worlds' ? loadWorlds : tab === 'screenshots' ? loadScreenshots : tab === 'updates' ? loadUpdates : load}
               style={{
                 fontSize: 11, color: 'var(--ink-3)',
                 background: 'var(--surface-2)', border: '1px solid var(--border-r)',
@@ -163,8 +309,9 @@ export function InstanceModsDialog({ instance, open, onOpenChange }: Props) {
           borderBottom: '1px solid var(--border-r)',
           flexShrink: 0,
           background: 'var(--surface-2)',
+          flexWrap: 'wrap',
         }}>
-          {TABS.map(t => (
+          {CONTENT_TABS.map(t => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
@@ -178,7 +325,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange }: Props) {
               }}
             >
               {t.label}
-              {counts[t.id] > 0 && (
+              {(counts[t.id] ?? 0) > 0 && (
                 <span style={{
                   fontSize: 10, lineHeight: 1,
                   background: tab === t.id ? 'var(--accent)' : 'var(--surface-3)',
@@ -192,23 +339,56 @@ export function InstanceModsDialog({ instance, open, onOpenChange }: Props) {
           ))}
         </div>
 
+        {/* Export message */}
+        {exportMsg && (
+          <div style={{ padding: '6px 16px', fontSize: 11, color: exportMsg.startsWith('Export failed') ? 'var(--lava)' : 'var(--grass)', background: 'var(--bg)', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
+            {exportMsg}
+          </div>
+        )}
+
         {/* Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: tab === 'screenshots' ? 12 : '6px 0' }}>
           {loading ? (
-            <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>
-              Loading…
-            </div>
+            <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>Loading…</div>
           ) : error ? (
             <div style={{ padding: '20px 16px', color: 'var(--lava)', fontSize: 12 }}>{error}</div>
+          ) : tab === 'worlds' ? (
+            worlds.length === 0 ? (
+              <EmptyMsg msg={EMPTY_MSG.worlds} sub="Play Minecraft to create worlds." />
+            ) : worlds.map(w => (
+              <WorldRow
+                key={w.name}
+                world={w}
+                isBusy={busy.has(w.name)}
+                onDelete={() => handleDeleteWorld(w.name)}
+              />
+            ))
+          ) : tab === 'screenshots' ? (
+            screenshots.length === 0 ? (
+              <EmptyMsg msg={EMPTY_MSG.screenshots} sub="Screenshots taken in-game will appear here." />
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                {screenshots.map(s => (
+                  <ScreenshotThumb
+                    key={s.filename}
+                    shot={s}
+                    onClick={() => api.mc.openScreenshot(instance.id, s.filename).catch(() => {})}
+                  />
+                ))}
+              </div>
+            )
+          ) : tab === 'updates' ? (
+            modUpdates.length === 0 ? (
+              <EmptyMsg msg={EMPTY_MSG.updates} sub="Click Refresh to check for updates." />
+            ) : (
+              <>
+                {modUpdates.map(u => (
+                  <UpdateRow key={u.filename} entry={u} />
+                ))}
+              </>
+            )
           ) : visible.length === 0 ? (
-            <div style={{ padding: '40px 16px', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'VT323',monospace", fontSize: 16, color: 'var(--ink-4)', letterSpacing: '.08em', marginBottom: 6 }}>
-                {EMPTY_MSG[tab]}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--ink-4)' }}>
-                Install content from the Content Browser.
-              </div>
-            </div>
+            <EmptyMsg msg={EMPTY_MSG[tab]} sub="Install content from the Content Browser." />
           ) : visible.map(entry => (
             <ContentRow
               key={entry.filename}
@@ -220,6 +400,123 @@ export function InstanceModsDialog({ instance, open, onOpenChange }: Props) {
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+function EmptyMsg({ msg, sub }: { msg: string; sub: string }) {
+  return (
+    <div style={{ padding: '40px 16px', textAlign: 'center' }}>
+      <div style={{ fontFamily: "'VT323',monospace", fontSize: 16, color: 'var(--ink-4)', letterSpacing: '.08em', marginBottom: 6 }}>{msg}</div>
+      <div style={{ fontSize: 12, color: 'var(--ink-4)' }}>{sub}</div>
+    </div>
+  )
+}
+
+function WorldRow({ world, isBusy, onDelete }: { world: WorldEntry; isBusy: boolean; onDelete: () => void }) {
+  const [confirm, setConfirm] = useState(false)
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12, padding: '9px 16px',
+      borderBottom: '1px solid var(--line)', opacity: isBusy ? 0.5 : 1,
+    }}>
+      <div style={{ width: 36, height: 36, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
+        🌍
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{world.name}</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2, display: 'flex', gap: 10 }}>
+          <span>{formatDate(world.lastModified)}</span>
+          {world.sizeKb > 0 && <span>{formatSize(world.sizeKb)}</span>}
+        </div>
+      </div>
+      {confirm ? (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => { setConfirm(false); onDelete() }} disabled={isBusy} style={{ fontSize: 11, color: '#fff', background: 'var(--lava)', border: 'none', borderRadius: 3, padding: '3px 10px', cursor: 'pointer' }}>Delete</button>
+          <button onClick={() => setConfirm(false)} style={{ fontSize: 11, color: 'var(--ink-3)', background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 3, padding: '3px 10px', cursor: 'pointer' }}>Cancel</button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setConfirm(true)}
+          disabled={isBusy}
+          style={{ fontSize: 11, color: 'var(--ink-4)', background: 'none', border: '1px solid transparent', borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--lava)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--lava)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--ink-4)' }}
+        >
+          Delete
+        </button>
+      )}
+    </div>
+  )
+}
+
+function ScreenshotThumb({ shot, onClick }: { shot: ScreenshotEntry; onClick: () => void }) {
+  const [hover, setHover] = useState(false)
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        position: 'relative', borderRadius: 4, overflow: 'hidden', cursor: 'pointer',
+        border: `1px solid ${hover ? 'var(--accent)' : 'var(--border-r)'}`,
+        background: 'var(--surface-2)', aspectRatio: '16 / 9',
+        transition: 'border-color 120ms',
+      }}
+    >
+      {shot.dataUrl ? (
+        <img src={shot.dataUrl} alt={shot.filename} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      ) : (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📷</div>
+      )}
+      {hover && (
+        <div style={{
+          position: 'absolute', inset: 0, background: 'rgba(0,0,0,.55)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6,
+        }}>
+          <div style={{ fontSize: 10, color: '#fff', fontFamily: "'VT323',monospace", letterSpacing: '.06em' }}>OPEN</div>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,.6)', textAlign: 'center', lineHeight: 1.3, wordBreak: 'break-all' }}>{shot.sizeKb} KB</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function UpdateRow({ entry }: { entry: ModUpdateEntry }) {
+  const displayName = entry.filename.replace(/\.jar(\.disabled)?$/, '').replace(/-\d.*$/, '')
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '8px 14px',
+      borderBottom: '1px solid var(--line)',
+    }}>
+      <div style={{
+        width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+        background: entry.hasUpdate ? 'var(--gold)' : 'var(--grass)',
+      }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {displayName}
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 1 }}>
+          {entry.hasUpdate ? (
+            <span>Update available — <span style={{ color: 'var(--gold)', fontWeight: 600 }}>{entry.latestVersionName}</span></span>
+          ) : (
+            <span style={{ color: 'var(--grass)' }}>Up to date</span>
+          )}
+        </div>
+      </div>
+      {entry.hasUpdate && (
+        <div style={{
+          fontSize: 9, fontWeight: 700, letterSpacing: '.06em',
+          padding: '2px 7px', borderRadius: 3,
+          background: 'color-mix(in srgb, var(--gold) 20%, transparent)',
+          color: 'var(--gold)',
+          border: '1px solid var(--gold)',
+        }}>
+          UPDATE
+        </div>
+      )}
     </div>
   )
 }
@@ -372,7 +669,6 @@ function TypeIcon({ type, color }: { type: ContentType; color: string }) {
     return <div style={{ width: 14, height: 14, background: color, borderRadius: 2 }} />
   }
   if (type === 'resourcepack') {
-    // Simple image/texture icon
     return (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <rect x="2" y="2" width="12" height="12" rx="1" stroke={color} strokeWidth="1.5" fill="none" />
@@ -382,7 +678,6 @@ function TypeIcon({ type, color }: { type: ContentType; color: string }) {
     )
   }
   if (type === 'shader') {
-    // Sun/light icon
     return (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="3" fill={color} />
@@ -397,7 +692,6 @@ function TypeIcon({ type, color }: { type: ContentType; color: string }) {
       </svg>
     )
   }
-  // datapack — book icon
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
       <rect x="3" y="2" width="10" height="12" rx="1" stroke={color} strokeWidth="1.5" fill="none" />

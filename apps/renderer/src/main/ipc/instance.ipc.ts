@@ -7,10 +7,23 @@ import {
 } from '../services/instance-store'
 import type { CreateInstanceInput, Instance } from '@refract/core'
 import { handleIpc } from './handle'
-import { shell } from 'electron'
+import { shell, dialog } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync } from 'fs'
+import { existsSync, mkdirSync, cpSync } from 'fs'
+import { spawn } from 'child_process'
 import { resolveInstanceDir } from '../services/instance-store'
+
+function zipDirectory(src: string, dst: string): Promise<void> {
+  const psEscape = (s: string) => s.replace(/'/g, "''")
+  const cmd = `Compress-Archive -LiteralPath '${psEscape(src)}' -DestinationPath '${psEscape(dst)}' -Force`
+  return new Promise((resolve, reject) => {
+    const proc = spawn('powershell', ['-NoProfile', '-NonInteractive', '-Command', cmd], { windowsHide: true })
+    let stderr = ''
+    proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
+    proc.on('exit', (code) => { code === 0 ? resolve() : reject(new Error(`Export failed (code ${code}): ${stderr.slice(0, 300)}`)) })
+    proc.on('error', reject)
+  })
+}
 
 export function registerInstanceIpc(): void {
   handleIpc('instance.list', () => listInstances())
@@ -35,5 +48,49 @@ export function registerInstanceIpc(): void {
     const gameDir = join(resolveInstanceDir(String(id)), 'minecraft')
     if (!existsSync(gameDir)) mkdirSync(gameDir, { recursive: true })
     shell.openPath(gameDir)
+  })
+
+  handleIpc('instance.duplicate', (_event, id) => {
+    const src = getInstanceById(String(id))
+    if (!src) throw new Error(`Instance not found: ${id}`)
+    const srcDir = resolveInstanceDir(String(id))
+
+    const copy = createAndSaveInstance({
+      name: `${src.name} (copy)`,
+      minecraftVersion: src.minecraftVersion,
+      modLoader: src.modLoader,
+      modLoaderVersion: src.modLoaderVersion,
+      memoryMb: src.memoryMb,
+      iconPath: src.iconPath,
+      javaPath: src.javaPath,
+      javaArgs: src.javaArgs,
+      pinned: false,
+    })
+    const dstDir = resolveInstanceDir(copy.id)
+
+    const COPY_DIRS = ['mods', 'resourcepacks', 'shaderpacks', 'datapacks', 'config']
+    for (const dir of COPY_DIRS) {
+      const s = join(srcDir, 'minecraft', dir)
+      if (existsSync(s)) cpSync(s, join(dstDir, 'minecraft', dir), { recursive: true })
+    }
+
+    if (src.isInstalled) updateInstance(copy.id, { isInstalled: true, mods: src.mods ?? [] })
+
+    return getInstanceById(copy.id)
+  })
+
+  handleIpc('instance.export', async (_event, id) => {
+    const instanceDir = resolveInstanceDir(String(id))
+    if (!existsSync(instanceDir)) throw new Error('Instance folder not found.')
+    const instance = getInstanceById(String(id))
+    const safeName = (instance?.name ?? String(id)).replace(/[<>:"/\\|?*]+/g, '').trim() || 'instance'
+    const { filePath, canceled } = await dialog.showSaveDialog({
+      title: 'Export Instance',
+      defaultPath: `${safeName}.zip`,
+      filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
+    })
+    if (canceled || !filePath) return null
+    await zipDirectory(instanceDir, filePath)
+    return filePath
   })
 }

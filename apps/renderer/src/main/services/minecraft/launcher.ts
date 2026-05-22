@@ -9,7 +9,9 @@ import { getOrRefreshMinecraftToken } from '../auth'
 import type { VersionJson } from '@refract/core'
 import { buildLaunchCommand } from '@refract/core/launcher'
 import { detectJavaInstallations } from '@refract/core/java-manager'
+import { loadManagedJavas } from '../java-manager'
 import { versionJsonPath, clientJarPath, nativesDir } from './downloader'
+import { setGameActivity, clearGameActivity } from '../discord'
 
 const runningProcesses = new Map<string, ChildProcess>()
 
@@ -40,7 +42,13 @@ async function resolveJava(requiredMajor: number, instanceJavaPath?: string): Pr
     if (existsSync(exeUnix)) return { exe: exeUnix, version: requiredMajor }
   }
 
-  const installs = await detectJavaInstallations()
+  const [detected, managed] = await Promise.all([
+    detectJavaInstallations(),
+    Promise.resolve(loadManagedJavas()),
+  ])
+  const seen = new Set(detected.map(j => j.path))
+  const installs = [...detected, ...managed.filter(j => !seen.has(j.path))]
+    .sort((a, b) => b.version - a.version)
 
   // Prefer exact version match; never fall back to an incompatible version
   const match = installs.find(j => j.version >= requiredMajor)
@@ -117,7 +125,7 @@ export async function launchInstance(
     gameDir,
     clientJar: clientJarPath(instance.minecraftVersion),
     javaExe,
-    memoryMb: instance.memoryMb,
+    memoryMb: instance.memoryMb ?? getConfig().defaultMemoryMb ?? 2048,
     auth: {
       username: account.username,
       uuid: account.uuid,
@@ -144,8 +152,9 @@ export async function launchInstance(
 
   runningProcesses.set(instanceId, proc)
 
-  // Record last played
+  // Record last played + Discord presence
   instanceStore.updateInstance(instanceId, { lastPlayed: new Date().toISOString() })
+  void setGameActivity(instanceId, instance.name, instance.minecraftVersion, instance.modLoader)
 
   proc.stdout?.on('data', (data: Buffer) => {
     mainWindow.webContents.send('mc:log', { instanceId, line: data.toString(), stream: 'stdout' })
@@ -155,10 +164,12 @@ export async function launchInstance(
   })
   proc.on('exit', (code) => {
     runningProcesses.delete(instanceId)
+    void clearGameActivity(instanceId)
     mainWindow.webContents.send('mc:exit', { instanceId, code })
   })
   proc.on('error', (err) => {
     runningProcesses.delete(instanceId)
+    void clearGameActivity(instanceId)
     mainWindow.webContents.send('mc:exit', { instanceId, code: -1, error: err.message })
   })
 }
@@ -168,6 +179,7 @@ export function stopInstance(instanceId: string): void {
   if (proc) {
     proc.kill()
     runningProcesses.delete(instanceId)
+    void clearGameActivity(instanceId)
   }
 }
 

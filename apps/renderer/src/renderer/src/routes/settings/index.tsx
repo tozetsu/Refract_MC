@@ -36,8 +36,11 @@ function Settings() {
   const [toast, setToast] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [memoryMb, setMemoryMb] = useState<number>(2048)
+  const memorySaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [javas, setJavas] = useState<JavaInstallation[]>([])
   const [javaLoading, setJavaLoading] = useState(true)
+  const [javaDownloading, setJavaDownloading] = useState<Map<number, { step: string; percent: number }>>(new Map())
   const [logs, setLogs] = useState<Array<{ time: string; level: 'info' | 'warn' | 'error'; source: string; message: string }>>([])
   const [logsLoading, setLogsLoading] = useState(false)
   const logsEndRef = useRef<HTMLDivElement>(null)
@@ -63,8 +66,17 @@ function Settings() {
       api.auth.active(),
     ])
     setConfig(nextConfig)
+    setMemoryMb(nextConfig.defaultMemoryMb ?? 2048)
     setAccounts(nextAccounts)
     setActiveAccount(nextActive)
+  }
+
+  function handleMemoryChange(mb: number) {
+    setMemoryMb(mb)
+    if (memorySaveTimeout.current) clearTimeout(memorySaveTimeout.current)
+    memorySaveTimeout.current = setTimeout(() => {
+      api.config.set('defaultMemoryMb', mb).catch(() => {})
+    }, 400)
   }
 
   useEffect(() => {
@@ -76,6 +88,27 @@ function Settings() {
     try { setJavas(await api.mc.java()) } catch { setJavas([]) }
     finally { setJavaLoading(false) }
   }
+
+  async function downloadJava(major: number) {
+    if (javaDownloading.has(major)) return
+    setJavaDownloading(prev => new Map(prev).set(major, { step: 'Starting…', percent: 0 }))
+    try {
+      await api.java.download(major)
+      await scanJava()
+      showToast(`Java ${major} installed successfully.`)
+    } catch (e) {
+      showToast(`Java ${major} download failed: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setJavaDownloading(prev => { const n = new Map(prev); n.delete(major); return n })
+    }
+  }
+
+  useEffect(() => {
+    const unsub = api.java.onProgress(({ major, step, percent }) => {
+      setJavaDownloading(prev => new Map(prev).set(major, { step, percent }))
+    })
+    return () => unsub()
+  }, [])
 
   useEffect(() => { void scanJava() }, [])
   useEffect(() => { void loadLogs() }, [])
@@ -180,6 +213,21 @@ function Settings() {
                     Light
                   </SegmentButton>
                 </Segmented>
+              </Field>
+
+              <Field label="Default memory" note="RAM given to Minecraft. Individual instances can override this.">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <input
+                    type="range"
+                    min={512} max={16384} step={512}
+                    value={memoryMb}
+                    onChange={(e) => handleMemoryChange(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontFamily: "'VT323',monospace", fontSize: 18, color: 'var(--ink)', minWidth: 56, textAlign: 'right', lineHeight: 1 }}>
+                    {memoryMb >= 1024 ? `${memoryMb / 1024}GB` : `${memoryMb}MB`}
+                  </span>
+                </div>
               </Field>
 
               <Field label="Sidebar width" note="Adjusts the main navigation width.">
@@ -312,28 +360,38 @@ function Settings() {
                 </button>
               </div>
 
-              {!javaLoading && javas.length === 0 && (
-                <div style={{ padding:14, background:'rgba(217,59,59,.1)', border:'1px solid rgba(217,59,59,.35)', borderRadius:4 }}>
-                  <div style={{ color:'var(--redstone)', fontWeight:700, fontSize:13, marginBottom:6 }}>Java not found</div>
-                  <div style={{ color:'var(--ink-3)', fontSize:12, marginBottom:10, lineHeight:1.5 }}>
-                    Refract needs Java 21 to run modern Minecraft. Download Adoptium Temurin (free, open-source).
+              {/* Download needed Java versions */}
+              {([8, 17, 21] as const).map(major => {
+                const available = javas.some(j => j.version >= major && (major === 8 ? j.version < 17 : major === 17 ? j.version < 21 : true))
+                const downloading = javaDownloading.get(major)
+                if (available || (!downloading && javas.some(j => j.version === major))) return null
+                return (
+                  <div key={major} style={{ padding:'10px 12px', background:'rgba(255,255,255,.03)', border:'1px solid var(--border-r)', borderRadius:4 }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+                      <div>
+                        <div style={{ fontFamily:"'VT323',monospace", fontSize:14, color:'var(--ink)', letterSpacing:'.04em' }}>Java {major}</div>
+                        <div style={{ fontSize:11, color:'var(--ink-4)', marginTop:2 }}>{javaVersionLabel(major)}</div>
+                      </div>
+                      {downloading ? (
+                        <div style={{ fontSize:11, color:'var(--ink-3)', textAlign:'right', minWidth:100 }}>{downloading.step}</div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => downloadJava(major)}
+                          style={{ ...smallButtonStyle(false), background:'var(--accent)', color:'#fff', border:'none', fontSize:11 }}
+                        >
+                          Download
+                        </button>
+                      )}
+                    </div>
+                    {downloading && (
+                      <div style={{ marginTop:8, height:4, background:'var(--surface-3)', borderRadius:2, overflow:'hidden' }}>
+                        <div style={{ height:'100%', width:`${downloading.percent}%`, background:'var(--accent)', transition:'width 200ms linear', borderRadius:2 }} />
+                      </div>
+                    )}
                   </div>
-                  <a
-                    href="https://adoptium.net/temurin/releases/?version=21"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      display:'inline-flex', alignItems:'center', gap:6,
-                      height:32, padding:'0 14px',
-                      background:'var(--accent)', color:'#fff',
-                      borderRadius:3, textDecoration:'none', fontSize:12, fontWeight:700,
-                      boxShadow:'inset 0 -2px 0 var(--accent-lo)',
-                    }}
-                  >
-                    Download Temurin 21 ↗
-                  </a>
-                </div>
-              )}
+                )
+              })}
 
               {javas.map((j, i) => {
                 const label = javaVersionLabel(j.version)
@@ -356,7 +414,7 @@ function Settings() {
                       <span style={{ fontSize:11, color:'var(--ink-4)' }}>{j.vendor}</span>
                       {isTop && (
                         <span style={{ marginLeft:'auto', fontFamily:"'VT323',monospace", fontSize:12, letterSpacing:'.06em', color:'var(--diamond)' }}>
-                          RECOMMENDED
+                          BEST MATCH
                         </span>
                       )}
                     </div>

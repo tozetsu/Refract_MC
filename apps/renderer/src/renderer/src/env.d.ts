@@ -12,6 +12,8 @@ declare global {
           activeAccountId: string | null
           activeThemeId: string
           windowBounds: { width: number; height: number; x?: number; y?: number }
+          defaultMemoryMb: number
+          onboardingDone: boolean
           accounts: Array<{
             uuid: string
             username: string
@@ -118,6 +120,8 @@ declare global {
         update:     (id: string, patch: Partial<Instance>) => Promise<Instance>
         delete:     (id: string) => Promise<void>
         openFolder: (id: string) => Promise<void>
+        export:     (id: string) => Promise<string | null>
+        duplicate:  (id: string) => Promise<import('@refract/core').Instance | null>
       }
       window: {
         minimize: () => void
@@ -138,6 +142,8 @@ declare global {
         uninstall: (instanceId: string, projectId: string) => Promise<void>
         gameVersions: () => Promise<import('@refract/core').ModrinthGameVersion[]>
         contentInstall: (instanceId: string, projectId: string, projectName: string, contentType: string, versionId?: string) => Promise<void>
+        checkModUpdates: (instanceId: string) => Promise<Array<{ filename: string; projectId: string; latestVersionId: string; latestVersionName: string; latestFilename: string; downloadUrl: string; hasUpdate: boolean }>>
+        applyModUpdates: (instanceId: string, updates: Array<{ filename: string; downloadUrl: string; newFilename: string }>) => Promise<Array<{ filename: string; success: boolean; error?: string }>>
       }
       modpack: {
         install: (name: string, projectId: string, versionId?: string) => Promise<import('@refract/core').Instance>
@@ -147,9 +153,16 @@ declare global {
         onDone: (cb: (data: { projectId: string; instanceId?: string; error?: string }) => void) => () => void
       }
       mods: {
-        list:   (instanceId: string) => Promise<Array<{ filename: string; displayName: string; type: 'mod' | 'resourcepack' | 'shader' | 'datapack'; enabled: boolean; sizeKb: number; iconDataUrl?: string }>>
-        toggle: (instanceId: string, filename: string, type: string) => Promise<void>
-        delete: (instanceId: string, filename: string, type: string) => Promise<void>
+        list:         (instanceId: string) => Promise<Array<{ filename: string; displayName: string; type: 'mod' | 'resourcepack' | 'shader' | 'datapack'; enabled: boolean; sizeKb: number; iconDataUrl?: string }>>
+        toggle:       (instanceId: string, filename: string, type: string) => Promise<void>
+        delete:       (instanceId: string, filename: string, type: string) => Promise<void>
+        installLocal: (instanceId: string, srcPath: string) => Promise<string>
+      }
+      java: {
+        managedList: () => Promise<import('@refract/core').JavaInstallation[]>
+        requiredFor: (mcVersion: string) => Promise<number>
+        download:    (major: number) => Promise<import('@refract/core').JavaInstallation>
+        onProgress:  (cb: (data: { major: number; step: string; percent: number }) => void) => () => void
       }
       friends: {
         list:   () => Promise<Array<{ uuid: string; username: string; addedAt: number }>>
@@ -164,6 +177,12 @@ declare global {
         repair: (instanceId: string) => Promise<void>
         launch: (instanceId: string) => Promise<void>
         stop: (instanceId: string) => Promise<void>
+        crashReport: (instanceId: string) => Promise<string | null>
+        worlds: (instanceId: string) => Promise<Array<{ name: string; lastModified: number; sizeKb: number }>>
+        deleteWorld: (instanceId: string, worldName: string) => Promise<void>
+        screenshots: (instanceId: string) => Promise<Array<{ filename: string; sizeKb: number; timestamp: number; dataUrl: string | null }>>
+        openScreenshot: (instanceId: string, filename: string) => Promise<void>
+        servers: (instanceId: string) => Promise<Array<{ name: string; ip: string; icon?: string }>>
         onProgress: (cb: (data: { instanceId: string; step: string; current: number; total: number; percent: number }) => void) => () => void
         onLog: (cb: (data: { instanceId: string; line: string; stream: string }) => void) => () => void
         onExit: (cb: (data: { instanceId: string; code: number | null; error?: string }) => void) => () => void

@@ -34,6 +34,8 @@ export const api = {
     update:     (id: string, patch: unknown)                   => ipcRenderer.invoke('instance.update', id, patch),
     delete:     (id: string)                                   => ipcRenderer.invoke('instance.delete', id),
     openFolder: (id: string)                                   => ipcRenderer.invoke('instance.openFolder', id),
+    export:     (id: string): Promise<string | null>           => ipcRenderer.invoke('instance.export', id),
+    duplicate:  (id: string)                                   => ipcRenderer.invoke('instance.duplicate', id),
   },
   window: {
     minimize: (): void => ipcRenderer.send('window:minimize'),
@@ -65,6 +67,10 @@ export const api = {
       ipcRenderer.invoke('modrinth.gameVersions'),
     contentInstall: (instanceId: string, projectId: string, projectName: string, contentType: string, versionId?: string) =>
       ipcRenderer.invoke('modpack.content.install', instanceId, projectId, projectName, contentType, versionId),
+    checkModUpdates: (instanceId: string) =>
+      ipcRenderer.invoke('modrinth.checkModUpdates', instanceId),
+    applyModUpdates: (instanceId: string, updates: unknown[]) =>
+      ipcRenderer.invoke('modrinth.applyModUpdates', instanceId, updates),
   },
   modpack: {
     install: (name: string, projectId: string, versionId?: string): Promise<import('@refract/core').Instance> =>
@@ -85,14 +91,25 @@ export const api = {
     },
   },
   mods: {
-    list:   (instanceId: string) => ipcRenderer.invoke('mods.list', instanceId),
-    toggle: (instanceId: string, filename: string, type: string) => ipcRenderer.invoke('mods.toggle', instanceId, filename, type),
-    delete: (instanceId: string, filename: string, type: string) => ipcRenderer.invoke('mods.delete', instanceId, filename, type),
+    list:         (instanceId: string) => ipcRenderer.invoke('mods.list', instanceId),
+    toggle:       (instanceId: string, filename: string, type: string) => ipcRenderer.invoke('mods.toggle', instanceId, filename, type),
+    delete:       (instanceId: string, filename: string, type: string) => ipcRenderer.invoke('mods.delete', instanceId, filename, type),
+    installLocal: (instanceId: string, srcPath: string) => ipcRenderer.invoke('mods.installLocal', instanceId, srcPath),
   },
   friends: {
     list:   ()                    => ipcRenderer.invoke('friends.list'),
     add:    (username: string)    => ipcRenderer.invoke('friends.add', username),
     remove: (uuid: string)        => ipcRenderer.invoke('friends.remove', uuid),
+  },
+  java: {
+    managedList: (): Promise<import('@refract/core').JavaInstallation[]> => ipcRenderer.invoke('java.managedList'),
+    requiredFor: (mcVersion: string): Promise<number> => ipcRenderer.invoke('java.requiredFor', mcVersion),
+    download: (major: number): Promise<import('@refract/core').JavaInstallation> => ipcRenderer.invoke('java.download', major),
+    onProgress: (cb: (data: { major: number; step: string; percent: number }) => void) => {
+      const handler = (_e: IpcRendererEvent, data: Parameters<typeof cb>[0]) => cb(data)
+      ipcRenderer.on('java:progress', handler)
+      return () => ipcRenderer.off('java:progress', handler)
+    },
   },
   mc: {
     versions:  (): Promise<import('@refract/core').MinecraftVersion[]> => ipcRenderer.invoke('mc.versions'),
@@ -103,6 +120,12 @@ export const api = {
     repair:    (instanceId: string) => ipcRenderer.invoke('mc.repair', instanceId),
     launch:    (instanceId: string) => ipcRenderer.invoke('mc.launch', instanceId),
     stop:      (instanceId: string) => ipcRenderer.invoke('mc.stop', instanceId),
+    crashReport: (instanceId: string): Promise<string | null> => ipcRenderer.invoke('mc.crashReport', instanceId),
+    worlds:    (instanceId: string) => ipcRenderer.invoke('mc.worlds', instanceId),
+    deleteWorld: (instanceId: string, worldName: string) => ipcRenderer.invoke('mc.deleteWorld', instanceId, worldName),
+    screenshots: (instanceId: string) => ipcRenderer.invoke('mc.screenshots', instanceId),
+    openScreenshot: (instanceId: string, filename: string) => ipcRenderer.invoke('mc.openScreenshot', instanceId, filename),
+    servers:    (instanceId: string) => ipcRenderer.invoke('mc.servers', instanceId),
     onProgress: (cb: (data: { instanceId: string; step: string; current: number; total: number; percent: number }) => void) => {
       const handler = (_e: IpcRendererEvent, data: Parameters<typeof cb>[0]) => cb(data)
       ipcRenderer.on('mc:progress', handler)
