@@ -413,7 +413,7 @@ function ModDetailModal({ mod, onClose, onInstall }: {
             {loading ? (
               <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>Loading details…</div>
             ) : (
-              <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.75, margin: 0, whiteSpace: 'pre-wrap' }}>
+              <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.75, margin: 0, whiteSpace: 'pre-wrap' }}>
                 {bodyText}
               </p>
             )}
@@ -796,10 +796,10 @@ function ModTile({ mod, installing, installedInInstances, onInstall, onDetail }:
           style={{
             fontFamily: "'VT323',monospace", fontSize: 18, letterSpacing: '.08em',
             color: installing ? 'var(--ink-4)' : '#fff',
-            background: installing ? 'var(--surface-3)' : 'var(--accent)',
+            background: installing ? 'var(--surface-3)' : 'var(--ender)',
             border: 'none', cursor: installing ? 'not-allowed' : 'pointer',
-            padding: '0 22px', height: 36, borderRadius: 3, flexShrink: 0,
-            boxShadow: installing ? 'none' : 'inset 0 -2px 0 var(--accent-lo), inset 0 2px 0 var(--accent-hi)',
+            padding: '0 32px', height: 36, borderRadius: 3, flexShrink: 0,
+            boxShadow: installing ? 'none' : 'inset 0 -2px 0 rgba(0,0,0,.3), inset 0 2px 0 rgba(255,255,255,.1)',
           }}
         >
           {installing ? '…' : 'INSTALL'}
