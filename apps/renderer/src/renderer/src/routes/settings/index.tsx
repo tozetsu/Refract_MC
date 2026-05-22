@@ -523,22 +523,22 @@ function Settings() {
             </p>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               <button
-                onClick={() => window.open('https://discord.gg/refract')}
+                onClick={() => window.open('https://discord.gg/7Q5sGzhUQJ')}
                 style={{ height:30, padding:'0 14px', fontSize:12, fontWeight:600, background:'#5865F2', color:'#fff', border:'none', borderRadius:4, cursor:'pointer' }}
               >
-                💬 Join Discord ↗
+                Join Discord ↗
               </button>
               <button
                 onClick={() => window.open('https://github.com/ShevRuslan1/Refract_MC/issues')}
                 style={{ height:30, padding:'0 14px', fontSize:12, fontWeight:600, background:'var(--surface-3)', color:'var(--ink)', border:'1px solid var(--border-r)', borderRadius:4, cursor:'pointer' }}
               >
-                🐛 Report a Bug ↗
+                Report a Bug ↗
               </button>
               <button
                 onClick={() => window.open('https://github.com/ShevRuslan1/Refract_MC')}
                 style={{ height:30, padding:'0 14px', fontSize:12, fontWeight:600, background:'var(--surface-3)', color:'var(--ink)', border:'1px solid var(--border-r)', borderRadius:4, cursor:'pointer' }}
               >
-                ⭐ GitHub ↗
+                GitHub ↗
               </button>
             </div>
           </div>
