@@ -155,11 +155,22 @@ export async function launchInstance(
   runningProcesses.set(instanceId, proc)
 
   // Record last played + Discord presence
+  const launchTime = Date.now()
   instanceStore.updateInstance(instanceId, { lastPlayed: new Date().toISOString() })
   void setGameActivity(instanceId, instance.name, instance.minecraftVersion, instance.modLoader)
 
   function send(channel: string, payload: unknown) {
     if (!mainWindow.isDestroyed()) mainWindow.webContents.send(channel, payload)
+  }
+
+  function recordPlaytime() {
+    const elapsed = Math.floor((Date.now() - launchTime) / 1000)
+    if (elapsed > 0) {
+      const current = instanceStore.getInstanceById(instanceId)
+      instanceStore.updateInstance(instanceId, {
+        totalTimePlayed: (current?.totalTimePlayed ?? 0) + elapsed,
+      })
+    }
   }
 
   proc.stdout?.on('data', (data: Buffer) => {
@@ -170,11 +181,13 @@ export async function launchInstance(
   })
   proc.on('exit', (code) => {
     runningProcesses.delete(instanceId)
+    recordPlaytime()
     void clearGameActivity(instanceId)
     send('mc:exit', { instanceId, code })
   })
   proc.on('error', (err) => {
     runningProcesses.delete(instanceId)
+    recordPlaytime()
     void clearGameActivity(instanceId)
     send('mc:exit', { instanceId, code: -1, error: err.message })
   })

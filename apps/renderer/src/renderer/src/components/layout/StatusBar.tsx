@@ -44,7 +44,7 @@ export function StatusBar() {
 
       <div style={{ flex: 1 }} />
 
-      <span style={{ color: 'var(--ink-4)', fontSize: 13 }}>Refract v0.3.1-beta</span>
+      <span style={{ color: 'var(--ink-4)', fontSize: 13 }}>Refract v{__APP_VERSION__}</span>
     </footer>
   )
 }

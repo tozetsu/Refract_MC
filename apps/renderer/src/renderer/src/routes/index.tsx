@@ -122,6 +122,15 @@ function PlayButton({ onClick, disabled = false, label = 'PLAY' }: { onClick?: (
   )
 }
 
+function formatPlaytime(seconds: number): string {
+  if (seconds < 60) return '< 1 min'
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  if (h === 0) return `${m}m`
+  if (m === 0) return `${h}h`
+  return `${h}h ${m}m`
+}
+
 function requiredJava(mcVersion: string): number {
   const parts = mcVersion.split('.').map(Number)
   const minor = parts[1] ?? 0
@@ -201,8 +210,16 @@ function InstanceCard({ instance, onLaunch, onEdit, onConsole, onMods, onOpenFol
 
       <div style={{ padding: '12px 14px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.2 }}>{instance.name}</div>
-        <div style={{ fontFamily: "'VT323',monospace", fontSize: 14, color: 'var(--ink-4)', letterSpacing: '.04em' }}>
-          MC {instance.minecraftVersion}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+          <div style={{ fontFamily: "'VT323',monospace", fontSize: 14, color: 'var(--ink-4)', letterSpacing: '.04em' }}>
+            MC {instance.minecraftVersion}
+          </div>
+          {instance.totalTimePlayed > 0 && (
+            <div style={{ fontSize: 11, color: 'var(--ink-4)', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <span style={{ opacity: 0.5 }}>⏱</span>
+              {formatPlaytime(instance.totalTimePlayed)}
+            </div>
+          )}
         </div>
         {!instance.isInstalled && (
           <div style={{ fontSize: 11, color: 'var(--ink-4)', lineHeight: 1.35 }}>
@@ -314,13 +331,20 @@ function EmptyState({ onOpen }: { onOpen: () => void }) {
       borderRadius: 'var(--radius)',
       textAlign: 'center',
     }}>
-      <div style={{
-        width: 48, height: 48, margin: '0 auto 16px',
-        background: 'var(--surface-2)',
-        border: '1px solid var(--border-r)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <div style={{ width: 20, height: 20, background: 'var(--accent)', opacity: .5 }} />
+      <div style={{ width: 72, height: 72, margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#b48aff" aria-hidden="true">
+          <g stroke="#b48aff" strokeWidth="1.2" strokeLinejoin="miter">
+            <polygon points="3,14 12,10 21,14 12,18" fill="#b48aff" fillOpacity="0.35" />
+            <polygon points="3,10 12,6 21,10 12,14" fill="#b48aff" fillOpacity="0.55" />
+            <polygon points="3,6 12,2 21,6 12,10" fill="#b48aff" fillOpacity="0.85" />
+          </g>
+          <g stroke="#b48aff" strokeLinecap="round" strokeWidth="1" opacity="0.7">
+            <line x1="6" y1="20" x2="9" y2="20" />
+            <line x1="10.5" y1="20" x2="13.5" y2="20" />
+            <line x1="15" y1="20" x2="18" y2="20" />
+            <line x1="8" y1="22" x2="16" y2="22" opacity="0.5" />
+          </g>
+        </svg>
       </div>
       <p style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', margin: '0 0 6px' }}>{t.home.emptyTitle}</p>
       <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: '0 0 20px', maxWidth: 320, marginInline: 'auto' }}>
