@@ -1,6 +1,6 @@
 import { join } from 'path'
 import { BrowserWindow } from 'electron'
-import { existsSync, mkdirSync, writeFileSync, rmSync, readdirSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync, rmSync, readdirSync, chmodSync } from 'fs'
 import { spawn, spawnSync } from 'child_process'
 import { handleIpc } from './handle'
 import type { JavaInstallation } from '@refract/core'
@@ -24,12 +24,26 @@ function probeJavaExe(javaExe: string): JavaInstallation | null {
   } catch { return null }
 }
 
+const IS_WIN = process.platform === 'win32'
+
+function javaExeName() { return IS_WIN ? 'java.exe' : 'java' }
+
+function adoptiumOs(): string {
+  if (process.platform === 'win32') return 'windows'
+  if (process.platform === 'darwin') return 'mac'
+  return 'linux'
+}
+
+function adoptiumArch(): string {
+  return process.arch === 'arm64' ? 'aarch64' : 'x64'
+}
+
 function findJavaExeInDir(dir: string): string | null {
   if (!existsSync(dir)) return null
   try {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue
-      const exe = join(dir, entry.name, 'bin', 'java.exe')
+      const exe = join(dir, entry.name, 'bin', javaExeName())
       if (existsSync(exe)) return exe
     }
   } catch { /* ignore */ }
@@ -54,7 +68,7 @@ export function registerJavaIpc(): void {
     const majorNum = Number(major)
     emitJavaProgress(majorNum, 'Fetching release info…', 2)
 
-    const apiUrl = `https://api.adoptium.net/v3/assets/latest/${majorNum}/hotspot?os=windows&arch=x64&image_type=jre`
+    const apiUrl = `https://api.adoptium.net/v3/assets/latest/${majorNum}/hotspot?os=${adoptiumOs()}&arch=${adoptiumArch()}&image_type=jre`
     const metaRes = await fetch(apiUrl)
     if (!metaRes.ok) throw new Error(`Adoptium API error: HTTP ${metaRes.status}`)
 
@@ -99,20 +113,23 @@ export function registerJavaIpc(): void {
     mkdirSync(extractDir, { recursive: true })
 
     await new Promise<void>((resolve, reject) => {
-      const ps = spawn('powershell', [
-        '-NoProfile', '-NonInteractive', '-Command',
-        `Expand-Archive -LiteralPath "${zipPath}" -DestinationPath "${extractDir}" -Force`,
-      ])
-      ps.on('close', code => code === 0 ? resolve() : reject(new Error(`Extraction failed (exit ${code})`)))
-      ps.on('error', reject)
+      const proc = IS_WIN
+        ? spawn('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+            `Expand-Archive -LiteralPath "${zipPath}" -DestinationPath "${extractDir}" -Force`])
+        : spawn('tar', ['xzf', zipPath, '-C', extractDir, '--strip-components=1'])
+      proc.on('close', code => code === 0 ? resolve() : reject(new Error(`Extraction failed (exit ${code})`)))
+      proc.on('error', reject)
     })
 
     try { rmSync(zipPath) } catch { /* ignore */ }
 
     emitJavaProgress(majorNum, 'Verifying installation…', 94)
 
-    const javaExe = findJavaExeInDir(extractDir)
-    if (!javaExe) throw new Error('java.exe not found in extracted JRE')
+    // On Linux (--strip-components=1) the bin/ is directly in extractDir
+    const directExe = join(extractDir, 'bin', javaExeName())
+    const javaExe = existsSync(directExe) ? directExe : findJavaExeInDir(extractDir)
+    if (!javaExe) throw new Error(`${javaExeName()} not found in extracted JRE`)
+    if (!IS_WIN) { try { chmodSync(javaExe, 0o755) } catch { /* ignore */ } }
 
     const probed = probeJavaExe(javaExe)
     const installation: JavaInstallation = probed ?? {
