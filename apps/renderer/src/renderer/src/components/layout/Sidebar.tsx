@@ -1,8 +1,6 @@
 import { Link, useMatchRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState, useCallback, type ComponentType } from 'react'
 import { LibraryIcon, ModsIcon, ModpacksIcon, AccountIcon, CogIcon, SignOutIcon } from '../ui/BlockIcons'
-import { useAvatarStore } from '@/stores/avatar'
-import { compressImage } from '@/lib/image'
 import { api, type SafeAccount } from '@/lib/api'
 import { useT } from '@/i18n'
 import type { Instance } from '@refract/core'
@@ -57,13 +55,12 @@ function AvatarStatus({ account }: { account: SafeAccount | null }) {
 
 function AvatarBlock() {
   const [account, setAccount] = useState<SafeAccount | null>(null)
-  const [hover, setHover] = useState(false)
-  const avatars = useAvatarStore((s) => s.avatars)
-  const setAvatar = useAvatarStore((s) => s.setAvatar)
-  const removeAvatar = useAvatarStore((s) => s.removeAvatar)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [skinFailed, setSkinFailed] = useState(false)
+  const [skinFallback, setSkinFallback] = useState(false)
 
   useEffect(() => {
+    setSkinFailed(false)
+    setSkinFallback(false)
     api.auth.active().then(setAccount).catch(() => setAccount(null))
     const id = window.setInterval(() => {
       api.auth.active().then(setAccount).catch(() => setAccount(null))
@@ -71,64 +68,28 @@ function AvatarBlock() {
     return () => window.clearInterval(id)
   }, [])
 
-  async function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !account) return
-    try {
-      const dataUrl = await compressImage(file, 200)
-      setAvatar(account.uuid, dataUrl)
-    } catch { /* ignore */ }
-    e.target.value = ''
-  }
-
   async function signOut() {
     if (!account) return
-    try {
-      await api.auth.logout(account.uuid)
-      removeAvatar(account.uuid)
-      setAccount(null)
-    } catch { /* ignore */ }
+    try { await api.auth.logout(account.uuid); setAccount(null) } catch { /* ignore */ }
   }
 
-  const avatar = account ? avatars[account.uuid] : undefined
   const initial = account?.username[0]?.toUpperCase() ?? '?'
-
+  const hasSkin = !!account && account.type !== 'offline'
 
   return (
     <div style={{ display:'flex', alignItems:'center', gap:10, padding:'4px 6px 14px', borderBottom:'1px solid var(--sb-line)', marginBottom:10 }}>
-      <input ref={fileInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleImagePick} />
-
       {/* Avatar */}
-      <div
-        onClick={() => account && fileInputRef.current?.click()}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        style={{
-          width:38, height:38, flexShrink:0,
-          border:`1px solid ${hover && account ? 'var(--accent)' : '#000'}`,
-          position:'relative', overflow:'hidden',
-          background:'#1a1f2e', cursor: account ? 'pointer' : 'default',
-          transition:'border-color .14s',
-        }}
-      >
-        {avatar ? (
-          <img src={avatar} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+      <div style={{ width:38, height:38, flexShrink:0, border:'1px solid #000', position:'relative', overflow:'hidden', background:'#1a1f2e', imageRendering:'pixelated' }}>
+        {hasSkin && !skinFailed ? (
+          <img
+            src={skinFallback ? avatarUrl(account.uuid, true) : avatarUrl(account.uuid)}
+            alt={account.username}
+            style={{ width:'100%', height:'100%', objectFit:'cover', imageRendering:'pixelated' }}
+            onError={() => { if (!skinFallback) setSkinFallback(true); else setSkinFailed(true) }}
+          />
         ) : (
-          <div style={{
-            width:'100%', height:'100%',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontFamily:"'VT323',monospace", fontSize:20, color:'var(--ink-3)',
-          }}>
+          <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'VT323',monospace", fontSize:20, color:'var(--ink-3)' }}>
             {initial}
-          </div>
-        )}
-        {hover && account && (
-          <div style={{
-            position:'absolute', inset:0, background:'rgba(0,0,0,.55)',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontFamily:"'VT323',monospace", fontSize:11, letterSpacing:'.06em', color:'#fff',
-          }}>
-            ✎
           </div>
         )}
       </div>
@@ -143,13 +104,9 @@ function AvatarBlock() {
         </div>
       </div>
 
-      {/* Sign out icon */}
+      {/* Sign out */}
       {account && (
-        <button
-          onClick={signOut}
-          title="Sign out"
-          style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-4)', padding:4, display:'flex', opacity:.7 }}
-        >
+        <button onClick={signOut} title="Sign out" style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-4)', padding:4, display:'flex', opacity:.7 }}>
           <SignOutIcon />
         </button>
       )}
