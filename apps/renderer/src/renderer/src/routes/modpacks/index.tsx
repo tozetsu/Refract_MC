@@ -12,11 +12,11 @@ export const Route = createFileRoute('/modpacks/')({ component: ContentBrowser }
 
 type ContentTab = ModrinthProjectType & ('modpack' | 'resourcepack' | 'shader' | 'datapack')
 
-const TABS: Array<{ type: ContentTab; label: string; icon: string; showLoader: boolean }> = [
-  { type: 'modpack',     label: 'Modpacks',      icon: '📦', showLoader: true  },
-  { type: 'resourcepack',label: 'Resource Packs', icon: '🎨', showLoader: true  },
-  { type: 'shader',      label: 'Shaders',        icon: '✨', showLoader: false },
-  { type: 'datapack',    label: 'Data Packs',     icon: '📜', showLoader: false },
+const TABS: Array<{ type: ContentTab; label: string; showLoader: boolean }> = [
+  { type: 'modpack',     label: 'Modpacks',      showLoader: true  },
+  { type: 'resourcepack',label: 'Resource Packs', showLoader: true  },
+  { type: 'shader',      label: 'Shaders',        showLoader: false },
+  { type: 'datapack',    label: 'Data Packs',     showLoader: false },
 ]
 
 const SORT_OPTIONS: Array<{ label: string; value: ModrinthSortIndex }> = [
@@ -290,8 +290,7 @@ function ContentCard({ project, tab, onInstall, onDetail, installing }: {
             style={{ width: 64, height: 64, flexShrink: 0, imageRendering: 'pixelated', border: '1px solid var(--border-r)', borderRadius: 4 }}
           />
         ) : (
-          <div style={{ width: 64, height: 64, flexShrink: 0, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>
-            {tabInfo.icon}
+          <div style={{ width: 64, height: 64, flexShrink: 0, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 4 }}>
           </div>
         )}
 
@@ -410,9 +409,7 @@ function ContentDetailModal({ project, tab, onClose, onInstall }: {
           {project.icon_url ? (
             <img src={project.icon_url} alt="" style={{ width: 72, height: 72, flexShrink: 0, imageRendering: 'pixelated', border: '1px solid var(--border-r)', borderRadius: 6 }} />
           ) : (
-            <div style={{ width: 72, height: 72, flexShrink: 0, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32 }}>
-              {tabInfo.icon}
-            </div>
+            <div style={{ width: 72, height: 72, flexShrink: 0, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 6 }} />
           )}
 
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -994,7 +991,6 @@ function ContentBrowser() {
             border: 'none', borderRadius: 3, cursor: 'pointer',
             boxShadow: tab === tabItem.type ? 'inset 0 -2px 0 rgba(0,0,0,.3)' : 'none',
           }}>
-            <span style={{ fontSize: 16 }}>{tabItem.icon}</span>
             {tabLabels[tabItem.type as ContentTab].toUpperCase()}
           </button>
         ))}

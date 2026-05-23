@@ -888,7 +888,7 @@ function ModTile({ mod, installing, installedInInstances, onInstall, onDetail }:
             {mod.follows != null && <span>♥ {formatDownloads(mod.follows)}</span>}
           </div>
           <div style={{ fontSize: 11, color: 'var(--ink-4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {loaders.slice(0, 4).join(' · ') || 'universal'}
+            {loaders.slice(0, 4).join(' · ')}
           </div>
           {installedInInstances > 0 && (
             <div style={{ fontSize: 10, color: 'var(--grass)', border: '1px solid var(--grass)', borderRadius: 2, padding: '1px 5px', width: 'fit-content', opacity: 0.9 }}>

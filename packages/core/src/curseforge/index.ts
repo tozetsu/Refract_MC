@@ -100,6 +100,7 @@ export async function searchCurseForge(opts: CFSearchOptions): Promise<CFSearchR
   if (opts.modLoaderType != null) params.set('modLoaderType', String(opts.modLoaderType))
 
   const res = await fetch(`${BASE}/mods/search?${params}`, { headers: headers(opts.apiKey) })
+  if (res.status === 403) throw new Error('CurseForge API key is invalid or unauthorized. Check your key in Settings.')
   if (!res.ok) throw new Error(`CurseForge search failed: ${res.status}`)
   return res.json() as Promise<CFSearchResult>
 }
@@ -115,6 +116,7 @@ export async function getCurseForgeFiles(
   if (modLoaderType != null)    params.set('modLoaderType', String(modLoaderType))
 
   const res = await fetch(`${BASE}/mods/${modId}/files?${params}`, { headers: headers(apiKey) })
+  if (res.status === 403) throw new Error('CurseForge API key is invalid or unauthorized. Check your key in Settings.')
   if (!res.ok) throw new Error(`CurseForge files failed: ${res.status}`)
   const body = await res.json() as { data: CFFile[] }
   return body.data
@@ -122,6 +124,7 @@ export async function getCurseForgeFiles(
 
 export async function getCurseForgeDownloadUrl(modId: number, fileId: number, apiKey: string): Promise<string> {
   const res = await fetch(`${BASE}/mods/${modId}/files/${fileId}/download-url`, { headers: headers(apiKey) })
+  if (res.status === 403) throw new Error('CurseForge API key is invalid or unauthorized. Check your key in Settings.')
   if (!res.ok) throw new Error(`CurseForge download-url failed: ${res.status}`)
   const body = await res.json() as { data: string }
   return body.data
