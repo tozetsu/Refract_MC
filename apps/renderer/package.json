@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Refract Minecraft Launcher",
   "author": "ShevRuslan1",
-  "homepage": "https://github.com/ShevRuslan1/Refract_MC",
+  "homepage": "https://github.com/RefractMC/Refract_MC",
   "private": true,
   "main": "./out/main/index.js",
   "scripts": {

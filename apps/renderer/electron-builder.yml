@@ -34,5 +34,5 @@ linux:
   artifactName: ${productName}-${version}.${ext}
 publish:
   provider: github
-  owner: ShevRuslan1
+  owner: RefractMC
   repo: Refract_MC
