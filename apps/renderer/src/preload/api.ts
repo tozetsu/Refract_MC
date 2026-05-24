@@ -116,6 +116,7 @@ export const api = {
     managedList: (): Promise<import('@refract/core').JavaInstallation[]> => ipcRenderer.invoke('java.managedList'),
     requiredFor: (mcVersion: string): Promise<number> => ipcRenderer.invoke('java.requiredFor', mcVersion),
     download: (major: number): Promise<import('@refract/core').JavaInstallation> => ipcRenderer.invoke('java.download', major),
+    delete:   (major: number): Promise<void> => ipcRenderer.invoke('java.delete', major),
     onProgress: (cb: (data: { major: number; step: string; percent: number }) => void) => {
       const handler = (_e: IpcRendererEvent, data: Parameters<typeof cb>[0]) => cb(data)
       ipcRenderer.on('java:progress', handler)

@@ -34,6 +34,7 @@ function Settings() {
   const [memoryMb, setMemoryMb] = useState<number>(2048)
   const memorySaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [javas, setJavas] = useState<JavaInstallation[]>([])
+  const [managedJavas, setManagedJavas] = useState<JavaInstallation[]>([])
   const [javaLoading, setJavaLoading] = useState(true)
   const [javaDownloading, setJavaDownloading] = useState<Map<number, { step: string; percent: number }>>(new Map())
   const [logs, setLogs] = useState<Array<{ time: string; level: 'info' | 'warn' | 'error'; source: string; message: string }>>([])
@@ -81,8 +82,18 @@ function Settings() {
 
   async function scanJava() {
     setJavaLoading(true)
-    try { setJavas(await api.mc.java()) } catch { setJavas([]) }
+    try {
+      const [all, managed] = await Promise.all([api.mc.java(), api.java.managedList()])
+      setJavas(all)
+      setManagedJavas(managed)
+    } catch { setJavas([]); setManagedJavas([]) }
     finally { setJavaLoading(false) }
+  }
+
+  async function deleteJava(major: number) {
+    await api.java.delete(major)
+    await scanJava()
+    showToast(`Java ${major} removed.`)
   }
 
   async function downloadJava(major: number) {
@@ -433,6 +444,7 @@ function Settings() {
               {javas.map((j, i) => {
                 const label = t.settings.javaVersionLabel(j.version)
                 const isTop = i === 0
+                const isManaged = managedJavas.some(m => m.version === j.version)
                 return (
                   <div
                     key={j.path}
@@ -449,11 +461,27 @@ function Settings() {
                         Java {j.version}
                       </span>
                       <span style={{ fontSize:11, color:'var(--ink-4)' }}>{j.vendor}</span>
-                      {isTop && (
-                        <span style={{ marginLeft:'auto', fontFamily:"'VT323',monospace", fontSize:12, letterSpacing:'.06em', color:'var(--diamond)' }}>
-                          {t.settings.bestMatch}
+                      {isManaged && (
+                        <span style={{ fontSize:10, color:'var(--accent)', background:'rgba(83,22,212,.15)', border:'1px solid rgba(83,22,212,.3)', borderRadius:3, padding:'1px 5px' }}>
+                          managed
                         </span>
                       )}
+                      <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6 }}>
+                        {isTop && (
+                          <span style={{ fontFamily:"'VT323',monospace", fontSize:12, letterSpacing:'.06em', color:'var(--diamond)' }}>
+                            {t.settings.bestMatch}
+                          </span>
+                        )}
+                        {isManaged && (
+                          <button
+                            type="button"
+                            onClick={() => deleteJava(j.version)}
+                            style={{ fontSize:10, padding:'2px 7px', background:'transparent', border:'1px solid var(--border-r)', borderRadius:3, color:'var(--ink-4)', cursor:'pointer' }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div style={{ fontSize:11, color:'var(--ink-4)', lineHeight:1.3 }}>{label}</div>
                     <div style={{ fontSize:10, color:'var(--ink-4)', fontFamily:'monospace', opacity:.7, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>

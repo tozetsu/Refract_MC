@@ -164,6 +164,7 @@ declare global {
         managedList: () => Promise<import('@refract/core').JavaInstallation[]>
         requiredFor: (mcVersion: string) => Promise<number>
         download:    (major: number) => Promise<import('@refract/core').JavaInstallation>
+        delete:      (major: number) => Promise<void>
         onProgress:  (cb: (data: { major: number; step: string; percent: number }) => void) => () => void
       }
       friends: {

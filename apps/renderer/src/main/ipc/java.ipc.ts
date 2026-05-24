@@ -145,4 +145,11 @@ export function registerJavaIpc(): void {
     emitJavaProgress(majorNum, 'Done', 100)
     return installation
   })
+
+  handleIpc('java.delete', (_e, major: unknown) => {
+    const majorNum = Number(major)
+    const extractDir = join(getManagedJavaDir(), `jre-${majorNum}`)
+    if (existsSync(extractDir)) rmSync(extractDir, { recursive: true, force: true })
+    saveManagedJavas(loadManagedJavas().filter(j => j.version !== majorNum))
+  })
 }
