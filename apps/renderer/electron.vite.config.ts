@@ -20,6 +20,11 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({ exclude: workspaceExclude })],
     resolve: { alias: workspaceAlias },
+    build: {
+      rollupOptions: {
+        external: ['bufferutil', 'utf-8-validate'],
+      },
+    },
   },
   preload: {
     plugins: [externalizeDepsPlugin({ exclude: workspaceExclude })],
