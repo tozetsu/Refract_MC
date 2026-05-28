@@ -4,6 +4,7 @@ import { LibraryIcon, ModsIcon, ModpacksIcon, AccountIcon, CogIcon, SignOutIcon 
 import { api, type SafeAccount } from '@/lib/api'
 import { useT } from '@/i18n'
 import type { Instance } from '@refract/core'
+import discordIcon from '@/assets/discord-icon.webp'
 
 interface Friend {
   uuid: string
@@ -493,7 +494,7 @@ export function Sidebar() {
           onMouseEnter={e => { e.currentTarget.style.color = '#5865F2'; e.currentTarget.style.background = 'rgba(88,101,242,.1)' }}
           onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-2)'; e.currentTarget.style.background = 'none' }}
         >
-          <div style={{ width:18, height:18, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>💬</div>
+          <div style={{ width:18, height:18, display:'flex', alignItems:'center', justifyContent:'center' }}><img src={discordIcon} alt="Discord" style={{ width:16, height:16, objectFit:'contain', opacity:.75 }} /></div>
           <span>{t.nav.discord}</span>
         </button>
       </div>
