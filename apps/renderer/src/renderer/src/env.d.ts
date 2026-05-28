@@ -109,6 +109,16 @@ declare global {
           licenseStatus: 'verified' | 'guest'
         }>
         logout: (uuid: string) => Promise<void>
+        yggdrasilLogin: (serverUrl: string, username: string, password: string) => Promise<{
+          uuid: string
+          username: string
+          type: 'microsoft' | 'offline' | 'yggdrasil'
+          expiresAt?: number
+          yggdrasilServer?: string
+          canManageContent: boolean
+          canPlayMinecraft: boolean
+          licenseStatus: 'verified' | 'guest'
+        }>
       }
       theme: {
         list:    () => Promise<import('@/lib/theme-types').ThemeDefinition[]>

@@ -18,7 +18,8 @@ type ModUpdateEntry = {
   latestVersionName: string; latestFilename: string; downloadUrl: string; hasUpdate: boolean
 }
 
-type TabFilter = 'all' | ContentType | 'worlds' | 'screenshots' | 'updates'
+type TabFilter = 'all' | ContentType | 'worlds' | 'screenshots' | 'updates' | 'servers'
+type ServerEntry = { name: string; ip: string; icon?: string }
 
 const CONTENT_TABS: Array<{ id: TabFilter; label: string }> = [
   { id: 'all',          label: 'All'            },
@@ -28,6 +29,7 @@ const CONTENT_TABS: Array<{ id: TabFilter; label: string }> = [
   { id: 'datapack',     label: 'Datapacks'      },
   { id: 'worlds',       label: 'Worlds'         },
   { id: 'screenshots',  label: 'Screenshots'    },
+  { id: 'servers',      label: 'Servers'        },
   { id: 'updates',      label: 'Updates'        },
 ]
 
@@ -46,6 +48,7 @@ const EMPTY_MSG: Record<TabFilter, string> = {
   datapack:     'NO DATAPACKS',
   worlds:       'NO WORLDS YET',
   screenshots:  'NO SCREENSHOTS YET',
+  servers:      'NO SERVERS SAVED',
   updates:      'ALL MODS UP TO DATE',
 }
 
@@ -54,6 +57,9 @@ interface Props {
   open: boolean
   onOpenChange: (v: boolean) => void
   onUpdateApplied?: (instanceId: string) => void
+  onLaunch?: () => void
+  isRunning?: boolean
+  onEdit?: () => void
 }
 
 function formatDate(ts: number): string {
@@ -73,11 +79,12 @@ function formatSize(kb: number): string {
   return `${kb} KB`
 }
 
-export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateApplied }: Props) {
+export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateApplied, onLaunch, isRunning, onEdit }: Props) {
   const [items, setItems]                = useState<ContentEntry[]>([])
   const [worlds, setWorlds]              = useState<WorldEntry[]>([])
   const [screenshots, setScreenshots]    = useState<ScreenshotEntry[]>([])
   const [modUpdates, setModUpdates]      = useState<ModUpdateEntry[]>([])
+  const [servers, setServers]            = useState<ServerEntry[]>([])
   const [tab, setTab]                    = useState<TabFilter>('all')
   const [loading, setLoading]            = useState(false)
   const [busy, setBusy]                  = useState<Set<string>>(new Set())
@@ -127,9 +134,18 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
     finally { setLoading(false) }
   }, [instance])
 
+  const loadServers = useCallback(async () => {
+    if (!instance) return
+    setLoading(true)
+    setError(null)
+    try { setServers(await api.mc.servers(instance.id) as ServerEntry[]) }
+    catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    finally { setLoading(false) }
+  }, [instance])
+
   useEffect(() => {
     if (!open) return
-    setItems([]); setWorlds([]); setScreenshots([]); setModUpdates([]); setTab('all'); setError(null)
+    setItems([]); setWorlds([]); setScreenshots([]); setModUpdates([]); setServers([]); setTab('all'); setError(null)
     load()
   }, [open, load])
 
@@ -138,11 +154,12 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
     if (tab === 'worlds') loadWorlds()
     else if (tab === 'screenshots') loadScreenshots()
     else if (tab === 'updates') loadUpdates()
-  }, [tab, open, loadWorlds, loadScreenshots, loadUpdates])
+    else if (tab === 'servers') loadServers()
+  }, [tab, open, loadWorlds, loadScreenshots, loadUpdates, loadServers])
 
   if (!open || !instance) return null
 
-  const isContentTab = (tab !== 'worlds' && tab !== 'screenshots' && tab !== 'updates')
+  const isContentTab = (tab !== 'worlds' && tab !== 'screenshots' && tab !== 'updates' && tab !== 'servers')
   const visible = isContentTab ? (tab === 'all' ? items : items.filter(it => it.type === tab)) : []
   const updatesAvailable = modUpdates.filter(u => u.hasUpdate)
 
@@ -154,6 +171,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
     datapack:     items.filter(i => i.type === 'datapack').length,
     worlds:       worlds.length,
     screenshots:  screenshots.length,
+    servers:      servers.length,
     updates:      updatesAvailable.length,
   }
 
@@ -216,7 +234,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
     >
       <div
         style={{
-          width: 640, maxHeight: '85vh',
+          width: 860, maxHeight: '88vh',
           background: 'var(--surface)',
           border: '1px solid var(--border-r)',
           borderRadius: 'var(--radius)',
@@ -227,27 +245,69 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
       >
         {/* Header */}
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 16px',
+          display: 'flex', alignItems: 'center', gap: 14,
+          padding: '14px 16px',
           borderBottom: '1px solid var(--border-r)',
           flexShrink: 0,
+          background: 'var(--surface-2)',
         }}>
-          <div>
-            <div style={{ fontFamily: "'VT323',monospace", fontSize: 17, color: 'var(--ink)', letterSpacing: '.08em' }}>
-              CONTENT — {instance.name}
+          {/* Instance icon */}
+          <div style={{
+            width: 56, height: 56, borderRadius: 6, overflow: 'hidden', flexShrink: 0,
+            border: '1px solid var(--border-r)', background: 'var(--bg)',
+          }}>
+            {instance.iconPath
+              ? <img src={instance.iconPath} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: 'var(--accent)' }}>⬡</div>
+            }
+          </div>
+
+          {/* Instance info */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {instance.name}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>
-              MC {instance.minecraftVersion} · {instance.modLoader?.toUpperCase() ?? 'VANILLA'} · {items.length} item{items.length !== 1 ? 's' : ''}
+            <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: "'VT323',monospace", fontSize: 13, letterSpacing: '.06em' }}>MC {instance.minecraftVersion}</span>
+              <span style={{ color: 'var(--border-r)' }}>·</span>
+              <span style={{ fontFamily: "'VT323',monospace", fontSize: 13, letterSpacing: '.06em', color: 'var(--accent)' }}>{instance.modLoader?.toUpperCase() ?? 'VANILLA'}</span>
+              <span style={{ color: 'var(--border-r)' }}>·</span>
+              <span>{items.length} mod{items.length !== 1 ? 's' : ''}</span>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+            {onLaunch && (
+              <button
+                onClick={() => { onLaunch(); onOpenChange(false) }}
+                style={{
+                  height: 36, padding: '0 18px',
+                  background: isRunning ? 'rgba(217,59,59,.15)' : 'var(--accent)',
+                  color: isRunning ? 'var(--lava)' : '#fff',
+                  border: isRunning ? '1px solid rgba(217,59,59,.4)' : 'none',
+                  borderRadius: 3, cursor: 'pointer',
+                  fontFamily: "'VT323',monospace", fontSize: 15, letterSpacing: '.1em', fontWeight: 700,
+                }}
+              >
+                {isRunning ? '■ STOP' : '▶ PLAY'}
+              </button>
+            )}
+            {onEdit && (
+              <button
+                onClick={() => { onEdit(); onOpenChange(false) }}
+                style={{ height: 36, padding: '0 12px', background: 'var(--surface-3)', color: 'var(--ink-2)', border: '1px solid var(--border-r)', borderRadius: 3, cursor: 'pointer', fontSize: 12 }}
+              >
+                Edit
+              </button>
+            )}
             <button
               onClick={handleExport}
               disabled={exporting}
               title="Export instance as ZIP"
               style={{
                 fontSize: 11, color: 'var(--ink-3)',
-                background: 'var(--surface-2)', border: '1px solid var(--border-r)',
+                background: 'var(--surface-3)', border: '1px solid var(--border-r)',
                 borderRadius: 3, padding: '3px 10px', cursor: exporting ? 'not-allowed' : 'pointer',
                 opacity: exporting ? .6 : 1,
               }}
@@ -285,10 +345,10 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
               </button>
             )}
             <button
-              onClick={tab === 'worlds' ? loadWorlds : tab === 'screenshots' ? loadScreenshots : tab === 'updates' ? loadUpdates : load}
+              onClick={tab === 'worlds' ? loadWorlds : tab === 'screenshots' ? loadScreenshots : tab === 'updates' ? loadUpdates : tab === 'servers' ? loadServers : load}
               style={{
                 fontSize: 11, color: 'var(--ink-3)',
-                background: 'var(--surface-2)', border: '1px solid var(--border-r)',
+                background: 'var(--surface-3)', border: '1px solid var(--border-r)',
                 borderRadius: 3, padding: '3px 10px', cursor: 'pointer',
               }}
             >
@@ -377,6 +437,12 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                 ))}
               </div>
             )
+          ) : tab === 'servers' ? (
+            servers.length === 0 ? (
+              <EmptyMsg msg={EMPTY_MSG.servers} sub="Add servers in Minecraft's multiplayer menu." />
+            ) : servers.map(s => (
+              <ServerRow key={s.ip} server={s} />
+            ))
           ) : tab === 'updates' ? (
             modUpdates.length === 0 ? (
               <EmptyMsg msg={EMPTY_MSG.updates} sub="Click Refresh to check for updates." />
@@ -400,6 +466,32 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+function ServerRow({ server }: { server: ServerEntry }) {
+  const [copied, setCopied] = useState(false)
+  function copy() {
+    navigator.clipboard.writeText(server.ip).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 16px', borderBottom: '1px solid var(--line)' }}>
+      <div style={{ width: 36, height: 36, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18, overflow: 'hidden' }}>
+        {server.icon ? <img src={`data:image/png;base64,${server.icon}`} alt="" style={{ width: '100%', height: '100%', imageRendering: 'pixelated' }} /> : '🖥'}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{server.name || 'Unknown Server'}</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{server.ip}</div>
+      </div>
+      <button
+        onClick={copy}
+        style={{ fontSize: 11, color: copied ? 'var(--grass)' : 'var(--ink-3)', background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 3, padding: '3px 10px', cursor: 'pointer' }}
+      >
+        {copied ? 'Copied!' : 'Copy IP'}
+      </button>
     </div>
   )
 }

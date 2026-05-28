@@ -141,6 +141,7 @@ function requiredJava(mcVersion: string): number {
 function InstanceCard({ instance, onLaunch, onEdit, onConsole, onMods, onOpenFolder, onServers, onDropJar, blockReason, isRunning, hasLogs, updateCount, javaOk }: { instance: Instance; onLaunch: () => void; onEdit: () => void; onConsole: () => void; onMods: () => void; onOpenFolder: () => void; onServers: () => void; onDropJar: (path: string) => void; blockReason: 'no-profile' | 'no-license' | null; isRunning: boolean; hasLogs: boolean; updateCount: number; javaOk: boolean }) {
   const t = useT()
   const [dragOver, setDragOver] = useState(false)
+  const [bannerHover, setBannerHover] = useState(false)
   const label = isRunning ? t.home.stop : instance.isInstalled ? t.home.play : t.home.install
   return (
     <div
@@ -165,11 +166,21 @@ function InstanceCard({ instance, onLaunch, onEdit, onConsole, onMods, onOpenFol
         display: 'flex',
         flexDirection: 'column',
       }}>
-      <div style={{ height: 160, position: 'relative', overflow: 'hidden' }}>
+      <div
+        onClick={onMods}
+        onMouseEnter={() => setBannerHover(true)}
+        onMouseLeave={() => setBannerHover(false)}
+        style={{ height: 160, position: 'relative', overflow: 'hidden', cursor: 'pointer' }}
+      >
         {instance.iconPath
           ? <img src={instance.iconPath} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
           : <PixelScene name={loaderToScene(instance.modLoader)} style={{ width: '100%', height: '100%' }} />
         }
+        {bannerHover && !dragOver && (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
+            <div style={{ fontFamily: "'VT323',monospace", fontSize: 15, color: '#fff', letterSpacing: '.12em', background: 'rgba(0,0,0,.5)', padding: '5px 14px', borderRadius: 3 }}>VIEW DETAILS</div>
+          </div>
+        )}
         {dragOver && (
           <div style={{ position:'absolute', inset:0, background:'rgba(79,184,232,.25)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2 }}>
             <div style={{ fontFamily:"'VT323',monospace", fontSize:18, color:'#fff', letterSpacing:'.1em', background:'rgba(0,0,0,.6)', padding:'6px 16px', borderRadius:4 }}>{t.home.dropMod}</div>
@@ -816,12 +827,12 @@ function Library() {
 
   const applyFilters = (base: Instance[]) => {
     if (searchQuery) base = base.filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    if (filterLoader) base = base.filter(i => (i.loader ?? 'vanilla') === filterLoader)
-    if (filterVersion) base = base.filter(i => i.mcVersion === filterVersion)
+    if (filterLoader) base = base.filter(i => (i.modLoader ?? 'vanilla') === filterLoader)
+    if (filterVersion) base = base.filter(i => i.minecraftVersion === filterVersion)
     return base
   }
 
-  const allVersions = [...new Set(instances.map(i => i.mcVersion).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+  const allVersions = [...new Set(instances.map(i => i.minecraftVersion).filter(Boolean))].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
 
   const tabInstances = (() => {
     let base = applyFilters(instances)
@@ -1287,6 +1298,9 @@ function Library() {
             .then(updates => setUpdateCounts(prev => { const next = new Map(prev); next.set(instanceId, updates.filter(u => u.hasUpdate).length); return next }))
             .catch(() => {})
         }}
+        onLaunch={modsTarget ? () => handleLaunch(modsTarget) : undefined}
+        isRunning={modsTarget ? runningIds.has(modsTarget.id) : false}
+        onEdit={modsTarget ? () => setEditTarget(modsTarget) : undefined}
       />
 
       <ServersDialog
