@@ -1,10 +1,28 @@
 import { join, basename } from 'path'
-import { readdirSync, renameSync, rmSync, statSync, existsSync, readFileSync, openSync, readSync, fstatSync, closeSync, mkdirSync, copyFileSync } from 'fs'
+import { readdirSync, renameSync, rmSync, statSync, existsSync, readFileSync, writeFileSync, openSync, readSync, fstatSync, closeSync, mkdirSync, copyFileSync } from 'fs'
 import { inflateRawSync } from 'zlib'
+import { randomUUID } from 'crypto'
 import { handleIpc } from './handle'
 import { resolveInstanceDir } from '../services/instance-store'
 
 export type ContentType = 'mod' | 'resourcepack' | 'shader' | 'datapack'
+
+interface ModProfile { id: string; name: string; enabledFiles: string[] }
+interface ProfilesFile { profiles: ModProfile[] }
+
+function profilesPath(instanceId: string): string {
+  return join(resolveInstanceDir(instanceId), 'mod-profiles.json')
+}
+function readProfiles(instanceId: string): ModProfile[] {
+  try {
+    const p = profilesPath(instanceId)
+    if (!existsSync(p)) return []
+    return (JSON.parse(readFileSync(p, 'utf-8')) as ProfilesFile).profiles ?? []
+  } catch { return [] }
+}
+function writeProfiles(instanceId: string, profiles: ModProfile[]): void {
+  writeFileSync(profilesPath(instanceId), JSON.stringify({ profiles }, null, 2), 'utf-8')
+}
 
 export interface ContentEntry {
   filename: string
@@ -208,5 +226,50 @@ export function registerModsIpc(): void {
     } else {
       rmSync(src)
     }
+  })
+
+  handleIpc('mods.profiles.list', (_e, instanceId) =>
+    readProfiles(String(instanceId))
+  )
+
+  handleIpc('mods.profiles.save', (_e, instanceId, name, enabledFiles) => {
+    const id = String(instanceId)
+    const profile: ModProfile = { id: randomUUID(), name: String(name), enabledFiles: enabledFiles as string[] }
+    writeProfiles(id, [...readProfiles(id), profile])
+    return profile
+  })
+
+  handleIpc('mods.profiles.apply', (_e, instanceId, profileId) => {
+    const id = String(instanceId)
+    const profile = readProfiles(id).find(p => p.id === String(profileId))
+    if (!profile) throw new Error(`Profile not found: ${profileId}`)
+    const modsDir = contentDir(id, 'mods')
+    if (!existsSync(modsDir)) return
+    const enabledSet = new Set(profile.enabledFiles)
+    for (const filename of readdirSync(modsDir)) {
+      const fullPath = join(modsDir, filename)
+      try { if (statSync(fullPath).isDirectory()) continue } catch { continue }
+      const isDisabled = filename.endsWith('.disabled')
+      const baseName = isDisabled ? filename.slice(0, -'.disabled'.length) : filename
+      if (!baseName.endsWith('.jar')) continue
+      const shouldBeEnabled = enabledSet.has(baseName)
+      if (shouldBeEnabled && isDisabled) renameSync(fullPath, join(modsDir, baseName))
+      else if (!shouldBeEnabled && !isDisabled) renameSync(fullPath, join(modsDir, baseName + '.disabled'))
+    }
+  })
+
+  handleIpc('mods.profiles.delete', (_e, instanceId, profileId) => {
+    const id = String(instanceId)
+    writeProfiles(id, readProfiles(id).filter(p => p.id !== String(profileId)))
+  })
+
+  handleIpc('mods.profiles.rename', (_e, instanceId, profileId, newName) => {
+    const id = String(instanceId)
+    const profiles = readProfiles(id)
+    const idx = profiles.findIndex(p => p.id === String(profileId))
+    if (idx < 0) throw new Error(`Profile not found: ${profileId}`)
+    profiles[idx] = { ...profiles[idx], name: String(newName) }
+    writeProfiles(id, profiles)
+    return profiles[idx]
   })
 }

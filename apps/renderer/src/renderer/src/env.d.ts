@@ -166,10 +166,15 @@ declare global {
         onDone: (cb: (data: { projectId: string; instanceId?: string; error?: string }) => void) => () => void
       }
       mods: {
-        list:         (instanceId: string) => Promise<Array<{ filename: string; displayName: string; type: 'mod' | 'resourcepack' | 'shader' | 'datapack'; enabled: boolean; sizeKb: number; iconDataUrl?: string }>>
-        toggle:       (instanceId: string, filename: string, type: string) => Promise<void>
-        delete:       (instanceId: string, filename: string, type: string) => Promise<void>
-        installLocal: (instanceId: string, srcPath: string) => Promise<string>
+        list:           (instanceId: string) => Promise<Array<{ filename: string; displayName: string; type: 'mod' | 'resourcepack' | 'shader' | 'datapack'; enabled: boolean; sizeKb: number; iconDataUrl?: string }>>
+        toggle:         (instanceId: string, filename: string, type: string) => Promise<void>
+        delete:         (instanceId: string, filename: string, type: string) => Promise<void>
+        installLocal:   (instanceId: string, srcPath: string) => Promise<string>
+        profilesList:   (instanceId: string) => Promise<Array<{ id: string; name: string; enabledFiles: string[] }>>
+        profilesSave:   (instanceId: string, name: string, enabledFiles: string[]) => Promise<{ id: string; name: string; enabledFiles: string[] }>
+        profilesApply:  (instanceId: string, profileId: string) => Promise<void>
+        profilesDelete: (instanceId: string, profileId: string) => Promise<void>
+        profilesRename: (instanceId: string, profileId: string, newName: string) => Promise<{ id: string; name: string; enabledFiles: string[] }>
       }
       java: {
         managedList: () => Promise<import('@refract/core').JavaInstallation[]>
@@ -197,7 +202,8 @@ declare global {
         deleteWorld: (instanceId: string, worldName: string) => Promise<void>
         screenshots: (instanceId: string) => Promise<Array<{ filename: string; sizeKb: number; timestamp: number; dataUrl: string | null }>>
         openScreenshot: (instanceId: string, filename: string) => Promise<void>
-        servers: (instanceId: string) => Promise<Array<{ name: string; ip: string; icon?: string }>>
+        servers:    (instanceId: string) => Promise<Array<{ name: string; ip: string; icon?: string }>>
+        pingServer: (ip: string) => Promise<{ online: number; max: number; latencyMs: number } | null>
         onProgress: (cb: (data: { instanceId: string; step: string; current: number; total: number; percent: number }) => void) => () => void
         onLog: (cb: (data: { instanceId: string; line: string; stream: string }) => void) => () => void
         onExit: (cb: (data: { instanceId: string; code: number | null; error?: string }) => void) => () => void

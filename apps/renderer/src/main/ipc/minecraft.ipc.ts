@@ -1,6 +1,7 @@
 import { ipcMain, BrowserWindow, nativeImage, shell } from 'electron'
 import { join } from 'path'
 import { readdirSync, statSync, readFileSync, existsSync, rmSync } from 'fs'
+import { createConnection } from 'net'
 import { handleIpc } from './handle'
 import { fetchVersionList } from '@refract/core'
 import { detectJavaInstallations } from '@refract/core/java-manager'
@@ -199,5 +200,85 @@ export function registerMinecraftIpc(mainWindow: BrowserWindow): void {
     const p = join(resolveInstanceDir(String(instanceId)), 'minecraft', 'servers.dat')
     if (!existsSync(p)) return []
     try { return parseServersDat(readFileSync(p)) } catch { return [] }
+  })
+
+  handleIpc('mc.pingServer', (_event, rawIp): Promise<{ online: number; max: number; latencyMs: number } | null> => {
+    const ip = String(rawIp)
+    return new Promise((resolve) => {
+      const colonIdx = ip.lastIndexOf(':')
+      const host = colonIdx > 0 ? ip.slice(0, colonIdx) : ip
+      const port = colonIdx > 0 ? (parseInt(ip.slice(colonIdx + 1), 10) || 25565) : 25565
+
+      function writeVarInt(n: number): Buffer {
+        const bytes: number[] = []
+        let v = n >>> 0
+        while (true) {
+          if ((v & ~0x7F) === 0) { bytes.push(v); break }
+          bytes.push((v & 0x7F) | 0x80)
+          v >>>= 7
+        }
+        return Buffer.from(bytes)
+      }
+      function writeString(s: string): Buffer {
+        const b = Buffer.from(s, 'utf8')
+        return Buffer.concat([writeVarInt(b.length), b])
+      }
+      function buildPacket(id: number, data?: Buffer): Buffer {
+        const idBuf = writeVarInt(id)
+        const body = data ? Buffer.concat([idBuf, data]) : idBuf
+        return Buffer.concat([writeVarInt(body.length), body])
+      }
+
+      const portBuf = Buffer.alloc(2)
+      portBuf.writeUInt16BE(port)
+      const handshake = buildPacket(0x00, Buffer.concat([
+        writeVarInt(765), writeString(host), portBuf, writeVarInt(1),
+      ]))
+      const statusReq = buildPacket(0x00)
+
+      const socket = createConnection({ host, port })
+      socket.setTimeout(5000)
+      const start = Date.now()
+      let buf = Buffer.alloc(0)
+      let resolved = false
+
+      function done(result: { online: number; max: number; latencyMs: number } | null) {
+        if (resolved) return
+        resolved = true
+        socket.destroy()
+        resolve(result)
+      }
+
+      socket.on('connect', () => { socket.write(handshake); socket.write(statusReq) })
+      socket.on('data', (chunk: Buffer) => {
+        buf = Buffer.concat([buf, chunk])
+        try {
+          let offset = 0
+          function readVarInt(): number {
+            let result = 0, shift = 0
+            while (true) {
+              if (offset >= buf.length) throw new Error('incomplete')
+              const byte = buf[offset++]
+              result |= (byte & 0x7F) << shift
+              shift += 7
+              if (!(byte & 0x80)) return result
+            }
+          }
+          const packetLen = readVarInt()
+          if (buf.length < offset + packetLen) return
+          const packetId = readVarInt()
+          if (packetId === 0x00) {
+            const strLen = readVarInt()
+            if (buf.length < offset + strLen) return
+            const json = JSON.parse(buf.slice(offset, offset + strLen).toString('utf8'))
+            done({ online: json.players?.online ?? 0, max: json.players?.max ?? 0, latencyMs: Date.now() - start })
+          }
+        } catch (e) {
+          if ((e as Error).message !== 'incomplete') done(null)
+        }
+      })
+      socket.on('error', () => done(null))
+      socket.on('timeout', () => done(null))
+    })
   })
 }

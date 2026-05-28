@@ -94,10 +94,15 @@ export const api = {
     },
   },
   mods: {
-    list:         (instanceId: string) => ipcRenderer.invoke('mods.list', instanceId),
-    toggle:       (instanceId: string, filename: string, type: string) => ipcRenderer.invoke('mods.toggle', instanceId, filename, type),
-    delete:       (instanceId: string, filename: string, type: string) => ipcRenderer.invoke('mods.delete', instanceId, filename, type),
-    installLocal: (instanceId: string, srcPath: string) => ipcRenderer.invoke('mods.installLocal', instanceId, srcPath),
+    list:           (instanceId: string) => ipcRenderer.invoke('mods.list', instanceId),
+    toggle:         (instanceId: string, filename: string, type: string) => ipcRenderer.invoke('mods.toggle', instanceId, filename, type),
+    delete:         (instanceId: string, filename: string, type: string) => ipcRenderer.invoke('mods.delete', instanceId, filename, type),
+    installLocal:   (instanceId: string, srcPath: string) => ipcRenderer.invoke('mods.installLocal', instanceId, srcPath),
+    profilesList:   (instanceId: string) => ipcRenderer.invoke('mods.profiles.list', instanceId),
+    profilesSave:   (instanceId: string, name: string, enabledFiles: string[]) => ipcRenderer.invoke('mods.profiles.save', instanceId, name, enabledFiles),
+    profilesApply:  (instanceId: string, profileId: string) => ipcRenderer.invoke('mods.profiles.apply', instanceId, profileId),
+    profilesDelete: (instanceId: string, profileId: string) => ipcRenderer.invoke('mods.profiles.delete', instanceId, profileId),
+    profilesRename: (instanceId: string, profileId: string, newName: string) => ipcRenderer.invoke('mods.profiles.rename', instanceId, profileId, newName),
   },
   friends: {
     list:       ()                           => ipcRenderer.invoke('friends.list'),
@@ -141,6 +146,7 @@ export const api = {
     screenshots: (instanceId: string) => ipcRenderer.invoke('mc.screenshots', instanceId),
     openScreenshot: (instanceId: string, filename: string) => ipcRenderer.invoke('mc.openScreenshot', instanceId, filename),
     servers:    (instanceId: string) => ipcRenderer.invoke('mc.servers', instanceId),
+    pingServer: (ip: string): Promise<{ online: number; max: number; latencyMs: number } | null> => ipcRenderer.invoke('mc.pingServer', ip),
     onProgress: (cb: (data: { instanceId: string; step: string; current: number; total: number; percent: number }) => void) => {
       const handler = (_e: IpcRendererEvent, data: Parameters<typeof cb>[0]) => cb(data)
       ipcRenderer.on('mc:progress', handler)

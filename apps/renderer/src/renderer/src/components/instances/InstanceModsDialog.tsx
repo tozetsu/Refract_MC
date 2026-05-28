@@ -21,6 +21,8 @@ type ModUpdateEntry = {
 
 type TabFilter = 'all' | ContentType | 'worlds' | 'screenshots' | 'updates' | 'servers'
 type ServerEntry = { name: string; ip: string; icon?: string }
+type ModProfile = { id: string; name: string; enabledFiles: string[] }
+type PingResult = { online: number; max: number; latencyMs: number } | null | 'loading'
 
 const CONTENT_TABS: Array<{ id: TabFilter; label: string }> = [
   { id: 'all',          label: 'All'            },
@@ -98,6 +100,9 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
   const [exporting, setExporting]        = useState(false)
   const [exportMsg, setExportMsg]        = useState<string | null>(null)
   const [updatingAll, setUpdatingAll]    = useState(false)
+  const [profiles, setProfiles]          = useState<ModProfile[]>([])
+  const [savingProfile, setSavingProfile]= useState(false)
+  const [newProfileName, setNewProfileName] = useState('')
 
   const load = useCallback(async () => {
     if (!instance) return
@@ -149,9 +154,15 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
     finally { setLoading(false) }
   }, [instance])
 
+  const loadProfiles = useCallback(async () => {
+    if (!instance) return
+    try { setProfiles(await api.mods.profilesList(instance.id) as ModProfile[]) }
+    catch { /* ignore */ }
+  }, [instance])
+
   useEffect(() => {
     if (!open) return
-    setItems([]); setWorlds([]); setScreenshots([]); setModUpdates([]); setServers([]); setTab('all'); setError(null)
+    setItems([]); setWorlds([]); setScreenshots([]); setModUpdates([]); setServers([]); setProfiles([]); setTab('all'); setError(null)
     load()
   }, [open, load])
 
@@ -161,7 +172,8 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
     else if (tab === 'screenshots') loadScreenshots()
     else if (tab === 'updates') loadUpdates()
     else if (tab === 'servers') loadServers()
-  }, [tab, open, loadWorlds, loadScreenshots, loadUpdates, loadServers])
+    else if (tab === 'mod' || tab === 'all') loadProfiles()
+  }, [tab, open, loadWorlds, loadScreenshots, loadUpdates, loadServers, loadProfiles])
 
   if (!open || !instance) return null
 
@@ -238,6 +250,29 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
       setAddingMod(false)
     }
     e.target.value = ''
+  }
+
+  async function handleApplyProfile(profileId: string) {
+    if (!instance) return
+    try { await api.mods.profilesApply(instance.id, profileId); await load() }
+    catch { /* ignore */ }
+  }
+
+  async function handleSaveProfile() {
+    if (!instance || !newProfileName.trim()) return
+    try {
+      const enabledFiles = items.filter(i => i.type === 'mod' && i.enabled).map(i => i.filename.replace(/\.disabled$/, ''))
+      const p = await api.mods.profilesSave(instance.id, newProfileName.trim(), enabledFiles) as ModProfile
+      setProfiles(prev => [...prev, p])
+      setNewProfileName('')
+      setSavingProfile(false)
+    } catch { /* ignore */ }
+  }
+
+  async function handleDeleteProfile(profileId: string) {
+    if (!instance) return
+    try { await api.mods.profilesDelete(instance.id, profileId); setProfiles(prev => prev.filter(p => p.id !== profileId)) }
+    catch { /* ignore */ }
   }
 
   async function handleExport() {
@@ -463,6 +498,96 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
           ))}
         </div>
 
+        {/* Mod profiles strip */}
+        {isContentTab && (tab === 'mod' || tab === 'all') && (
+          <div style={{
+            display: 'flex', gap: 6, padding: '5px 12px',
+            borderBottom: '1px solid var(--line)',
+            flexShrink: 0, alignItems: 'center', flexWrap: 'wrap',
+            minHeight: 34, background: 'var(--bg)',
+          }}>
+            <span style={{ fontSize: 10, color: 'var(--ink-4)', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', flexShrink: 0, marginRight: 2 }}>
+              Profiles
+            </span>
+            {profiles.map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center' }}>
+                <button
+                  onClick={() => handleApplyProfile(p.id)}
+                  title={`Apply "${p.name}" — ${p.enabledFiles.length} mods enabled`}
+                  style={{
+                    fontSize: 11, padding: '2px 8px',
+                    background: 'var(--surface-2)', border: '1px solid var(--border-r)',
+                    borderRadius: '3px 0 0 3px', cursor: 'pointer', color: 'var(--ink-2)',
+                    borderRight: 'none',
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-r)'; (e.currentTarget as HTMLElement).style.color = 'var(--ink-2)' }}
+                >
+                  {p.name}
+                </button>
+                <button
+                  onClick={() => handleDeleteProfile(p.id)}
+                  title="Delete profile"
+                  style={{
+                    fontSize: 10, padding: '2px 5px',
+                    background: 'var(--surface-2)', border: '1px solid var(--border-r)',
+                    borderRadius: '0 3px 3px 0', cursor: 'pointer', color: 'var(--ink-4)',
+                    lineHeight: 1,
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--lava)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--lava)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--ink-4)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-r)' }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {savingProfile ? (
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <input
+                  autoFocus
+                  value={newProfileName}
+                  onChange={e => setNewProfileName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleSaveProfile()
+                    if (e.key === 'Escape') { setSavingProfile(false); setNewProfileName('') }
+                  }}
+                  placeholder="Profile name…"
+                  style={{
+                    height: 22, padding: '0 7px', fontSize: 11, width: 120,
+                    background: 'var(--bg)', border: '1px solid var(--accent)',
+                    borderRadius: 3, color: 'var(--ink)', outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={handleSaveProfile}
+                  style={{ fontSize: 11, padding: '1px 8px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer' }}
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => { setSavingProfile(false); setNewProfileName('') }}
+                  style={{ fontSize: 11, padding: '1px 8px', background: 'var(--surface-2)', color: 'var(--ink-4)', border: '1px solid var(--border-r)', borderRadius: 3, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setSavingProfile(true)}
+                style={{
+                  fontSize: 11, padding: '2px 8px',
+                  background: 'none', border: '1px dashed var(--border-r)',
+                  borderRadius: 3, cursor: 'pointer', color: 'var(--ink-4)',
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-r)'; (e.currentTarget as HTMLElement).style.color = 'var(--ink-4)' }}
+              >
+                + Save Profile
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Export message */}
         {exportMsg && (
           <div style={{ padding: '6px 16px', fontSize: 11, color: exportMsg.startsWith('Export failed') ? 'var(--lava)' : 'var(--grass)', background: 'var(--bg)', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
@@ -534,13 +659,31 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
   )
 }
 
+function pingColor(ms: number): string {
+  if (ms < 80) return 'var(--grass)'
+  if (ms < 150) return '#8bc34a'
+  if (ms < 250) return 'var(--gold)'
+  return 'var(--lava)'
+}
+
 function ServerRow({ server }: { server: ServerEntry }) {
   const [copied, setCopied] = useState(false)
+  const [ping, setPing] = useState<PingResult>('loading')
+
+  useEffect(() => {
+    setPing('loading')
+    api.mc.pingServer(server.ip).then(r => setPing(r)).catch(() => setPing(null))
+  }, [server.ip])
+
   function copy() {
     navigator.clipboard.writeText(server.ip).catch(() => {})
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
+
+  const isOnline = ping !== 'loading' && ping !== null
+  const isOffline = ping === null
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 16px', borderBottom: '1px solid var(--line)' }}>
       <div style={{ width: 36, height: 36, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18, overflow: 'hidden' }}>
@@ -548,8 +691,24 @@ function ServerRow({ server }: { server: ServerEntry }) {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{server.name || 'Unknown Server'}</div>
-        <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{server.ip}</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2, display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span>{server.ip}</span>
+          {ping === 'loading' && <span style={{ color: 'var(--ink-4)', fontStyle: 'italic' }}>pinging…</span>}
+          {ping !== 'loading' && ping !== null && (
+            <>
+              <span style={{ color: pingColor(ping.latencyMs), fontWeight: 600 }}>{ping.latencyMs}ms</span>
+              <span style={{ color: 'var(--ink-3)' }}>{ping.online}/{ping.max} players</span>
+            </>
+          )}
+          {isOffline && <span style={{ color: 'var(--ink-4)' }}>offline</span>}
+        </div>
       </div>
+      {/* Online indicator dot */}
+      <div style={{
+        width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+        background: ping === 'loading' ? 'var(--border-r)' : isOnline ? 'var(--grass)' : 'var(--lava)',
+        transition: 'background 300ms',
+      }} />
       <button
         onClick={copy}
         style={{ fontSize: 11, color: copied ? 'var(--grass)' : 'var(--ink-3)', background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 3, padding: '3px 10px', cursor: 'pointer' }}
