@@ -21,6 +21,8 @@ export const api = {
     renameOffline:     (uuid: string, username: string) => ipcRenderer.invoke('auth.offline.rename', uuid, username),
     setActive:         (uuid: string)             => ipcRenderer.invoke('auth.setActive', uuid),
     logout:            (uuid: string)             => ipcRenderer.invoke('auth.logout', uuid),
+    yggdrasilLogin:    (serverUrl: string, username: string, password: string) =>
+      ipcRenderer.invoke('auth.yggdrasil.login', serverUrl, username, password),
   },
   theme: {
     list:    ()                         => ipcRenderer.invoke('theme.list'),

@@ -140,6 +140,7 @@ function createBrowserApi(): RefractAPI {
           activeAccountId: config.activeAccountId === uuid ? accounts[0]?.uuid ?? null : config.activeAccountId,
         })
       },
+      yggdrasilLogin: async () => { throw new Error('Yggdrasil login requires the Electron app.') },
     },
     theme: {
       list: async () => [],

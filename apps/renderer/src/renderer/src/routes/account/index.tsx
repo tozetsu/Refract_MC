@@ -45,6 +45,9 @@ function Account() {
   const [loginExpiresAt, setLoginExpiresAt] = useState<number | null>(null)
   const [secondsRemaining, setSecondsRemaining] = useState(0)
   const [offlineName, setOfflineName] = useState('Steve')
+  const [yggServer, setYggServer] = useState('')
+  const [yggUsername, setYggUsername] = useState('')
+  const [yggPassword, setYggPassword] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -194,6 +197,14 @@ function Account() {
     if (account) await refresh()
   }
 
+  async function loginYggdrasil() {
+    const account = await run('yggdrasil-login', () => api.auth.yggdrasilLogin(yggServer, yggUsername, yggPassword))
+    if (account) {
+      setYggPassword('')
+      await refresh()
+    }
+  }
+
   async function selectAccount(uuid: string) {
     const account = await run(`active-${uuid}`, () => api.auth.setActive(uuid))
     if (account) await refresh()
@@ -331,6 +342,51 @@ function Account() {
                 style={{ height:36, padding:'0 12px', background:'var(--surface-3)', color:'var(--ink)', border:'1px solid var(--border-r)', cursor:'pointer', opacity:busy ? .6 : 1 }}
               >
                 {t.account.add}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ background:'var(--surface-2)', border:'1px solid var(--border-r)', borderRadius:4, padding:16 }}>
+            <h2 style={{ margin:'0 0 4px', color:'var(--ink)', fontSize:16 }}>Custom Auth Server</h2>
+            <div style={{ color:'var(--ender)', fontFamily:"'VT323',monospace", fontSize:14, letterSpacing:'.08em', marginBottom:8 }}>YGGDRASIL</div>
+            <p style={{ margin:'0 0 12px', color:'var(--ink-3)', fontSize:13, lineHeight:1.5 }}>
+              Sign in using a custom Yggdrasil-compatible auth server (e.g. Ely.by, AuthMe, or a self-hosted instance).
+              Tokens are stored encrypted on this device.
+            </p>
+            <div style={{ display:'grid', gap:8 }}>
+              <input
+                value={yggServer}
+                onChange={e => setYggServer(e.target.value)}
+                placeholder="Auth server URL (e.g. https://authserver.ely.by)"
+                style={{ height:36, background:'var(--bg)', border:'1px solid var(--border-r)', color:'var(--ink)', padding:'0 10px', outline:'none', fontSize:12 }}
+              />
+              <div style={{ display:'flex', gap:8 }}>
+                <input
+                  value={yggUsername}
+                  onChange={e => setYggUsername(e.target.value)}
+                  placeholder="Username or email"
+                  style={{ flex:1, minWidth:0, height:36, background:'var(--bg)', border:'1px solid var(--border-r)', color:'var(--ink)', padding:'0 10px', outline:'none', fontSize:12 }}
+                />
+                <input
+                  type="password"
+                  value={yggPassword}
+                  onChange={e => setYggPassword(e.target.value)}
+                  placeholder="Password"
+                  onKeyDown={e => { if (e.key === 'Enter') void loginYggdrasil() }}
+                  style={{ flex:1, minWidth:0, height:36, background:'var(--bg)', border:'1px solid var(--border-r)', color:'var(--ink)', padding:'0 10px', outline:'none', fontSize:12 }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={loginYggdrasil}
+                disabled={!!busy || !yggServer.trim() || !yggUsername.trim() || !yggPassword}
+                style={{
+                  height:36, padding:'0 14px', background:'var(--ender)', color:'#fff',
+                  border:'none', cursor:'pointer', fontWeight:700, letterSpacing:'.06em',
+                  opacity: (!!busy || !yggServer.trim() || !yggUsername.trim() || !yggPassword) ? .5 : 1,
+                }}
+              >
+                {busy === 'yggdrasil-login' ? 'SIGNING IN…' : 'SIGN IN'}
               </button>
             </div>
           </div>

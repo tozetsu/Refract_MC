@@ -120,6 +120,27 @@ export async function getOrRefreshMinecraftToken(accountUuid: string): Promise<{
   if (!account) throw new Error('Account not found')
   const clientId = getMicrosoftClientId()
 
+  if (account.type === 'yggdrasil') {
+    const isExpired = !account.expiresAt || Date.now() > account.expiresAt - 5 * 60 * 1000
+    if (!isExpired && account.encryptedAccessToken) {
+      try { return { token: decrypt(account.encryptedAccessToken), xuid: '', clientId: '' } } catch { /* fall through */ }
+    }
+    if (account.encryptedAccessToken && account.encryptedRefreshToken && account.yggdrasilServer) {
+      try {
+        const refreshed = await postJson<{ accessToken: string; clientToken: string }>(
+          `${account.yggdrasilServer}/authserver/refresh`,
+          { accessToken: decrypt(account.encryptedAccessToken), clientToken: decrypt(account.encryptedRefreshToken) }
+        )
+        account.encryptedAccessToken = encrypt(refreshed.accessToken)
+        account.encryptedRefreshToken = encrypt(refreshed.clientToken)
+        account.expiresAt = Date.now() + 24 * 60 * 60 * 1000
+        saveConfig(config)
+        return { token: refreshed.accessToken, xuid: '', clientId: '' }
+      } catch { /* fall through */ }
+    }
+    throw new Error('Yggdrasil session expired. Please sign in again via Accounts.')
+  }
+
   if (account.type !== 'microsoft') {
     return { token: 'offline', xuid: '', clientId: '' }
   }
@@ -178,11 +199,12 @@ export async function getOrRefreshMinecraftToken(accountUuid: string): Promise<{
 
 function toSafeAccount(account: AppConfig['accounts'][number]): SafeAccount {
   const { encryptedAccessToken: _access, encryptedRefreshToken: _refresh, ...safe } = account
+  const authenticated = account.type === 'microsoft' || account.type === 'yggdrasil'
   return {
     ...safe,
     canManageContent: true,
-    canPlayMinecraft: account.type === 'microsoft',
-    licenseStatus: account.type === 'microsoft' ? 'verified' : 'guest',
+    canPlayMinecraft: authenticated,
+    licenseStatus: authenticated ? 'verified' : 'guest',
   }
 }
 
@@ -332,4 +354,43 @@ export function logoutAccount(uuid: string): void {
     config.activeAccountId = config.accounts[0]?.uuid ?? null
   }
   saveConfig(config)
+}
+
+export async function loginYggdrasil(serverUrl: string, username: string, password: string): Promise<SafeAccount> {
+  const base = serverUrl.trim().replace(/\/+$/, '')
+  if (!base) throw new Error('Auth server URL is required.')
+
+  const clientToken = randomUUID()
+  const res = await postJson<{
+    accessToken: string
+    clientToken: string
+    selectedProfile?: { id: string; name: string }
+  }>(`${base}/authserver/authenticate`, {
+    agent: { name: 'Minecraft', version: 1 },
+    username,
+    password,
+    clientToken,
+    requestUser: true,
+  })
+
+  if (!res.selectedProfile) {
+    throw new Error('This account has no Minecraft profile on this auth server.')
+  }
+
+  const config = getConfig()
+  const account: AppConfig['accounts'][number] = {
+    uuid: res.selectedProfile.id,
+    username: res.selectedProfile.name,
+    type: 'yggdrasil',
+    yggdrasilServer: base,
+    expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    encryptedAccessToken: encrypt(res.accessToken),
+    encryptedRefreshToken: encrypt(res.clientToken),
+  }
+
+  config.accounts = [account, ...config.accounts.filter(a => a.uuid !== account.uuid)]
+  config.activeAccountId = account.uuid
+  saveConfig(config)
+
+  return toSafeAccount(account)
 }
