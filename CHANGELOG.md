@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.0.1
+- **Server ping** — each saved server in the Servers tab shows live latency (colour-coded) and online/max player count; offline servers show a red dot
+- **Mod profiles** — save and apply named sets of enabled mods per instance (e.g. "Survival", "Performance"); profiles are stored next to the instance and batch-enable/disable mods on apply
+- **Danger zone** — new section at the bottom of Settings with a two-step confirmation to permanently delete all launcher data (instances, mods, themes, Java, cache) and exit
+- **Community translations** — all UI strings extracted to `locales/en.json` and `locales/uk.json` with `{{param}}` template syntax; contributors can add a new language by copying `en.json` and opening a PR (see `locales/README.md`)
+
+## 1.0.0
+- **Instance detail view** — click any instance card to open a full-screen panel with tabs for Mods, Resource Packs, Shaders, Datapacks, Worlds, Screenshots, Servers, and Updates; modal is fixed at 860 px wide
+- **Change instance image** — click the instance icon inside the detail view to replace it with any image from disk
+- **Add mods from file** — "+ Add File" button in the detail view installs a local `.jar` directly into the instance mods folder
+- **One-click mod updates** — Updates tab shows available Modrinth updates per mod; update individually or all at once
+- **Servers tab** — reads `servers.dat` and lists all saved multiplayer servers with icon and IP copy button
+- **Yggdrasil authentication** — sign in with any third-party Minecraft auth server (custom server owners / offline servers); stored and refreshed the same way as Microsoft tokens
+- **Instance search and filter** — search bar on the Library page filters by name, mod loader, and Minecraft version simultaneously
+- **Instance group drag-and-drop** — drag instance cards between groups to reorganise; ungrouped instances have their own section
+- **Crash report auto-copy** — when Minecraft crashes the crash log is automatically copied to the clipboard; a "Copy Log" button is also shown in the crash dialog
+- **SVG navigation icons** — pixel-art nav icons replaced with clean outlined SVG icons that inherit the active/inactive colour via CSS mask
+- **Discord logo** — Discord button in the sidebar now shows the official Discord mark instead of an emoji
+
 ## 0.5.1
 - All instance cards now uniform — every card has PLAY, MODS, CONSOLE, and Edit
 - Java detector now scans Minecraft launcher bundled runtimes (no more ENOENT)
