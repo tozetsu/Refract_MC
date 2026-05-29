@@ -4,12 +4,22 @@ import { SignOutIcon } from '../ui/BlockIcons'
 import { api, type SafeAccount } from '@/lib/api'
 import { useT } from '@/i18n'
 import type { Instance } from '@refract/core'
-import discordIcon      from '@/assets/discord-icon.webp'
-import libraryIcon      from '@/assets/instance-library.svg'
-import browseModsIcon   from '@/assets/browse-mods.svg'
-import modpacksIcon     from '@/assets/modpacks.svg'
-import accountIcon      from '@/assets/account.svg'
-import settingsIcon     from '@/assets/settings.svg'
+import discordIcon          from '@/assets/discord-icon.webp'
+import libraryIconRaw    from '@/assets/instance-library.svg?raw'
+import browseModsIconRaw from '@/assets/browse-mods.svg?raw'
+import modpacksIconRaw   from '@/assets/modpacks.svg?raw'
+import accountIconRaw    from '@/assets/account.svg?raw'
+import settingsIconRaw   from '@/assets/settings.svg?raw'
+
+function svgDataUrl(raw: string) {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(raw)}`
+}
+
+const libraryIcon    = svgDataUrl(libraryIconRaw)
+const browseModsIcon = svgDataUrl(browseModsIconRaw)
+const modpacksIcon   = svgDataUrl(modpacksIconRaw)
+const accountIcon    = svgDataUrl(accountIconRaw)
+const settingsIcon   = svgDataUrl(settingsIconRaw)
 
 function NavIcon({ src, size = 18 }: { src: string; size?: number }) {
   return (

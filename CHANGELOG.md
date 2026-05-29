@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.3
+- **Fix:** Nav icons showed as white squares in the installed app — SVGs are now embedded as data URIs at build time instead of referencing file paths, which broke under Electron's `file://` protocol
+
 ## 1.0.2
 - **Auto-updater UI** — update download progress and a "Restart ↺" button now appear in the title bar when a new version is available; no more silent updates
 - **Onboarding step 3** — after creating a first instance the onboarding now shows an "Install & play" slide that explains the INSTALL button and Java auto-download, closing the most common first-run confusion
