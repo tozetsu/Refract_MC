@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.2
+- **Auto-updater UI** — update download progress and a "Restart ↺" button now appear in the title bar when a new version is available; no more silent updates
+- **Onboarding step 3** — after creating a first instance the onboarding now shows an "Install & play" slide that explains the INSTALL button and Java auto-download, closing the most common first-run confusion
+- **Skin faces on account page** — saved Microsoft and Yggdrasil profiles now show the player's live Minecraft skin face instead of a blank initial; custom uploaded avatars still take priority
+- **macOS build target** — release pipeline now produces universal DMG (x64 + arm64) in addition to Windows NSIS and Linux AppImage/deb
+- **Community translations** — all UI strings moved to `locales/en.json` and `locales/uk.json`; new languages can be added by copying `en.json` and opening a PR (see `locales/README.md`)
+- **Danger zone in Settings** — two-step confirmation to permanently delete all launcher data and exit
+
 ## 1.0.1
 - **Server ping** — each saved server in the Servers tab shows live latency (colour-coded) and online/max player count; offline servers show a red dot
 - **Mod profiles** — save and apply named sets of enabled mods per instance (e.g. "Survival", "Performance"); profiles are stored next to the instance and batch-enable/disable mods on apply
