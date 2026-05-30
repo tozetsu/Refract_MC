@@ -90,7 +90,7 @@
   },
   "browse": {
     "title": "Огляд модів",
-    "subtitle": "Знаходьте та встановлюйте моди з Modrinth",
+    "subtitle": "Знаходьте та встановлюйте моди з Modrinth та CurseForge",
     "searchPlaceholder": "Пошук модів, авторів…",
     "modsFound": "Знайдено модів: {{n}}",
     "searching": "Пошук…",

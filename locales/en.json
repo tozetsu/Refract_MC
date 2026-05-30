@@ -90,7 +90,7 @@
   },
   "browse": {
     "title": "Browse Mods",
-    "subtitle": "Discover and install mods from Modrinth",
+    "subtitle": "Discover and install mods from Modrinth and CurseForge",
     "searchPlaceholder": "Search mods, authors…",
     "modsFound": "{{n}} mods found",
     "searching": "Searching…",
