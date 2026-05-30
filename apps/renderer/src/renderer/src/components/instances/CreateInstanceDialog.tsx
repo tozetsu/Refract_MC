@@ -109,7 +109,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
         <Dialog.Content style={{
           position:'fixed', left:'50%', top:'50%', transform:'translate(-50%,-50%)',
           background:'var(--surface)', border:'1px solid var(--border-r)',
-          borderRadius:4, width:560, zIndex:50, outline:'none', overflow:'hidden',
+          borderRadius:4, width:640, zIndex:50, outline:'none', overflow:'hidden',
         }}>
 
           {/* Title bar */}
