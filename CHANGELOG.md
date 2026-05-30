@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.4
+- **Custom accent color** — pick any colour in Settings → Appearance via preset swatches or a full colour picker; persisted across restarts with derived hi/lo/tint variants
+- **Bulk mod operations** — checkboxes on every mod row; a bulk action bar appears with Enable / Disable / Delete and Select-all when any are ticked
+- **JVM performance presets** — one-click "Aikar's flags" and "Low-end" preset buttons below the JVM args field in Edit Instance
+- **World backup** — Backup button on each world row opens a Save dialog and zips the world folder to any location
+- **Screenshot lightbox** — clicking a screenshot now opens a full-res in-app viewer instead of the OS photo app; Escape or click outside closes only the viewer, not the parent dialog
+- **CurseForge modpacks** — Modpacks browser has a Modrinth / CurseForge source toggle; CurseForge modpacks download and install via the existing manifest.json pipeline (requires a CurseForge API key in Settings)
+- **Sort in Browse Mods** — same sort dropdown as the Modpacks page (Most Downloaded, Newest, etc.) is now available on the Modrinth mod browser
+- **Page jump** — pagination on Browse Mods and Modpacks now includes an editable page-number input; type a number and press Enter to jump directly
+- **Custom instance location** — a Location field + Browse button in Create Instance lets you store any instance outside the default AppData folder
+- **Custom Java path** — Settings → Java Runtime now has a text field and Browse button to register any java/java.exe executable; validates on add and shows a gold "custom" badge in the list
+- **Hover glow** — all buttons in the app brighten on hover via a global CSS rule
+- **Fix:** closing gallery images or screenshot lightbox no longer accidentally dismisses the parent modal (all backdrops now use target === currentTarget guard)
+- **Fix:** What's New release notes are now auto-populated from CHANGELOG.md by CI after each build
+
 ## 1.0.3
 - **Fix:** Nav icons showed as white squares in the installed app — SVGs are now embedded as data URIs at build time instead of referencing file paths, which broke under Electron's `file://` protocol
 

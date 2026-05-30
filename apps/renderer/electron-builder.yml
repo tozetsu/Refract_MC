@@ -54,3 +54,4 @@ publish:
   provider: github
   owner: RefractMC
   repo: Refract_MC
+  releaseType: draft
