@@ -234,10 +234,11 @@ function createBrowserApi(): RefractAPI {
       profilesRename: async () => { throw new Error('Mod profiles require the Electron app.') },
     },
     curseforge: {
-      searchMods:    async () => { throw new Error('CurseForge requires the Electron app.') },
-      searchModpacks:async () => { throw new Error('CurseForge requires the Electron app.') },
-      files:         async () => { throw new Error('CurseForge requires the Electron app.') },
-      install:       async () => { throw new Error('CurseForge requires the Electron app.') },
+      searchMods:     async () => { throw new Error('CurseForge requires the Electron app.') },
+      searchModpacks: async () => { throw new Error('CurseForge requires the Electron app.') },
+      files:          async () => { throw new Error('CurseForge requires the Electron app.') },
+      install:        async () => { throw new Error('CurseForge requires the Electron app.') },
+      installModpack: async () => { throw new Error('CurseForge requires the Electron app.') },
     },
     java: {
       managedList:  async () => [],

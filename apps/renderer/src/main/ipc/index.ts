@@ -28,5 +28,5 @@ export function registerAllIpcHandlers(mainWindow: BrowserWindow): void {
   registerModsIpc()
   registerFriendsIpc()
   registerJavaIpc()
-  registerCurseForgeIpc()
+  registerCurseForgeIpc(mainWindow)
 }

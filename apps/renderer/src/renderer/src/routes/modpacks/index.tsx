@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import type React from 'react'
 import { SearchIcon } from '@/components/ui/BlockIcons'
 import { api } from '@/lib/api'
-import type { ModrinthProject, ModrinthVersion, ModrinthSortIndex, ModrinthProjectType, Instance } from '@refract/core'
+import type { ModrinthProject, ModrinthVersion, ModrinthSortIndex, ModrinthProjectType, Instance, CFProject, CFFile } from '@refract/core'
 import { useT } from '@/i18n'
 
 export const Route = createFileRoute('/modpacks/')({ component: ContentBrowser })
@@ -866,6 +866,11 @@ function ContentBrowser() {
   const [installTarget, setTarget]        = useState<ModrinthProject | null>(null)
   const [installingId, setInstallingId]   = useState<string | null>(null)
   const [progressInfo, setProgress]       = useState<{ projectId: string; title: string; step: string; percent: number } | null>(null)
+  const [cfSource, setCfSource]           = useState<'modrinth' | 'curseforge'>('modrinth')
+  const [cfResults, setCfResults]         = useState<CFProject[]>([])
+  const [cfTotal, setCfTotal]             = useState(0)
+  const [cfHasKey, setCfHasKey]           = useState(true)
+  const [cfInstallTarget, setCfInstall]   = useState<CFProject | null>(null)
 
   const t = useT()
   const tabLabels: Record<ContentTab, string> = {
@@ -880,6 +885,7 @@ function ContentBrowser() {
 
   useEffect(() => {
     api.instance.list().then(setInstances).catch(() => {})
+    api.config.get().then(c => setCfHasKey(!!c.curseforgeApiKey)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -899,17 +905,28 @@ function ContentBrowser() {
     return () => { offProgress(); offDone() }
   }, [])
 
-  useEffect(() => { setOffset(0) }, [tab, sort, gameVersion, loader])
+  useEffect(() => { setOffset(0) }, [tab, sort, gameVersion, loader, cfSource])
 
   useEffect(() => {
     if (searchRef.current) clearTimeout(searchRef.current)
     searchRef.current = setTimeout(() => doSearch(0), query ? 400 : 0)
     return () => { if (searchRef.current) clearTimeout(searchRef.current) }
-  }, [query, tab, sort, gameVersion, loader])
+  }, [query, tab, sort, gameVersion, loader, cfSource])
 
   const doSearch = useCallback(async (newOffset: number) => {
     setLoading(true)
     setOffset(newOffset)
+
+    if (tab === 'modpack' && cfSource === 'curseforge') {
+      try {
+        const res = await api.curseforge.searchModpacks(query || undefined, gameVersion ?? undefined, LIMIT, newOffset)
+        setCfResults(res.data as CFProject[])
+        setCfTotal(res.pagination.totalCount)
+      } catch { setCfResults([]); setCfTotal(0) }
+      finally { setLoading(false) }
+      return
+    }
+
     try {
       const res = await api.modrinth.searchContent({
         query: query || '',
@@ -927,7 +944,7 @@ function ContentBrowser() {
     } finally {
       setLoading(false)
     }
-  }, [query, tab, sort, gameVersion, loader])
+  }, [query, tab, sort, gameVersion, loader, cfSource])
 
   function showToast(msg: string, ok: boolean) {
     setToast({ msg, ok })
@@ -981,8 +998,9 @@ function ContentBrowser() {
         <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0 }}>{t.content.subtitle}</p>
       </div>
 
-      {/* Type tabs */}
-      <div style={{ display: 'flex', gap: 4, background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', padding: 4 }}>
+      {/* Type tabs + source toggle */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ flex: 1, display: 'flex', gap: 4, background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', padding: 4 }}>
         {TABS.map(tabItem => (
           <button key={tabItem.type} onClick={() => { setTab(tabItem.type as ContentTab); setQuery(''); setLoader(null) }} className="glow-hover" style={{
             flex: 1, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -995,6 +1013,21 @@ function ContentBrowser() {
             {tabLabels[tabItem.type as ContentTab].toUpperCase()}
           </button>
         ))}
+        </div>
+        {tab === 'modpack' && (
+          <div style={{ display: 'flex', background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', padding: 4, gap: 3, flexShrink: 0 }}>
+            {(['modrinth', 'curseforge'] as const).map(src => (
+              <button key={src} onClick={() => { setCfSource(src); setQuery('') }} className="glow-hover" style={{
+                height: 28, padding: '0 12px', fontSize: 11, fontWeight: 700, letterSpacing: '.04em',
+                color: cfSource === src ? '#fff' : 'var(--ink-3)',
+                background: cfSource === src ? (src === 'curseforge' ? '#f16436' : 'var(--accent)') : 'transparent',
+                border: 'none', borderRadius: 3, cursor: 'pointer',
+              }}>
+                {src === 'modrinth' ? 'Modrinth' : 'CurseForge'}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Search + filters */}
@@ -1027,12 +1060,36 @@ function ContentBrowser() {
 
       {/* Results count */}
       <div style={{ fontSize: 11, color: 'var(--ink-4)', letterSpacing: '.04em' }}>
-        {loading ? t.content.searching : t.content.found(total, tabLabels[tab])}
+        {loading ? t.content.searching : (tab === 'modpack' && cfSource === 'curseforge')
+          ? `${cfTotal.toLocaleString()} CurseForge modpacks found`
+          : t.content.found(total, tabLabels[tab])}
       </div>
+
+      {/* CurseForge — no key warning */}
+      {tab === 'modpack' && cfSource === 'curseforge' && !cfHasKey && !loading && (
+        <div style={{ padding: '40px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+          <div style={{ fontFamily: "'VT323',monospace", fontSize: 16, color: 'var(--ink-4)', letterSpacing: '.08em' }}>{t.browse.noApiKey}</div>
+          <div style={{ fontSize: 12, color: 'var(--ink-4)' }}>{t.browse.noApiKeyDesc}</div>
+          <a href="/settings" onClick={e => { e.preventDefault(); window.location.hash = '/settings' }} style={{ fontSize: 12, color: 'var(--accent)', cursor: 'pointer' }}>{t.browse.goToSettings}</a>
+        </div>
+      )}
 
       {/* Grid */}
       {loading ? (
         <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>{t.content.loading}</div>
+      ) : tab === 'modpack' && cfSource === 'curseforge' ? (
+        cfHasKey && (cfResults.length === 0
+          ? <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>No modpacks found. Try a different search.</div>
+          : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+              {cfResults.map(p => (
+                <CFModpackCard
+                  key={p.id}
+                  project={p}
+                  installing={installingId === `cf:${p.id}`}
+                  onInstall={() => setCfInstall(p)}
+                />
+              ))}
+            </div>)
       ) : results.length === 0 ? (
         <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>
           {t.content.noContent(tabLabels[tab])}
@@ -1053,13 +1110,15 @@ function ContentBrowser() {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {(tab === 'modpack' && cfSource === 'curseforge'
+        ? Math.ceil(cfTotal / LIMIT)
+        : totalPages) > 1 && (
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center', paddingTop: 4 }}>
           <PageBtn disabled={currentPage === 0} onClick={() => doSearch((currentPage - 1) * LIMIT)}>←</PageBtn>
           <span style={{ fontFamily: "'VT323',monospace", fontSize: 16, color: 'var(--ink-3)', alignSelf: 'center', letterSpacing: '.06em' }}>
-            {currentPage + 1} / {totalPages}
+            {currentPage + 1} / {tab === 'modpack' && cfSource === 'curseforge' ? Math.ceil(cfTotal / LIMIT) : totalPages}
           </span>
-          <PageBtn disabled={currentPage >= totalPages - 1} onClick={() => doSearch((currentPage + 1) * LIMIT)}>→</PageBtn>
+          <PageBtn disabled={currentPage >= (tab === 'modpack' && cfSource === 'curseforge' ? Math.ceil(cfTotal / LIMIT) : totalPages) - 1} onClick={() => doSearch((currentPage + 1) * LIMIT)}>→</PageBtn>
         </div>
       )}
 
@@ -1091,6 +1150,25 @@ function ContentBrowser() {
         />
       )}
 
+      {/* CurseForge modpack install modal */}
+      {cfInstallTarget && (
+        <CFModpackInstallModal
+          project={cfInstallTarget}
+          onClose={() => setCfInstall(null)}
+          onInstall={(name, fileId) => {
+            const projectId = `cf:${cfInstallTarget.id}`
+            setCfInstall(null)
+            setInstallingId(projectId)
+            setProgress({ projectId, title: cfInstallTarget.name, step: 'Starting…', percent: 0 })
+            api.curseforge.installModpack(name, cfInstallTarget.id, fileId).catch(e => {
+              setProgress(null)
+              setInstallingId(null)
+              showToast(e instanceof Error ? e.message : 'Install failed', false)
+            })
+          }}
+        />
+      )}
+
       {/* Modpack progress overlay */}
       {progressInfo && (
         <ProgressOverlay
@@ -1108,6 +1186,122 @@ function ContentBrowser() {
           {toast.msg}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── CurseForge modpack card ──────────────────────────────────────────────────
+
+function CFModpackCard({ project, installing, onInstall }: { project: CFProject; installing: boolean; onInstall: () => void }) {
+  const [hover, setHover] = useState(false)
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        background: 'var(--surface)', border: `1px solid ${hover ? '#f16436' : 'var(--border-r)'}`,
+        borderRadius: 'var(--radius)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        transition: 'border-color 120ms',
+      }}
+    >
+      <div style={{ display: 'flex', gap: 10, padding: '12px 12px 8px', alignItems: 'flex-start' }}>
+        <div style={{ width: 48, height: 48, flexShrink: 0, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 4, overflow: 'hidden' }}>
+          {project.logo?.thumbnailUrl
+            ? <img src={project.logo.thumbnailUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📦</div>}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: "'VT323',monospace", fontSize: 15, color: 'var(--ink)', letterSpacing: '.06em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.name}</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>by {project.authors[0]?.name ?? 'Unknown'}</div>
+          <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 2 }}>↓ {fmtNum(project.downloadCount)}  ·  {fmtDate(project.dateModified)}</div>
+        </div>
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--ink-3)', margin: '0 12px 10px', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        {project.summary}
+      </p>
+      <div style={{ padding: '8px 12px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {project.categories.slice(0, 2).map(c => <Tag key={c.id} color="var(--ink-4)">{c.name}</Tag>)}
+        </div>
+        <button onClick={onInstall} disabled={installing} className="glow-hover" style={{ fontFamily: "'VT323',monospace", fontSize: 18, letterSpacing: '.08em', color: installing ? 'var(--ink-4)' : '#fff', background: installing ? 'var(--surface-3)' : '#f16436', border: 'none', cursor: installing ? 'not-allowed' : 'pointer', padding: '0 28px', height: 36, borderRadius: 3, flexShrink: 0, boxShadow: installing ? 'none' : 'inset 0 -2px 0 rgba(0,0,0,.3)' }}>
+          {installing ? '…' : 'INSTALL'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── CurseForge modpack install modal ────────────────────────────────────────
+
+function CFModpackInstallModal({ project, onClose, onInstall }: {
+  project: CFProject
+  onClose: () => void
+  onInstall: (name: string, fileId: number) => void
+}) {
+  const [name, setName]       = useState(project.name)
+  const [files, setFiles]     = useState<CFFile[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selFile, setSelFile] = useState<number | null>(null)
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  useEffect(() => {
+    api.curseforge.files(project.id)
+      .then(f => { setFiles(f); setSelFile(f[0]?.id ?? null); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [project.id])
+
+  const canInstall = name.trim().length > 0 && selFile !== null
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', width: 480, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          {project.logo?.thumbnailUrl && <img src={project.logo.thumbnailUrl} alt="" style={{ width: 32, height: 32, border: '1px solid var(--border-r)', borderRadius: 3 }} />}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: "'VT323',monospace", fontSize: 14, color: '#f16436', letterSpacing: '.1em' }}>INSTALL CURSEFORGE MODPACK</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{project.name}</div>
+          </div>
+          <button onClick={onClose} style={{ color: 'var(--ink-4)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>✕</button>
+        </div>
+        <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <div style={{ fontFamily: "'VT323',monospace", fontSize: 12, letterSpacing: '.12em', color: 'var(--ink-4)', marginBottom: 5 }}>INSTANCE NAME</div>
+            <input value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', height: 34, background: 'var(--bg)', border: '1px solid var(--border-r)', color: 'var(--ink)', padding: '0 10px', outline: 'none', fontSize: 13, borderRadius: 3 }} />
+          </div>
+          <div>
+            <div style={{ fontFamily: "'VT323',monospace", fontSize: 12, letterSpacing: '.12em', color: 'var(--ink-4)', marginBottom: 5 }}>VERSION</div>
+            {loading
+              ? <div style={{ fontSize: 12, color: 'var(--ink-4)' }}>Loading versions…</div>
+              : <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
+                  {files.map(f => {
+                    const isSel = selFile === f.id
+                    const mcVer = f.gameVersions.find(v => /^\d+\.\d+/.test(v))
+                    return (
+                      <button key={f.id} onClick={() => setSelFile(f.id)} className="glow-hover" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', textAlign: 'left', background: isSel ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${isSel ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, cursor: 'pointer' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.displayName}</div>
+                          <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 1 }}>{mcVer ?? ''}</div>
+                        </div>
+                        <div style={{ flexShrink: 0, fontSize: 11, color: 'var(--ink-4)' }}>↓ {fmtNum(f.downloadCount)}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+            }
+          </div>
+        </div>
+        <div style={{ padding: '12px 18px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button onClick={onClose} style={{ height: 34, padding: '0 14px', background: 'var(--surface-2)', color: 'var(--ink-3)', border: '1px solid var(--border-r)', borderRadius: 3, cursor: 'pointer', fontSize: 12 }}>Cancel</button>
+          <button disabled={!canInstall} onClick={() => canInstall && onInstall(name.trim(), selFile!)} className="glow-hover" style={{ height: 34, padding: '0 20px', fontFamily: "'VT323',monospace", fontSize: 16, letterSpacing: '.1em', color: canInstall ? '#fff' : 'var(--ink-4)', background: canInstall ? '#f16436' : 'var(--surface-3)', border: 'none', borderRadius: 3, cursor: canInstall ? 'pointer' : 'not-allowed', boxShadow: canInstall ? 'inset 0 -2px 0 rgba(0,0,0,.3)' : 'none' }}>
+            INSTALL
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -226,6 +226,7 @@ declare global {
         searchModpacks: (query?: string, gameVersion?: string, pageSize?: number, index?: number) => Promise<import('@refract/core').CFSearchResult>
         files:          (modId: number, gameVersion?: string, loader?: string) => Promise<import('@refract/core').CFFile[]>
         install:        (instanceId: string, modId: number, fileId: number, displayName: string) => Promise<void>
+        installModpack: (name: string, modId: number, fileId: number) => Promise<import('@refract/core').Instance>
       }
     }
   }

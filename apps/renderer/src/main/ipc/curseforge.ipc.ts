@@ -1,8 +1,12 @@
 import { join, basename, relative, resolve } from 'path'
+import { existsSync, mkdirSync, rmSync } from 'fs'
+import { BrowserWindow } from 'electron'
 import { handleIpc } from './handle'
 import { getConfig } from '../services/config'
 import { downloadFile } from '../services/download'
 import { resolveInstanceDir, getInstanceById, updateInstance } from '../services/instance-store'
+import { installModpackFromFile } from '../services/modpack'
+import { paths } from '../services/paths'
 import {
   searchCurseForge,
   getCurseForgeFiles,
@@ -24,7 +28,7 @@ function loaderToModLoaderType(loader?: string): number | undefined {
   return CF_LOADER[loader as keyof typeof CF_LOADER]
 }
 
-export function registerCurseForgeIpc(): void {
+export function registerCurseForgeIpc(mainWindow?: BrowserWindow): void {
   handleIpc('curseforge.search', async (_event, opts) => {
     const apiKey = getApiKey()
     return searchCurseForge({ ...(opts as Omit<CFSearchOptions, 'apiKey'>), apiKey })
@@ -63,6 +67,28 @@ export function registerCurseForgeIpc(): void {
       gameVersion ? String(gameVersion) : undefined,
       loaderToModLoaderType(loader ? String(loader) : undefined),
     )
+  })
+
+  handleIpc('curseforge.installModpack', async (_event, name, modId, fileId) => {
+    const apiKey = getApiKey()
+    const midNum = Number(modId)
+    const fidNum = Number(fileId)
+    const files = await getCurseForgeFiles(midNum, apiKey)
+    const file = files.find(f => f.id === fidNum)
+    if (!file) throw new Error(`CurseForge file ${fileId} not found`)
+    let url = file.downloadUrl
+    if (!url) url = await getCurseForgeDownloadUrl(midNum, fidNum, apiKey)
+    if (!url) throw new Error(`No download URL available for file ${fileId}`)
+    const cacheDir = paths.cache
+    mkdirSync(cacheDir, { recursive: true })
+    const tempPath = join(cacheDir, `cfpack-${Date.now()}.zip`)
+    try {
+      await downloadFile(url, tempPath)
+      const win = mainWindow ?? BrowserWindow.getAllWindows()[0]
+      return await installModpackFromFile(tempPath, String(name), win, `cf:${modId}`)
+    } finally {
+      try { if (existsSync(tempPath)) rmSync(tempPath) } catch { /* ignore */ }
+    }
   })
 
   handleIpc('curseforge.install', async (_event, instanceId, modId, fileId, displayName) => {
