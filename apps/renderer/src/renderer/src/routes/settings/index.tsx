@@ -36,6 +36,7 @@ function Settings() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [memoryMb, setMemoryMb] = useState<number>(2048)
+  const [memoryMaxMb, setMemoryMaxMb] = useState<number>(16384)
   const memorySaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [javas, setJavas] = useState<JavaInstallation[]>([])
   const [managedJavas, setManagedJavas] = useState<JavaInstallation[]>([])
@@ -85,6 +86,7 @@ function Settings() {
 
   useEffect(() => {
     refresh().catch((err) => setError(err instanceof Error ? err.message : String(err)))
+    api.system.totalMemoryMb().then(mb => setMemoryMaxMb(Math.max(1024, Math.floor(mb / 512) * 512))).catch(() => {})
   }, [])
 
   async function scanJava() {
@@ -302,7 +304,7 @@ function Settings() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <input
                     type="range"
-                    min={512} max={16384} step={512}
+                    min={512} max={memoryMaxMb} step={512}
                     value={memoryMb}
                     onChange={(e) => handleMemoryChange(Number(e.target.value))}
                     style={{ flex: 1, accentColor: 'var(--accent)', cursor: 'pointer' }}

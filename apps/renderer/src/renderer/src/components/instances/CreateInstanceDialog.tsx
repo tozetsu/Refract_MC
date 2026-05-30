@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import type React from 'react'
 import type { ModLoader } from '@refract/core'
+import { api } from '@/lib/api'
 import { PixelScene, loaderToScene } from '@/components/ui/PixelScene'
 import { compressImage } from '@/lib/image'
 import { McVersionSelect } from './McVersionSelect'
@@ -15,9 +16,8 @@ const MOD_LOADERS: Array<{ value: ModLoader | ''; label: string }> = [
   { value: 'neoforge', label: 'NeoForge' },
 ]
 
-const MEMORY_QUICK = [1024, 2048, 4096, 8192, 16384]
+const MEMORY_ALL_QUICK = [1024, 2048, 4096, 8192, 16384, 32768]
 const MEMORY_MIN_MB = 512
-const MEMORY_MAX_MB = 32768
 const MEMORY_STEP   = 512
 
 function mbLabel(mb: number) {
@@ -56,7 +56,15 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
   const [coverImage, setCoverImage] = useState('')
   const [customPath, setCustomPath] = useState('')
   const [loading, setLoading]     = useState(false)
+  const [systemMaxMb, setSystemMaxMb] = useState(16384)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    api.system.totalMemoryMb().then(mb => setSystemMaxMb(Math.max(1024, Math.floor(mb / 512) * 512))).catch(() => {})
+  }, [])
+
+  const MEMORY_MAX_MB = systemMaxMb
+  const MEMORY_QUICK = MEMORY_ALL_QUICK.filter(mb => mb <= systemMaxMb)
 
   function setMemory(mb: number) {
     setMemoryMb(Math.max(MEMORY_MIN_MB, Math.min(MEMORY_MAX_MB, mb)))

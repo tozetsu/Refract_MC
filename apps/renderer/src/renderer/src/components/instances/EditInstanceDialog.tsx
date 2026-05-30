@@ -16,9 +16,8 @@ const MOD_LOADERS: Array<{ value: ModLoader | ''; label: string }> = [
   { value: 'neoforge', label: 'NeoForge' },
 ]
 
-const MEMORY_QUICK = [1024, 2048, 4096, 8192, 16384]
+const MEMORY_ALL_QUICK = [1024, 2048, 4096, 8192, 16384, 32768]
 const MEMORY_MIN_MB = 512
-const MEMORY_MAX_MB = 32768
 const MEMORY_STEP   = 512
 
 function mbLabel(mb: number) {
@@ -53,7 +52,15 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
   const [javas, setJavas]         = useState<JavaInstallation[]>([])
   const [loading, setLoading]     = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [systemMaxMb, setSystemMaxMb] = useState(16384)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    api.system.totalMemoryMb().then(mb => setSystemMaxMb(Math.max(1024, Math.floor(mb / 512) * 512))).catch(() => {})
+  }, [])
+
+  const MEMORY_MAX_MB = systemMaxMb
+  const MEMORY_QUICK = MEMORY_ALL_QUICK.filter(mb => mb <= systemMaxMb)
 
   useEffect(() => {
     if (instance && open) {

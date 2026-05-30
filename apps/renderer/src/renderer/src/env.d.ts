@@ -146,6 +146,9 @@ declare global {
         duplicate:      (id: string) => Promise<import('@refract/core').Instance | null>
         importMultiMc:  () => Promise<import('@refract/core').Instance | null>
       }
+      system: {
+        totalMemoryMb: () => Promise<number>
+      }
       window: {
         minimize: () => void
         maximize: () => void

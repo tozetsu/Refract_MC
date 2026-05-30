@@ -1,4 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron'
+import { totalmem } from 'os'
 import { logError } from '../services/logger'
 import { handleIpc } from './handle'
 
@@ -32,6 +33,7 @@ export function registerWindowIpc(mainWindow: BrowserWindow): void {
   })
 
   handleIpc('window:isMaximized', () => mainWindow.isMaximized())
+  handleIpc('system.totalMemoryMb', () => Math.floor(totalmem() / 1024 / 1024))
 
   mainWindow.on('maximize', () => {
     mainWindow.webContents.send('window:maximized-change', true)
