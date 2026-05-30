@@ -326,6 +326,7 @@ function ContentCard({ project, tab, onInstall, onDetail, installing }: {
         <button
           onClick={e => { e.stopPropagation(); onInstall() }}
           disabled={installing}
+          className="glow-hover"
           style={{
             fontFamily: "'VT323',monospace", fontSize: 18, letterSpacing: '.08em',
             color: installing ? 'var(--ink-4)' : '#fff',
@@ -658,7 +659,7 @@ function ContentInstallModal({ project, tab, instances, onClose, onInstall }: Co
                 : instances.map(inst => {
                     const active = selectedInst?.id === inst.id
                     return (
-                      <button key={inst.id} onClick={() => setSelInst(inst)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 8px', marginBottom: 3, background: active ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, cursor: 'pointer' }}>
+                      <button key={inst.id} onClick={() => setSelInst(inst)} className="glow-hover" style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 8px', marginBottom: 3, background: active ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, cursor: 'pointer' }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inst.name}</div>
                         <div style={{ fontFamily: "'VT323',monospace", fontSize: 11, color: 'var(--ink-4)', marginTop: 1 }}>{inst.minecraftVersion} · {inst.modLoader?.toUpperCase() ?? 'VANILLA'}</div>
                       </button>
@@ -680,7 +681,7 @@ function ContentInstallModal({ project, tab, instances, onClose, onInstall }: Co
                       const isSel  = selectedVer === v.id
                       const mcOk   = selectedInst ? v.game_versions.includes(selectedInst.minecraftVersion) : true
                       return (
-                        <button key={v.id} onClick={() => setSelVer(v.id)} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', textAlign: 'left', padding: '7px 8px', marginBottom: 3, background: isSel ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${isSel ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, cursor: 'pointer', opacity: (!mcOk && !isSel) ? .45 : 1 }}>
+                        <button key={v.id} onClick={() => setSelVer(v.id)} className="glow-hover" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', textAlign: 'left', padding: '7px 8px', marginBottom: 3, background: isSel ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${isSel ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, cursor: 'pointer', opacity: (!mcOk && !isSel) ? .45 : 1 }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{v.version_number}</div>
                             <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{v.game_versions.slice(0, 3).join(', ')}</div>
@@ -778,7 +779,7 @@ function ModpackInstallModal({ project, onClose, onInstall }: ModpackInstallModa
                     const isSel     = selectedVer === v.id
                     const loaderName = v.loaders.find(l => l !== 'mrpack')
                     return (
-                      <button key={v.id} onClick={() => setSelVer(v.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', textAlign: 'left', background: isSel ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${isSel ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, cursor: 'pointer' }}>
+                      <button key={v.id} onClick={() => setSelVer(v.id)} className="glow-hover" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', textAlign: 'left', background: isSel ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${isSel ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, cursor: 'pointer' }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{v.version_number}</div>
                           <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 1 }}>
@@ -983,7 +984,7 @@ function ContentBrowser() {
       {/* Type tabs */}
       <div style={{ display: 'flex', gap: 4, background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', padding: 4 }}>
         {TABS.map(tabItem => (
-          <button key={tabItem.type} onClick={() => { setTab(tabItem.type as ContentTab); setQuery(''); setLoader(null) }} style={{
+          <button key={tabItem.type} onClick={() => { setTab(tabItem.type as ContentTab); setQuery(''); setLoader(null) }} className="glow-hover" style={{
             flex: 1, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             fontFamily: "'VT323',monospace", fontSize: 14, letterSpacing: '.1em',
             color: tab === tabItem.type ? '#fff' : 'var(--ink-3)',
@@ -1012,11 +1013,11 @@ function ContentBrowser() {
         <VersionDropdown value={gameVersion} onChange={v => { setVersion(v); setOffset(0) }} />
         {tabInfo.showLoader && (
           <div style={{ display: 'flex', gap: 4 }}>
-            <button onClick={() => setLoader(null)} style={{ fontSize: 11, fontWeight: 500, color: loader === null ? 'var(--accent)' : 'var(--ink-4)', background: loader === null ? 'var(--accent-tint)' : 'var(--surface)', border: `1px solid ${loader === null ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>
+            <button onClick={() => setLoader(null)} className="glow-hover" style={{ fontSize: 11, fontWeight: 500, color: loader === null ? 'var(--accent)' : 'var(--ink-4)', background: loader === null ? 'var(--accent-tint)' : 'var(--surface)', border: `1px solid ${loader === null ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>
               {t.content.allLoaders}
             </button>
             {LOADERS.map(l => (
-              <button key={l} onClick={() => setLoader(loader === l ? null : l)} style={{ fontSize: 11, fontWeight: 500, color: loader === l ? 'var(--accent)' : 'var(--ink-4)', background: loader === l ? 'var(--accent-tint)' : 'var(--surface)', border: `1px solid ${loader === l ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>
+              <button key={l} onClick={() => setLoader(loader === l ? null : l)} className="glow-hover" style={{ fontSize: 11, fontWeight: 500, color: loader === l ? 'var(--accent)' : 'var(--ink-4)', background: loader === l ? 'var(--accent-tint)' : 'var(--surface)', border: `1px solid ${loader === l ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}>
                 {loaderLabel(l)}
               </button>
             ))}

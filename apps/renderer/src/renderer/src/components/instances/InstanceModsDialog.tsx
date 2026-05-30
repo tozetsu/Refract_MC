@@ -474,6 +474,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
+              className="glow-hover"
               style={{
                 padding: '4px 10px', borderRadius: 3,
                 fontSize: 11, fontWeight: 600, cursor: 'pointer',
@@ -514,6 +515,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                 <button
                   onClick={() => handleApplyProfile(p.id)}
                   title={`Apply "${p.name}" — ${p.enabledFiles.length} mods enabled`}
+                  className="glow-hover"
                   style={{
                     fontSize: 11, padding: '2px 8px',
                     background: 'var(--surface-2)', border: '1px solid var(--border-r)',

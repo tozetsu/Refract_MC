@@ -56,19 +56,23 @@ interface NavItemProps { to: string; label: string; iconSrc: string; exact: bool
 function NavItem({ to, label, iconSrc, exact }: NavItemProps) {
   const matchRoute = useMatchRoute()
   const active = !!matchRoute({ to: to as '/', fuzzy: !exact })
+  const [hover, setHover] = useState(false)
 
   return (
     <Link
       to={to as '/'}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
         position: 'relative',
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '8px 10px', borderRadius: 4,
-        color: active ? 'var(--ink)' : 'var(--ink-2)',
+        color: active ? 'var(--ink)' : hover ? 'var(--ink)' : 'var(--ink-2)',
         fontSize: 13, fontWeight: 500, textDecoration: 'none',
-        background: active ? 'var(--accent-tint)' : 'transparent',
-        border: `1px solid ${active ? 'var(--accent)' : 'transparent'}`,
+        background: active ? 'var(--accent-tint)' : hover ? 'rgba(255,255,255,.05)' : 'transparent',
+        border: `1px solid ${active ? 'var(--accent)' : hover ? 'rgba(255,255,255,.08)' : 'transparent'}`,
         userSelect: 'none',
+        transition: 'background 100ms, color 100ms, border-color 100ms',
       }}
     >
       {active && <div style={{ position:'absolute', left:-13, top:6, bottom:6, width:3, background:'var(--accent)' }} />}
@@ -514,10 +518,7 @@ export function Sidebar() {
 
       {/* Bottom */}
       <div style={{ marginTop:'auto', display:'flex', flexDirection:'column', gap:2, paddingTop:10, borderTop:'1px solid var(--sb-line)' }}>
-        <Link to="/settings" style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:4, color:'var(--ink-2)', fontSize:13, fontWeight:500, textDecoration:'none', border:'1px solid transparent' }}>
-          <NavIcon src={settingsIcon} />
-          <span>{t.nav.settings}</span>
-        </Link>
+        <NavItem to="/settings" label={t.nav.settings} iconSrc={settingsIcon} exact={true} />
         <button
           onClick={() => window.open('https://discord.gg/7Q5sGzhUQJ')}
           style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:4, color:'var(--ink-2)', fontSize:13, fontWeight:500, background:'none', border:'1px solid transparent', cursor:'pointer', textAlign:'left' }}

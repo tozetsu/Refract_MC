@@ -90,6 +90,14 @@ body::before {
 .drag-region    { -webkit-app-region: drag; }
 .no-drag-region { -webkit-app-region: no-drag; }
 
+/* ── Hover glow ──────────────────────────────────────────────────────────── */
+.glow-hover {
+  transition: filter 100ms ease;
+}
+.glow-hover:not(:disabled):hover {
+  filter: brightness(1.18);
+}
+
 /* ── Scrollbars ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
