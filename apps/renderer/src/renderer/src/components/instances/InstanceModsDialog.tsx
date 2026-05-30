@@ -703,17 +703,17 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
             />
           ))}
         </div>
-      </div>
 
-      {/* Screenshot lightbox */}
-      {lightbox && (
-        <ScreenshotLightbox
-          shot={lightbox}
-          instanceId={instance.id}
-          onClose={() => setLightbox(null)}
-          onOpenExternal={() => { api.mc.openScreenshot(instance.id, lightbox.filename).catch(() => {}); setLightbox(null) }}
-        />
-      )}
+        {/* Screenshot lightbox — must stay inside the stopPropagation div */}
+        {lightbox && (
+          <ScreenshotLightbox
+            shot={lightbox}
+            instanceId={instance.id}
+            onClose={() => setLightbox(null)}
+            onOpenExternal={() => { api.mc.openScreenshot(instance.id, lightbox.filename).catch(() => {}); setLightbox(null) }}
+          />
+        )}
+      </div>
     </div>
   )
 }
