@@ -1,9 +1,5 @@
 # Changelog
 
-## 1.0.4
-- **Fix:** "What's New" panel never showed 1.0.2 or 1.0.3 — release notes are now automatically populated from CHANGELOG.md by CI after each build
-- **Fix:** Bold markers (`**`) stripped from release note bullets so they display cleanly in the launcher
-
 ## 1.0.3
 - **Fix:** Nav icons showed as white squares in the installed app — SVGs are now embedded as data URIs at build time instead of referencing file paths, which broke under Electron's `file://` protocol
 
