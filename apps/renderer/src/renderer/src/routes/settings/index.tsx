@@ -896,7 +896,7 @@ function SegmentButton({ active, disabled, onClick, children }: { active: boolea
       disabled={disabled}
       onClick={onClick}
       style={{
-        height:30, minWidth:82, padding:'0 12px',
+        height:30, padding:'0 16px', whiteSpace:'nowrap',
         background:active ? 'var(--accent)' : 'transparent',
         color:active ? '#fff' : 'var(--ink-2)',
         border:'none', borderRadius:3,

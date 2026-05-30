@@ -196,10 +196,10 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
                   style={{ width:'100%', height:4, appearance:'none', outline:'none', cursor:'pointer', borderRadius:2,
                     background:`linear-gradient(to right, var(--accent) ${fillPct}%, var(--surface-3) 0%)` }}
                 />
-                <div style={{ display:'flex', gap:4, marginTop:4 }}>
+                <div style={{ display:'flex', gap:4, marginTop:4, flexWrap:'wrap' }}>
                   {MEMORY_QUICK.map(mb => (
                     <button key={mb} type="button" onClick={() => setMemory(mb)} style={{
-                      flex:1, height:26, fontSize:11, fontWeight:500,
+                      flex:'1 1 auto', height:26, fontSize:11, fontWeight:500,
                       color: memoryMb === mb ? 'var(--ink)' : 'var(--ink-4)',
                       background: memoryMb === mb ? 'var(--accent-tint)' : 'var(--surface-3)',
                       border:`1px solid ${memoryMb === mb ? 'var(--accent)' : 'var(--border-r)'}`,
