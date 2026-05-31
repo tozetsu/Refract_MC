@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import type React from 'react'
 import { SearchIcon } from '@/components/ui/BlockIcons'
 import { api } from '@/lib/api'
@@ -300,13 +300,105 @@ function VersionDropdown({ value, onChange }: { value: string | null; onChange: 
   )
 }
 
+// ─── DepsModal ────────────────────────────────────────────────────────────────
+
+interface DepEntry {
+  projectId: string
+  name: string
+  alreadyInstalled: boolean
+}
+
+interface DepsTarget {
+  instanceId: string
+  mainProjectId: string
+  mainProjectName: string
+  mainVersionId: string
+  deps: DepEntry[]
+}
+
+function DepsModal({ target, onClose, onInstallAll, onSkipDeps }: {
+  target: DepsTarget
+  onClose: () => void
+  onInstallAll: () => void
+  onSkipDeps: () => void
+}) {
+  const missing = target.deps.filter(d => !d.alreadyInstalled)
+  const already = target.deps.filter(d => d.alreadyInstalled)
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 91, background: 'rgba(0,0,0,.60)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onClose}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', width: 460, maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}
+      >
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontFamily: "'VT323',monospace", fontSize: 17, color: 'var(--accent)', letterSpacing: '.1em' }}>REQUIRED DEPENDENCIES</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>
+              Installing <strong style={{ color: 'var(--ink)' }}>{target.mainProjectName}</strong>
+            </div>
+          </div>
+          <button onClick={onClose} style={{ color: 'var(--ink-4)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>✕</button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {missing.length > 0 && (
+            <>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 2 }}>
+                Will be installed ({missing.length})
+              </div>
+              {missing.map(dep => (
+                <div key={dep.projectId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--accent-tint)', border: '1px solid var(--accent)', borderRadius: 3 }}>
+                  <div style={{ width: 6, height: 6, background: 'var(--accent)', flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{dep.name}</span>
+                </div>
+              ))}
+            </>
+          )}
+          {already.length > 0 && (
+            <>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-4)', marginTop: missing.length > 0 ? 8 : 2, marginBottom: 2 }}>
+                Already installed ({already.length})
+              </div>
+              {already.map(dep => (
+                <div key={dep.projectId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 3, opacity: 0.7 }}>
+                  <div style={{ width: 6, height: 6, background: 'var(--ink-4)', flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{dep.name}</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--grass)', border: '1px solid var(--grass)', borderRadius: 2, padding: '0 4px' }}>✓ installed</span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+
+        <div style={{ padding: '12px 18px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+          <button
+            onClick={onSkipDeps}
+            style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', background: 'transparent', border: '1px solid var(--border-r)', borderRadius: 3, padding: '0 16px', height: 32, cursor: 'pointer' }}
+          >
+            Skip deps
+          </button>
+          <button
+            onClick={onInstallAll}
+            style={{ fontFamily: "'VT323',monospace", fontSize: 18, letterSpacing: '.1em', color: '#fff', background: 'var(--accent)', border: 'none', cursor: 'pointer', padding: '0 24px', height: 36, boxShadow: 'inset 0 -3px 0 var(--accent-lo), inset 0 3px 0 var(--accent-hi)' }}
+          >
+            Install all {missing.length > 0 ? `(+${missing.length} dep${missing.length > 1 ? 's' : ''})` : ''}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── InstallModal ─────────────────────────────────────────────────────────────
 
 interface InstallModalProps {
   mod: ModrinthProject
   instances: Instance[]
   onClose: () => void
-  onInstall: (instanceId: string, versionId: string) => void
+  onInstall: (instanceId: string, version: ModrinthVersion) => void
 }
 
 function InstallModal({ mod, instances, onClose, onInstall }: InstallModalProps) {
@@ -433,7 +525,11 @@ function InstallModal({ mod, instances, onClose, onInstall }: InstallModalProps)
           </div>
           <button
             disabled={!canInstall}
-            onClick={() => canInstall && onInstall(selectedInstance!.id, selectedVersionId!)}
+            onClick={() => {
+              if (!canInstall) return
+              const ver = versions.find(v => v.id === selectedVersionId)
+              if (ver) onInstall(selectedInstance!.id, ver)
+            }}
             style={{ fontFamily: "'VT323',monospace", fontSize: 18, letterSpacing: '.1em', color: canInstall ? '#fff' : 'var(--ink-4)', background: canInstall ? 'var(--accent)' : 'var(--surface-3)', border: 'none', cursor: canInstall ? 'pointer' : 'not-allowed', padding: '0 28px', height: 36, boxShadow: canInstall ? 'inset 0 -3px 0 var(--accent-lo), inset 0 3px 0 var(--accent-hi)' : 'none' }}
           >
             {t.browse.install}
@@ -714,8 +810,19 @@ function Browse() {
   const [cfInstallTarget, setCfInstallTarget] = useState<CFProject | null>(null)
   const [installingId, setInstallingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
+  const [depsTarget, setDepsTarget] = useState<DepsTarget | null>(null)
 
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Feature 3: suggested instance for empty-query recommendations
+  const suggested = useMemo(() => {
+    const recent = instances
+      .filter(i => i.isInstalled && i.lastPlayed)
+      .sort((a, b) => (b.lastPlayed ?? '').localeCompare(a.lastPlayed ?? ''))
+    const inst = recent[0]
+    if (!inst) return null
+    return { version: inst.minecraftVersion, loader: inst.modLoader ?? null, name: inst.name }
+  }, [instances])
 
   useEffect(() => {
     api.instance.list().then(setInstances).catch(() => setInstances([]))
@@ -756,15 +863,19 @@ function Browse() {
     if (searchRef.current) clearTimeout(searchRef.current)
     searchRef.current = setTimeout(() => doSearch(0), query ? 400 : 0)
     return () => { if (searchRef.current) clearTimeout(searchRef.current) }
-  }, [query, category, loader, gameVersion, sort, source, cfApiKey])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, category, loader, gameVersion, sort, source, cfApiKey, suggested])
 
   async function doSearch(newOffset: number) {
     setLoading(true)
     setOffset(newOffset)
+    // Feature 3: when query is empty and user hasn't set filters, silently use suggested instance's version/loader
+    const effectiveVersion = query === '' && gameVersion === null ? suggested?.version ?? null : gameVersion
+    const effectiveLoader = query === '' && loader === 'All' ? (suggested?.loader ?? null) : (loader !== 'All' ? loader : null)
     try {
       if (source === 'cf' && cfApiKey) {
-        const gameLoader = loader !== 'All' ? loader : undefined
-        const res = await api.curseforge.searchMods(query || undefined, gameVersion ?? undefined, gameLoader, LIMIT, newOffset)
+        const gameLoader = effectiveLoader ?? undefined
+        const res = await api.curseforge.searchMods(query || undefined, effectiveVersion ?? undefined, gameLoader, LIMIT, newOffset)
         const cfRes = res as { data: CFProject[]; pagination: { totalCount: number } }
         setCfResults(cfRes.data)
         setTotal(cfRes.pagination.totalCount)
@@ -772,8 +883,8 @@ function Browse() {
         const res = await api.modrinth.searchContent({
           query: query || '',
           projectType: 'mod',
-          gameVersion: gameVersion ?? undefined,
-          loader: loader !== 'All' ? loader : undefined,
+          gameVersion: effectiveVersion ?? undefined,
+          loader: effectiveLoader ?? undefined,
           category: category !== 'All' ? category.toLowerCase() : undefined,
           sortIndex: sort,
           limit: LIMIT,
@@ -794,14 +905,100 @@ function Browse() {
     setTimeout(() => setToast(null), 3500)
   }
 
-  async function handleInstall(instanceId: string, versionId: string) {
+  async function handleInstall(instanceId: string, version: ModrinthVersion) {
     if (!installTarget) return
     const modName = installTarget.title
+    const mainProjectId = installTarget.project_id
+    const mainVersionId = version.id
+
+    // Feature 1: check required dependencies
+    const requiredDeps = version.dependencies.filter(
+      d => d.dependency_type === 'required' && d.project_id && !d.project_id.startsWith('cf:')
+    )
+
+    if (requiredDeps.length > 0) {
+      // Find the instance to check existing mods
+      const inst = instances.find(i => i.id === instanceId)
+      const installedProjectIds = new Set((inst?.mods ?? []).map(m => m.projectId))
+
+      // Try to resolve project names from Modrinth
+      const projectIds = requiredDeps.map(d => d.project_id!)
+      let nameMap: Record<string, string> = {}
+      try {
+        const resp = await fetch(
+          `https://api.modrinth.com/v2/projects?ids=${encodeURIComponent(JSON.stringify(projectIds))}`,
+          { headers: { 'User-Agent': 'Refract/1.0 (github.com/ShevRuslan1)', Accept: 'application/json' } }
+        )
+        if (resp.ok) {
+          const projects = await resp.json() as Array<{ id: string; title: string }>
+          for (const p of projects) nameMap[p.id] = p.title
+        }
+      } catch {
+        // silently fall through — install directly if fetch fails
+      }
+
+      const deps: DepEntry[] = requiredDeps.map(d => ({
+        projectId: d.project_id!,
+        name: nameMap[d.project_id!] ?? d.project_id!,
+        alreadyInstalled: installedProjectIds.has(d.project_id!),
+      }))
+
+      const hasMissing = deps.some(d => !d.alreadyInstalled)
+      if (hasMissing) {
+        setInstallTarget(null)
+        setDepsTarget({ instanceId, mainProjectId, mainProjectName: modName, mainVersionId, deps })
+        return
+      }
+    }
+
+    // No missing deps — install directly
     setInstallTarget(null)
-    setInstallingId(installTarget.project_id)
+    setInstallingId(mainProjectId)
     try {
-      await api.modrinth.install(instanceId, installTarget.project_id, modName, versionId)
+      await api.modrinth.install(instanceId, mainProjectId, modName, mainVersionId)
       showToast(`${modName} installed successfully!`, true)
+      api.instance.list().then(setInstances).catch(() => {})
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Install failed', false)
+    } finally {
+      setInstallingId(null)
+    }
+  }
+
+  async function handleInstallWithDeps() {
+    if (!depsTarget) return
+    const { instanceId, mainProjectId, mainProjectName, mainVersionId, deps } = depsTarget
+    setDepsTarget(null)
+    setInstallingId(mainProjectId)
+    const missing = deps.filter(d => !d.alreadyInstalled)
+    try {
+      for (const dep of missing) {
+        await api.modrinth.install(instanceId, dep.projectId, dep.name)
+      }
+      await api.modrinth.install(instanceId, mainProjectId, mainProjectName, mainVersionId)
+      const depCount = missing.length
+      showToast(
+        depCount > 0
+          ? `${mainProjectName} + ${depCount} dependenc${depCount > 1 ? 'ies' : 'y'} installed!`
+          : `${mainProjectName} installed successfully!`,
+        true
+      )
+      api.instance.list().then(setInstances).catch(() => {})
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Install failed', false)
+    } finally {
+      setInstallingId(null)
+    }
+  }
+
+  async function handleSkipDeps() {
+    if (!depsTarget) return
+    const { instanceId, mainProjectId, mainProjectName, mainVersionId } = depsTarget
+    setDepsTarget(null)
+    setInstallingId(mainProjectId)
+    try {
+      await api.modrinth.install(instanceId, mainProjectId, mainProjectName, mainVersionId)
+      showToast(`${mainProjectName} installed successfully!`, true)
       api.instance.list().then(setInstances).catch(() => {})
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Install failed', false)
@@ -927,6 +1124,15 @@ function Browse() {
             {loading ? t.browse.searching : t.browse.modsFound(total)}
           </div>
 
+          {/* Feature 3: Popular for your setup banner */}
+          {query === '' && suggested && !loading && gameVersion === null && loader === 'All' && (
+            <div style={{ fontSize: 11, color: 'var(--ink-4)', letterSpacing: '.04em', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>Showing popular mods for</span>
+              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{suggested.name}</span>
+              <span style={{ color: 'var(--ink-4)' }}>MC {suggested.version}{suggested.loader ? ` · ${suggested.loader}` : ''}</span>
+            </div>
+          )}
+
           {loading ? (
             <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>{t.browse.loading}</div>
           ) : source === 'cf' ? (
@@ -989,6 +1195,15 @@ function Browse() {
           instances={instances}
           onClose={() => setInstallTarget(null)}
           onInstall={handleInstall}
+        />
+      )}
+
+      {depsTarget && (
+        <DepsModal
+          target={depsTarget}
+          onClose={() => setDepsTarget(null)}
+          onInstallAll={handleInstallWithDeps}
+          onSkipDeps={handleSkipDeps}
         />
       )}
 
