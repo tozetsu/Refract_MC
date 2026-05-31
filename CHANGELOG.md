@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.5
+- **System tray** — closing the window now minimises to the system tray instead of quitting; double-click to restore, right-click for a quick-launch menu with the last-played instance and Quit
+- **Opt-in updates** — the launcher no longer downloads updates automatically; a chip appears in the title bar when a new version is found with an **Update** button to start the download and a **✕** to dismiss and stay on the current version
+- **Mod search** — a search bar appears in the Mods tab when more than 6 mods are installed, filtering by name in real time
+- **Notifications** — native OS notifications fire when a modpack finishes installing, when Minecraft crashes, and when an update download is ready
+- **Playtime chart** — a 7-day mini bar chart appears in the instance detail header after the first play session; today's bar is shown in the accent colour
+- **Instance-aware mod browser** — pick an instance from the Browse Mods page to see which mods are already **DOWNLOADED**, which have an **UPDATE** available, and which are **incompatible** with the instance's version or loader; selecting an instance auto-applies its MC version and loader as filters
+- **Fix:** memory slider now caps to actual system RAM instead of always showing 32 GB as the maximum
+- **Fix:** What's New panel now fetches release notes directly from CHANGELOG.md (always up to date) and scrolls instead of expanding the layout
+- **Fix:** Ukrainian language now fully covers the instance detail modal (tabs, empty messages, buttons, profiles, server ping labels)
+- **Fix:** Create/Edit instance dialogs widened to 640 px to accommodate longer Ukrainian text
+- **Fix:** language segment buttons auto-size to their text; memory quick-pick buttons wrap on high-RAM machines
+
 ## 1.0.4
 - **Custom accent color** — pick any colour in Settings → Appearance via preset swatches or a full colour picker; persisted across restarts with derived hi/lo/tint variants
 - **Bulk mod operations** — checkboxes on every mod row; a bulk action bar appears with Enable / Disable / Delete and Select-all when any are ticked
