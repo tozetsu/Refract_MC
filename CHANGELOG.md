@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.6
+- **New Instance redesign** — completely rebuilt dialog with violet brand system, live preview card (pixel skyline, updates as you type), segmented mod loader control, GB memory slider that reads your system's actual RAM
+- **Edit Instance redesign** — same brand system applied to the Edit dialog with matching live preview, JVM presets (Aikar's / Low-end), and danger-zone delete flow
+- **Playtime stats panel** — per-instance bar chart and 7-day activity chart on the home page showing hours played
+- **Mod dependency resolver** — when installing a mod from Browse Mods, Refract checks required dependencies and offers to install missing ones in the same step
+- **Version release notes** — the version picker now shows a one-line "What's new" blurb from Mojang's patch notes when you select a Minecraft version
+- **Recommended mods** — Browse Mods shows popular mods filtered to your most-recently-played instance's version and loader when search is empty
+- **Ely.by / Yggdrasil fix** — login now retries both `/authserver/authenticate` and `/auth/authenticate` endpoints, fixing "Page not found" errors on Ely.by
+- **Fix:** app now starts on the Instance Library instead of an "Unknown page" on fresh installs (switched to hash history routing)
+- **Fix:** Discord invite link updated
+
 ## 1.0.5
 - **System tray** — closing the window now minimises to the system tray instead of quitting; double-click to restore, right-click for a quick-launch menu with the last-played instance and Quit
 - **Opt-in updates** — the launcher no longer downloads updates automatically; a chip appears in the title bar when a new version is found with an **Update** button to start the download and a **✕** to dismiss and stay on the current version
