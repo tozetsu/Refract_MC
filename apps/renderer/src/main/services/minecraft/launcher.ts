@@ -12,6 +12,7 @@ import { detectJavaInstallations } from '@refract/core/java-manager'
 import { loadManagedJavas } from '../java-manager'
 import { versionJsonPath, clientJarPath, nativesDir } from './downloader'
 import { setGameActivity, clearGameActivity } from '../discord'
+import { notify } from '../notifications'
 
 const runningProcesses = new Map<string, ChildProcess>()
 
@@ -167,8 +168,12 @@ export async function launchInstance(
     const elapsed = Math.floor((Date.now() - launchTime) / 1000)
     if (elapsed > 0) {
       const current = instanceStore.getInstanceById(instanceId)
+      const today = new Date().toISOString().split('T')[0]
+      const log = { ...(current?.playtimeLog ?? {}) }
+      log[today] = (log[today] ?? 0) + elapsed
       instanceStore.updateInstance(instanceId, {
         totalTimePlayed: (current?.totalTimePlayed ?? 0) + elapsed,
+        playtimeLog: log,
       })
     }
   }
@@ -184,12 +189,16 @@ export async function launchInstance(
     recordPlaytime()
     void clearGameActivity(instanceId)
     send('mc:exit', { instanceId, code })
+    if (code !== 0 && code !== null) {
+      notify('Minecraft crashed', `${instance.name} exited with code ${code}. Check the crash report.`)
+    }
   })
   proc.on('error', (err) => {
     runningProcesses.delete(instanceId)
     recordPlaytime()
     void clearGameActivity(instanceId)
     send('mc:exit', { instanceId, code: -1, error: err.message })
+    notify('Minecraft failed to launch', err.message)
   })
 }
 

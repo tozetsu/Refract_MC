@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, rmSync, readdirSync, copyFileSync, readFileSync,
 import { inflateRawSync } from 'zlib'
 import { BrowserWindow } from 'electron'
 import { paths } from './paths'
+import { notify } from './notifications'
 import { downloadFile } from './download'
 import { getProjectVersions, getPrimaryFile, fetchVersionList } from '@refract/core'
 import { createAndSaveInstance, updateInstance, deleteInstance, resolveInstanceDir } from './instance-store'
@@ -286,6 +287,7 @@ export async function installModpack(
     instance.isInstalled = true
 
     progress(mainWindow, projectId, 'Done', 100)
+    notify('Modpack installed', `${instance.name} is ready to play.`)
     mainWindow.webContents.send('modpack:done', { projectId, instanceId: instance.id })
     return instance
 

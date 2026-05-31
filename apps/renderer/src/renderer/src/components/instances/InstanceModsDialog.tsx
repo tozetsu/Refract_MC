@@ -113,6 +113,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
   const [newProfileName, setNewProfileName] = useState('')
   const [selectedMods, setSelectedMods]  = useState<Set<string>>(new Set())
   const [lightbox, setLightbox]          = useState<ScreenshotEntry | null>(null)
+  const [modSearch, setModSearch]        = useState('')
 
   const load = useCallback(async () => {
     if (!instance) return
@@ -176,7 +177,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
     load()
   }, [open, load])
 
-  useEffect(() => { setSelectedMods(new Set()) }, [tab])
+  useEffect(() => { setSelectedMods(new Set()); setModSearch('') }, [tab])
 
   useEffect(() => {
     if (!open) return
@@ -190,7 +191,10 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
   if (!open || !instance) return null
 
   const isContentTab = (tab !== 'worlds' && tab !== 'screenshots' && tab !== 'updates' && tab !== 'servers')
-  const visible = isContentTab ? (tab === 'all' ? items : items.filter(it => it.type === tab)) : []
+  const baseVisible = isContentTab ? (tab === 'all' ? items : items.filter(it => it.type === tab)) : []
+  const visible = modSearch
+    ? baseVisible.filter(e => e.displayName.toLowerCase().includes(modSearch.toLowerCase()))
+    : baseVisible
   const updatesAvailable = modUpdates.filter(u => u.hasUpdate)
 
   const counts: Partial<Record<TabFilter, number>> = {
@@ -394,6 +398,9 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
               <span style={{ color: 'var(--border-r)' }}>·</span>
               <span>{items.length} mod{items.length !== 1 ? 's' : ''}</span>
             </div>
+            {instance.playtimeLog && Object.keys(instance.playtimeLog).length > 0 && (
+              <PlaytimeChart log={instance.playtimeLog} />
+            )}
           </div>
 
           {/* Actions */}
@@ -647,6 +654,18 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
         )}
 
         {/* Body */}
+        {/* Mod search */}
+        {isContentTab && items.length > 6 && (
+          <div style={{ padding: '6px 12px 4px', flexShrink: 0, borderBottom: '1px solid var(--line)', background: 'var(--bg)' }}>
+            <input
+              value={modSearch}
+              onChange={e => setModSearch(e.target.value)}
+              placeholder="Search mods…"
+              style={{ width: '100%', height: 28, background: 'var(--surface-2)', border: '1px solid var(--border-r)', color: 'var(--ink)', padding: '0 10px', outline: 'none', fontSize: 12, borderRadius: 3 }}
+            />
+          </div>
+        )}
+
         <div style={{ flex: 1, overflowY: 'auto', padding: tab === 'screenshots' ? 12 : '6px 0' }}>
           {loading ? (
             <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>Loading…</div>
@@ -1159,5 +1178,37 @@ function TypeIcon({ type, color }: { type: ContentType; color: string }) {
       <line x1="6" y1="8" x2="10" y2="8" stroke={color} strokeWidth="1.2" />
       <line x1="6" y1="11" x2="9" y2="11" stroke={color} strokeWidth="1.2" />
     </svg>
+  )
+}
+
+function PlaytimeChart({ log }: { log: Record<string, number> }) {
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (6 - i))
+    const key = d.toISOString().split('T')[0]
+    const mins = Math.round((log[key] ?? 0) / 60)
+    const label = i === 6 ? 'Today' : d.toLocaleDateString([], { weekday: 'short' })
+    return { key, mins, label, isToday: i === 6 }
+  })
+  const max = Math.max(...days.map(d => d.mins), 1)
+  const totalMins = days.reduce((s, d) => s + d.mins, 0)
+  if (totalMins === 0) return null
+  return (
+    <div style={{ marginTop: 8, display: 'flex', gap: 3, alignItems: 'flex-end', height: 36 }} title={`${totalMins}m this week`}>
+      {days.map(d => (
+        <div key={d.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+          <div
+            title={d.mins > 0 ? `${d.mins}m on ${d.label}` : d.label}
+            style={{
+              width: '100%', minHeight: 2,
+              height: `${Math.max(2, (d.mins / max) * 24)}px`,
+              background: d.isToday ? 'var(--accent)' : d.mins > 0 ? 'var(--surface-3)' : 'var(--surface-2)',
+              borderRadius: 2,
+            }}
+          />
+          <div style={{ fontSize: 8, color: 'var(--ink-4)' }}>{d.label.slice(0, 2).toUpperCase()}</div>
+        </div>
+      ))}
+    </div>
   )
 }

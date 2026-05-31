@@ -1,14 +1,18 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Tray, Menu, nativeImage } from 'electron'
 import { join } from 'path'
 import { autoUpdater } from 'electron-updater'
 import { registerAllIpcHandlers } from './ipc'
 import { ensureAppDirs } from './services/paths'
 import { loadConfig } from './services/config'
 import { installProcessErrorLogging, logError } from './services/logger'
+import { notify } from './services/notifications'
+import { listInstances } from './services/instance-store'
+import { launchInstance } from './services/minecraft/launcher'
 
 installProcessErrorLogging()
 
 const isDev = !app.isPackaged
+let isQuitting = false
 
 function createWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
@@ -26,9 +30,7 @@ function createWindow(): BrowserWindow {
     },
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
+  mainWindow.on('ready-to-show', () => mainWindow.show())
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
@@ -44,6 +46,23 @@ function createWindow(): BrowserWindow {
   return mainWindow
 }
 
+function buildTrayMenu(mainWindow: BrowserWindow, tray: Tray): void {
+  const instances = listInstances()
+  const last = instances[0] ?? null
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Open Refract', click: () => { mainWindow.show(); mainWindow.focus() } },
+    { type: 'separator' },
+    last
+      ? { label: `▶  ${last.name}`, click: () => {
+            mainWindow.show(); mainWindow.focus()
+            launchInstance(last.id, mainWindow).catch(() => {})
+          }}
+      : { label: 'No instances yet', enabled: false },
+    { type: 'separator' },
+    { label: 'Quit', click: () => { isQuitting = true; app.quit() } },
+  ]))
+}
+
 app.whenReady().then(() => {
   ensureAppDirs()
   loadConfig()
@@ -57,6 +76,23 @@ app.whenReady().then(() => {
   const mainWindow = createWindow()
   registerAllIpcHandlers(mainWindow)
 
+  // ── System tray ─────────────────────────────────────────────────────────────
+  const iconPath = join(__dirname, '../../resources/icon.png')
+  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
+  const tray = new Tray(trayIcon)
+  tray.setToolTip('Refract')
+  buildTrayMenu(mainWindow, tray)
+  tray.on('double-click', () => { mainWindow.show(); mainWindow.focus() })
+  mainWindow.on('show', () => buildTrayMenu(mainWindow, tray))
+
+  // Close → hide to tray instead of quit
+  mainWindow.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault()
+      mainWindow.hide()
+    }
+  })
+
   ipcMain.on('updater:install', () => autoUpdater.quitAndInstall())
 
   if (!isDev) {
@@ -68,17 +104,22 @@ app.whenReady().then(() => {
     })
     autoUpdater.on('update-downloaded', () => {
       mainWindow.webContents.send('updater:downloaded')
+      notify('Refract update ready', 'Click "Restart ↺" in the title bar to apply the update.')
     })
     autoUpdater.checkForUpdates().catch(() => {})
   }
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    mainWindow.show(); mainWindow.focus()
   })
 }).catch((error) => {
   logError('main:appReady', error)
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  if (process.platform !== 'darwin') {
+    // Don't quit — the tray keeps the app alive
+  }
 })
+
+app.on('before-quit', () => { isQuitting = true })
