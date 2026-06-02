@@ -79,7 +79,9 @@ function createBrowserApi(): RefractAPI {
       browse:  async () => null,
       add:     async () => { throw new Error('Skins require the Electron app.') },
       delete:  async () => undefined,
-      getPath: async () => '',
+      getPath:    async () => '',
+      getDataUrl:    async () => null,
+      fileToDataUrl: async () => null,
       apply:   async () => { throw new Error('Skins require the Electron app.') },
     },
     system: {

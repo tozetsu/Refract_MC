@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { api, type SafeAccount } from '@/lib/api'
 import { SkinViewer3D } from '@/components/ui/SkinViewer3D'
 
-export const Route = createFileRoute('/skins')({ component: SkinsPage })
+export const Route = createFileRoute('/skins/')({ component: SkinsPage })
 
 export interface SavedSkinClient {
   id: string
@@ -49,8 +49,8 @@ function SkinsPage_() {
   async function pick(skin: SavedSkinClient) {
     setSelected(skin)
     setSkinUrl(null)
-    const path = await api.skins.getPath(skin.filename).catch(() => null)
-    if (path) setSkinUrl(`file://${path}`)
+    const dataUrl = await api.skins.getDataUrl(skin.filename).catch(() => null)
+    if (dataUrl) setSkinUrl(dataUrl)
   }
 
   useEffect(() => {
@@ -63,8 +63,9 @@ function SkinsPage_() {
     const p = await api.skins.browse()
     if (!p) return
     setNewPath(p)
-    setNewUrl(`file://${p}`)
     if (!newName) setNewName(p.split(/[/\\]/).pop()?.replace(/\.png$/i, '') ?? 'My Skin')
+    const dataUrl = await api.skins.fileToDataUrl(p).catch(() => null)
+    setNewUrl(dataUrl ?? null)
   }
 
   async function handleAdd() {

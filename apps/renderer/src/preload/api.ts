@@ -43,7 +43,9 @@ export const api = {
     browse:  (): Promise<string | null> => ipcRenderer.invoke('skins.browse'),
     add:     (name: string, sourcePath: string, variant: string) => ipcRenderer.invoke('skins.add', name, sourcePath, variant),
     delete:  (id: string): Promise<void> => ipcRenderer.invoke('skins.delete', id),
-    getPath: (filename: string): Promise<string> => ipcRenderer.invoke('skins.getPath', filename),
+    getPath:    (filename: string): Promise<string> => ipcRenderer.invoke('skins.getPath', filename),
+    getDataUrl:     (filename: string): Promise<string | null> => ipcRenderer.invoke('skins.getDataUrl', filename),
+    fileToDataUrl:  (fullPath: string): Promise<string | null> => ipcRenderer.invoke('skins.fileToDataUrl', fullPath),
     apply:   (skinId: string, accountUuid: string): Promise<void> => ipcRenderer.invoke('skins.apply', skinId, accountUuid),
   },
   updater: {

@@ -23,6 +23,20 @@ export function registerSkinsIpc(): void {
 
   handleIpc('skins.getPath', (_e, filename) => getSkinPath(String(filename)))
 
+  handleIpc('skins.getDataUrl', (_e, filename) => {
+    const { readFileSync, existsSync } = require('fs') as typeof import('fs')
+    const p = getSkinPath(String(filename))
+    if (!existsSync(p)) return null
+    return `data:image/png;base64,${readFileSync(p).toString('base64')}`
+  })
+
+  // Read any arbitrary PNG path as base64 data URL (for new skin preview before saving)
+  handleIpc('skins.fileToDataUrl', (_e, fullPath) => {
+    const { readFileSync, existsSync } = require('fs') as typeof import('fs')
+    if (!existsSync(String(fullPath))) return null
+    return `data:image/png;base64,${readFileSync(String(fullPath)).toString('base64')}`
+  })
+
   handleIpc('skins.apply', async (_e, skinId, accountUuid) => {
     const skins = listSkins()
     const skin = skins.find(s => s.id === String(skinId))

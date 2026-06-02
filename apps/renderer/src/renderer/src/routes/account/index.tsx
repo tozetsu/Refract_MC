@@ -569,7 +569,11 @@ function Account() {
                             type="button"
                             onClick={async () => {
                               const p = await api.auth.browseSkin()
-                              if (p) { setSkinPath(p); setSkinTexUrl(`file://${p}`) }
+                              if (p) {
+                                setSkinPath(p)
+                                const dataUrl = await api.skins.fileToDataUrl(p).catch(() => null)
+                                setSkinTexUrl(dataUrl ?? null)
+                              }
                             }}
                             style={{ flex:1, height:32, background:'var(--surface-2)', color:'var(--ink-2)', border:'1px solid var(--border-r)', borderRadius:3, cursor:'pointer', fontSize:12 }}
                           >
