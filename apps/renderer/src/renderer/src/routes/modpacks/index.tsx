@@ -856,17 +856,27 @@ function ModpackInstallModal({ project, onClose, onInstall }: ModpackInstallModa
 function ProgressOverlay({ title, step, percent }: { projectId: string; title: string; step: string; percent: number }) {
   const t = useT()
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(0,0,0,.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', width: 440, padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ fontFamily: "'VT323',monospace", fontSize: 20, letterSpacing: '.14em', color: 'var(--ender)' }}>{t.content.installingModpack}</div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{title}</div>
-        <div style={{ height: 8, background: 'var(--surface-3)', borderRadius: 4, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${percent}%`, background: 'var(--ender)', transition: 'width .2s', borderRadius: 4 }} />
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, zIndex: 95,
+      width: 320, pointerEvents: 'none',
+    }}>
+      <div style={{
+        background: 'var(--surface-2)', border: '1px solid var(--border-r)',
+        borderRadius: 'var(--radius)', padding: '14px 16px',
+        display: 'flex', flexDirection: 'column', gap: 10,
+        boxShadow: '0 8px 32px rgba(0,0,0,.5)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ fontFamily: "'VT323',monospace", fontSize: 14, letterSpacing: '.1em', color: 'var(--ender)' }}>
+            {t.content.installingModpack}
+          </div>
+          <span style={{ fontFamily: "'VT323',monospace", fontSize: 13, color: 'var(--ender)' }}>{Math.round(percent)}%</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--ink-4)' }}>
-          <span>{step}</span>
-          <span style={{ fontFamily: "'VT323',monospace", color: 'var(--ender)' }}>{Math.round(percent)}%</span>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+        <div style={{ height: 6, background: 'var(--surface-3)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${percent}%`, background: 'var(--ender)', transition: 'width .2s', borderRadius: 3 }} />
         </div>
+        <div style={{ fontSize: 11, color: 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{step}</div>
       </div>
     </div>
   )

@@ -1279,18 +1279,17 @@ function Library() {
       )}
 
       {fileImport && (
-        <div style={{ position:'fixed', inset:0, zIndex:100, background:'rgba(0,0,0,.7)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div style={{ background:'var(--surface)', border:'1px solid var(--border-r)', borderRadius:'var(--radius)', padding:'28px 32px', width:360, display:'flex', flexDirection:'column', gap:16 }}>
-            <div style={{ fontFamily:"'VT323',monospace", fontSize:20, color:'var(--accent)', letterSpacing:'.1em' }}>{t.home.importingModpack}</div>
-            <div style={{ fontSize:13, color:'var(--ink-2)', fontWeight:600 }}>{fileImport.name}</div>
-            <div>
-              <div style={{ fontSize:12, color:'var(--ink-3)', marginBottom:8 }}>{fileImport.step}</div>
-              <div style={{ height:8, background:'var(--surface-2)', border:'1px solid var(--border-r)' }}>
-                <div style={{ height:'100%', width:`${fileImport.percent}%`, background:'var(--accent)', transition:'width 200ms linear', boxShadow:'inset 0 -2px 0 var(--accent-lo), inset 0 2px 0 var(--accent-hi)' }} />
-              </div>
-              <div style={{ fontFamily:"'VT323',monospace", fontSize:13, color:'var(--ink-4)', marginTop:4, textAlign:'right' }}>{Math.round(fileImport.percent)}%</div>
+        <div style={{ position:'fixed', bottom:24, right:24, zIndex:100, width:320, pointerEvents:'none' }}>
+          <div style={{ background:'var(--surface-2)', border:'1px solid var(--border-r)', borderRadius:'var(--radius)', padding:'14px 16px', display:'flex', flexDirection:'column', gap:10, boxShadow:'0 8px 32px rgba(0,0,0,.5)' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+              <div style={{ fontFamily:"'VT323',monospace", fontSize:14, color:'var(--accent)', letterSpacing:'.1em' }}>{t.home.importingModpack}</div>
+              <span style={{ fontFamily:"'VT323',monospace", fontSize:13, color:'var(--accent)' }}>{Math.round(fileImport.percent)}%</span>
             </div>
-            <div style={{ fontSize:11, color:'var(--ink-4)', textAlign:'center', lineHeight:1.4 }}>{t.home.downloadingFiles}</div>
+            <div style={{ fontSize:13, fontWeight:600, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{fileImport.name}</div>
+            <div style={{ height:6, background:'var(--surface-3)', borderRadius:3, overflow:'hidden' }}>
+              <div style={{ height:'100%', width:`${fileImport.percent}%`, background:'var(--accent)', transition:'width 200ms linear', borderRadius:3 }} />
+            </div>
+            <div style={{ fontSize:11, color:'var(--ink-4)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{fileImport.step}</div>
           </div>
         </div>
       )}
