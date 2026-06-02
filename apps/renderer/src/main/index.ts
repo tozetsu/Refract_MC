@@ -11,6 +11,11 @@ import { launchInstance } from './services/minecraft/launcher'
 
 installProcessErrorLogging()
 
+// Prevent a second instance from spawning — focus the existing window instead
+if (!app.requestSingleInstanceLock()) {
+  app.exit(0)
+}
+
 const isDev = !app.isPackaged
 let isQuitting = false
 
@@ -85,13 +90,9 @@ app.whenReady().then(() => {
   tray.on('double-click', () => { mainWindow.show(); mainWindow.focus() })
   mainWindow.on('show', () => buildTrayMenu(mainWindow, tray))
 
-  // Close → hide to tray instead of quit
-  mainWindow.on('close', (e) => {
-    if (!isQuitting) {
-      e.preventDefault()
-      mainWindow.hide()
-    }
-  })
+  // ✕ closes fully; second instance will focus this window instead of spawning
+  app.on('second-instance', () => { mainWindow.show(); mainWindow.focus() })
+  mainWindow.on('close', () => { isQuitting = true })
 
   ipcMain.on('updater:install',  () => autoUpdater.quitAndInstall())
   ipcMain.on('updater:download', () => autoUpdater.downloadUpdate().catch(() => {}))
@@ -119,9 +120,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    // Don't quit — the tray keeps the app alive
-  }
+  if (process.platform !== 'darwin') app.quit()
 })
 
 app.on('before-quit', () => { isQuitting = true })
