@@ -72,11 +72,11 @@ Get the latest release from the [Releases page](https://github.com/RefractMC/Ref
 
 | Platform | File |
 |---|---|
-| Windows | `Refract-1.0.4-setup.exe` |
-| macOS (Apple Silicon) | `Refract-1.0.4-arm64.dmg` |
-| macOS (Intel) | `Refract-1.0.4-x64.dmg` |
-| Linux (portable) | `Refract-1.0.4.AppImage` |
-| Linux (Debian/Ubuntu) | `Refract-1.0.4.deb` |
+| Windows | `Refract-x.x.x-setup.exe` |
+| macOS (Apple Silicon) | `Refract-x.x.x-arm64.dmg` |
+| macOS (Intel) | `Refract-x.x.x-x64.dmg` |
+| Linux (portable) | `Refract-x.x.x.AppImage` |
+| Linux (Debian/Ubuntu) | `Refract-x.x.x.deb` |
 
 > **macOS note:** The DMG is currently unsigned. Right-click → Open on first launch to bypass Gatekeeper.
 
