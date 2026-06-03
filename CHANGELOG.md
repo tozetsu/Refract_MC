@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.8
+- **System tray (opt-in)** — Settings → Appearance → "Minimize to tray" toggle. When enabled, clicking ✕ hides the launcher to the system tray instead of quitting; double-click the tray icon to restore. Off by default
+- **Instance templates** — 6 one-click presets in the Create Instance form: Vanilla, Fabric, NeoForge, Performance (Fabric + Aikar's JVM flags), 1.8.9 PvP, Speedrun. Each chip pre-fills loader, memory, and version
+- **Animated background** — subtle slow-moving ambient glow behind the instance library that inherits your accent colour
+- **CurseForge modpack detail view** — clicking a CF modpack card opens a full detail page (gallery, description, categories, links) before installing — same as Modrinth
+- **CurseForge mod detail view** — same detail modal for mods in Browse Mods
+- **Bulk instance operations** — Select button in the library header activates multi-select; bulk delete, move to group, or select all
+- **Better crash dialog** — shows the last 20 game console lines above the crash report so you can see what happened before the crash
+- **Skin face thumbnails** — the skin list on the Skins page shows a 2D face crop from the actual PNG instead of a generic icon
+- **Browse Mods: remember filters** — selected game version and loader are saved and restored between sessions
+- **Memory optimisation** — Three.js/skinview3d lazy-loads only when the Skins page is visited; V8 heap capped at 512 MB; GPU shader disk cache disabled
+- **Fix: userData path pinned** — renaming the product name no longer causes user data (instances, accounts, settings) to disappear on upgrade
+- **Fix: sidebar account button hover** — white tint and offset hover background corrected
+- **Fix: page navigation lag** — Java detection cached (5 min), mod update checks deferred 8 s, settings Java scan deferred 3 s
+
 ## 1.0.7
 - **Skin manager** — new Skins page in the sidebar: save a personal library of skin PNGs, preview them in a 3D rotating player model (powered by skinview3d), and upload directly to your Microsoft account with one click; Classic (Steve) and Slim (Alex) variants supported
 - **3D skin viewer** — full Three.js-based player model in the Accounts page skin panel and the Skins library; skin textures loaded as base64 data URIs to work correctly in packaged Electron builds
