@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.7
+- **Skin manager** — new Skins page in the sidebar: save a personal library of skin PNGs, preview them in a 3D rotating player model (powered by skinview3d), and upload directly to your Microsoft account with one click; Classic (Steve) and Slim (Alex) variants supported
+- **3D skin viewer** — full Three.js-based player model in the Accounts page skin panel and the Skins library; skin textures loaded as base64 data URIs to work correctly in packaged Electron builds
+- **Fix: close button fully quits** — clicking ✕ now exits the process; a single-instance lock also prevents duplicate launcher processes when re-opening
+- **Fix: offline accounts can launch** — removed the incorrect "Buy Minecraft" block for offline/guest profiles; they can now launch instances and connect to offline-mode servers
+- **Fix: sidebar Account nav removed** — clicking the avatar block at the top navigates to Accounts, reducing the nav to 3 items (Library, Browse Mods, Modpacks, Skins)
+- **Fix: modpack install no longer blocks the UI** — download progress moved to a non-blocking 320px floating card at the bottom-right; browse, search, and navigate freely while a modpack installs
+- **Fix: tab content cached in instance detail** — Worlds, Screenshots, Servers, and Updates tabs no longer re-fetch on every revisit; data is loaded once per dialog open
+- **Fix: Minecraft version list cached** — version list is cached for 30 minutes in the main process; opening Create/Edit Instance is now instant after the first load
+- **Fix: Modrinth game versions cached** — the version filter dropdown in Browse Mods caches for 1 hour
+- **Fix: window title** — title bar and taskbar now show "Refract Launcher" instead of "Refract"
+- **Fix: Ukrainian localization** — Yggdrasil auth section, CurseForge modpacks panel, Skins page, and account skin panel are now fully translated; "Install as Instance" shortened to "ВСТАНОВИТИ"
+
 ## 1.0.6
 - **New Instance redesign** — completely rebuilt dialog with violet brand system, live preview card (pixel skyline, updates as you type), segmented mod loader control, GB memory slider that reads your system's actual RAM
 - **Edit Instance redesign** — same brand system applied to the Edit dialog with matching live preview, JVM presets (Aikar's / Low-end), and danger-zone delete flow
