@@ -671,21 +671,24 @@ function Library() {
     api.mc.java().then(setJavas).catch(() => setJavas([]))
   }, [])
 
-  // Background mod update check whenever instances load
+  // Background mod update check — deferred 8 s so page renders first
   useEffect(() => {
     if (instances.length === 0) return
-    for (const inst of instances) {
-      if (!inst.isInstalled) continue
-      api.modrinth.checkModUpdates(inst.id)
-        .then(updates => {
-          const count = updates.filter(u => u.hasUpdate).length
-          setUpdateCounts(prev => {
-            if ((prev.get(inst.id) ?? 0) === count) return prev
-            const next = new Map(prev); next.set(inst.id, count); return next
+    const tid = window.setTimeout(() => {
+      for (const inst of instances) {
+        if (!inst.isInstalled) continue
+        api.modrinth.checkModUpdates(inst.id)
+          .then(updates => {
+            const count = updates.filter(u => u.hasUpdate).length
+            setUpdateCounts(prev => {
+              if ((prev.get(inst.id) ?? 0) === count) return prev
+              const next = new Map(prev); next.set(inst.id, count); return next
+            })
           })
-        })
-        .catch(() => {})
-    }
+          .catch(() => {})
+      }
+    }, 8000)
+    return () => window.clearTimeout(tid)
   }, [instances])
 
   function dismissOnboarding() {

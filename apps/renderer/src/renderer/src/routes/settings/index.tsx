@@ -154,7 +154,8 @@ function Settings() {
     return () => unsub()
   }, [])
 
-  useEffect(() => { void scanJava() }, [])
+  // Defer Java scan by 3 s so settings page renders instantly
+  useEffect(() => { const id = window.setTimeout(() => void scanJava(), 3000); return () => window.clearTimeout(id) }, [])
   useEffect(() => { void loadLogs() }, [])
 
   async function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {

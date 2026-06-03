@@ -96,6 +96,10 @@ function zipPath(src: string, dst: string): Promise<void> {
 let versionListCache: { data: Awaited<ReturnType<typeof fetchVersionList>>; at: number } | null = null
 const VERSION_TTL = 30 * 60 * 1000  // 30 min
 
+type JavaList = Awaited<ReturnType<typeof detectJavaInstallations>>
+let javaCache: { data: JavaList; at: number } | null = null
+const JAVA_TTL = 5 * 60 * 1000  // 5 min — invalidated automatically on download/delete
+
 export function registerMinecraftIpc(mainWindow: BrowserWindow): void {
   handleIpc('mc.versions', async () => {
     if (versionListCache && Date.now() - versionListCache.at < VERSION_TTL) return versionListCache.data
@@ -105,11 +109,16 @@ export function registerMinecraftIpc(mainWindow: BrowserWindow): void {
   })
 
   handleIpc('mc.java', async () => {
+    if (javaCache && Date.now() - javaCache.at < JAVA_TTL) {
+      const managed = loadManagedJavas()
+      const seen = new Set(javaCache.data.map(j => j.path))
+      return [...javaCache.data, ...managed.filter(j => !seen.has(j.path))].sort((a, b) => b.version - a.version)
+    }
     const detected = await detectJavaInstallations()
+    javaCache = { data: detected, at: Date.now() }
     const managed = loadManagedJavas()
     const seen = new Set(detected.map(j => j.path))
-    return [...detected, ...managed.filter(j => !seen.has(j.path))]
-      .sort((a, b) => b.version - a.version)
+    return [...detected, ...managed.filter(j => !seen.has(j.path))].sort((a, b) => b.version - a.version)
   })
 
   handleIpc('mc.isRunning', (_event, instanceId) => isInstanceRunning(String(instanceId)))
