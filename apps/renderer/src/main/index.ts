@@ -3,7 +3,7 @@ import { join } from 'path'
 import { autoUpdater } from 'electron-updater'
 import { registerAllIpcHandlers } from './ipc'
 import { ensureAppDirs } from './services/paths'
-import { loadConfig } from './services/config'
+import { loadConfig, getConfig } from './services/config'
 import { installProcessErrorLogging, logError } from './services/logger'
 import { notify } from './services/notifications'
 import { listInstances } from './services/instance-store'
@@ -98,9 +98,16 @@ app.whenReady().then(() => {
   tray.on('double-click', () => { mainWindow.show(); mainWindow.focus() })
   mainWindow.on('show', () => buildTrayMenu(mainWindow, tray))
 
-  // ✕ closes fully; second instance will focus this window instead of spawning
+  // ✕ behaviour depends on the "Minimize to tray" setting
   app.on('second-instance', () => { mainWindow.show(); mainWindow.focus() })
-  mainWindow.on('close', () => { isQuitting = true })
+  mainWindow.on('close', (e) => {
+    if (!isQuitting && getConfig().minimizeToTray) {
+      e.preventDefault()
+      mainWindow.hide()
+    } else {
+      isQuitting = true
+    }
+  })
 
   ipcMain.on('updater:install',  () => autoUpdater.quitAndInstall())
   ipcMain.on('updater:download', () => autoUpdater.downloadUpdate().catch(() => {}))
@@ -128,7 +135,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  if (process.platform !== 'darwin' && !getConfig().minimizeToTray) app.quit()
 })
 
 app.on('before-quit', () => { isQuitting = true })

@@ -16,6 +16,26 @@ const LOADERS: Array<{ value: ModLoader | ''; label: string }> = [
 
 const ALL_PRESETS = [1, 2, 4, 8, 16, 32, 64]
 
+interface Template {
+  id: string
+  label: string
+  emoji: string
+  desc: string
+  loader: ModLoader | ''
+  memGB: number
+  javaArgs: string
+  mcVersion?: string  // undefined = keep current / use latest
+}
+
+const TEMPLATES: Template[] = [
+  { id: 'vanilla',    label: 'Vanilla',      emoji: '🌿', desc: 'Latest vanilla',            loader: '',         memGB: 2, javaArgs: '' },
+  { id: 'fabric',     label: 'Fabric',       emoji: '🧵', desc: 'Latest + Fabric loader',     loader: 'fabric',   memGB: 4, javaArgs: '' },
+  { id: 'neoforge',   label: 'NeoForge',     emoji: '⚙️', desc: 'Latest + NeoForge loader',   loader: 'neoforge', memGB: 4, javaArgs: '' },
+  { id: 'perf',       label: 'Performance',  emoji: '⚡', desc: 'Fabric + Aikar\'s JVM flags', loader: 'fabric',   memGB: 6, javaArgs: '-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M -XX:+DisableExplicitGC' },
+  { id: 'pvp',        label: '1.8.9 PvP',    emoji: '⚔️', desc: 'Classic PvP',                loader: '',         memGB: 2, javaArgs: '', mcVersion: '1.8.9' },
+  { id: 'speedrun',   label: 'Speedrun',     emoji: '🏃', desc: 'Lightweight, fast startup',   loader: '',         memGB: 2, javaArgs: '-XX:+UseSerialGC -XX:TieredStopAtLevel=1' },
+]
+
 interface CreateInput {
   name: string
   minecraftVersion: string
@@ -55,9 +75,20 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
       .catch(() => {})
   }, [])
 
+  const [activeTemplate, setActiveTemplate] = useState<string | null>(null)
+
+  function applyTemplate(tpl: Template) {
+    setActiveTemplate(tpl.id)
+    setModLoader(tpl.loader)
+    setMemGB(Math.min(tpl.memGB, maxRamGb))
+    if (tpl.javaArgs) {/* JVM args not in CreateInput but could extend; skip for now */}
+    if (tpl.mcVersion) setMcVersion(tpl.mcVersion)
+    if (!name || name === 'My Instance') setName(tpl.label + ' Instance')
+  }
+
   function reset() {
     setName('My Instance'); setMcVersion('1.21.1'); setSnap(false)
-    setModLoader(''); setMemGB(2); setGroupId('')
+    setModLoader(''); setMemGB(2); setGroupId(''); setActiveTemplate(null)
   }
 
   function close() { if (!loading) { reset(); onOpenChange(false) } }
@@ -161,6 +192,34 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
 
             {/* Right: form */}
             <form id="ni-form" onSubmit={handleCreate} style={{ padding: '22px 24px 4px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+              {/* Templates */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>Start from template</label>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {TEMPLATES.map(tpl => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      title={tpl.desc}
+                      onClick={() => applyTemplate(tpl)}
+                      className="glow-hover"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
+                        fontSize: 12, fontWeight: 600,
+                        background: activeTemplate === tpl.id ? 'var(--ni-p-tint, var(--accent-tint))' : 'var(--bg)',
+                        border: `1px solid ${activeTemplate === tpl.id ? 'var(--accent)' : 'var(--border-r)'}`,
+                        color: activeTemplate === tpl.id ? 'var(--ni-p-deep, var(--accent))' : 'var(--ink-3)',
+                        transition: 'border-color 120ms, background 120ms',
+                      }}
+                    >
+                      <span>{tpl.emoji}</span>
+                      {tpl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {/* Name */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

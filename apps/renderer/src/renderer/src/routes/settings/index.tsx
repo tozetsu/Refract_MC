@@ -330,6 +330,17 @@ function Settings() {
                 </Segmented>
               </Field>
 
+              <Field label="Minimize to tray" note="When you close the window, keep the launcher running in the system tray instead of quitting.">
+                <Segmented>
+                  <SegmentButton active={!!(config?.minimizeToTray)} disabled={false} onClick={() => { api.config.set('minimizeToTray', true).catch(() => {}); setConfig(c => c ? { ...c, minimizeToTray: true } : c); showToast('Minimize to tray enabled.') }}>
+                    On
+                  </SegmentButton>
+                  <SegmentButton active={!(config?.minimizeToTray)} disabled={false} onClick={() => { api.config.set('minimizeToTray', false).catch(() => {}); setConfig(c => c ? { ...c, minimizeToTray: false } : c); showToast('Minimize to tray disabled.') }}>
+                    Off
+                  </SegmentButton>
+                </Segmented>
+              </Field>
+
               <Field label={t.settings.language} note={t.settings.languageNote}>
                 <Segmented>
                   <SegmentButton active={lang === 'en'} disabled={false} onClick={() => setLang('en')}>

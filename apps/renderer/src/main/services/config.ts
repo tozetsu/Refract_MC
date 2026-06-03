@@ -9,6 +9,7 @@ export interface AppConfig {
   defaultMemoryMb: number
   onboardingDone: boolean
   curseforgeApiKey?: string
+  minimizeToTray?: boolean
   accounts: Array<{
     uuid: string
     username: string
