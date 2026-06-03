@@ -11,6 +11,9 @@ import { launchInstance } from './services/minecraft/launcher'
 
 installProcessErrorLogging()
 
+// Pin userData to "Refract" so renaming productName never loses user data
+app.setPath('userData', join(app.getPath('appData'), 'Refract'))
+
 // Prevent a second instance from spawning — focus the existing window instead
 if (!app.requestSingleInstanceLock()) {
   app.exit(0)
