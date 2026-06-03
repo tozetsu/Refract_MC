@@ -69,6 +69,20 @@ export function registerCurseForgeIpc(mainWindow?: BrowserWindow): void {
     )
   })
 
+  handleIpc('curseforge.projectDetail', async (_event, modId) => {
+    const apiKey = getApiKey()
+    const mid = Number(modId)
+    const headers = { 'x-api-key': apiKey, Accept: 'application/json' }
+    const [projRes, descRes] = await Promise.all([
+      fetch(`https://api.curseforge.com/v1/mods/${mid}`, { headers }),
+      fetch(`https://api.curseforge.com/v1/mods/${mid}/description`, { headers }),
+    ])
+    if (!projRes.ok) throw new Error(`CurseForge API error: ${projRes.status}`)
+    const proj = ((await projRes.json()) as { data: unknown }).data as import('@refract/core').CFProject & { screenshots?: import('@refract/core').CFScreenshot[] }
+    const descData = descRes.ok ? ((await descRes.json()) as { data: string }).data : ''
+    return { ...proj, screenshots: proj.screenshots ?? [], description: descData } as import('@refract/core').CFProjectDetail
+  })
+
   handleIpc('curseforge.installModpack', async (_event, name, modId, fileId) => {
     const apiKey = getApiKey()
     const midNum = Number(modId)

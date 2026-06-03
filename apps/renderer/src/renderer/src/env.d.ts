@@ -245,6 +245,7 @@ declare global {
         onExit: (cb: (data: { instanceId: string; code: number | null; error?: string }) => void) => () => void
       }
       curseforge: {
+        projectDetail:  (modId: number) => Promise<import('@refract/core').CFProjectDetail>
         searchMods:     (query?: string, gameVersion?: string, loader?: string, pageSize?: number, index?: number) => Promise<import('@refract/core').CFSearchResult>
         searchModpacks: (query?: string, gameVersion?: string, pageSize?: number, index?: number) => Promise<import('@refract/core').CFSearchResult>
         files:          (modId: number, gameVersion?: string, loader?: string) => Promise<import('@refract/core').CFFile[]>

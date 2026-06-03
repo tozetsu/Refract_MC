@@ -52,6 +52,13 @@ export interface CFProject {
   dateModified:        string
 }
 
+export interface CFScreenshot { id: number; title: string; description: string; thumbnailUrl: string; url: string }
+
+export interface CFProjectDetail extends CFProject {
+  screenshots: CFScreenshot[]
+  description: string   // HTML body from /description endpoint
+}
+
 export interface CFFile {
   id:            number
   modId:         number

@@ -161,7 +161,9 @@ export const api = {
       ipcRenderer.invoke('curseforge.files', modId, gameVersion, loader),
     install:       (instanceId: string, modId: number, fileId: number, displayName: string) =>
       ipcRenderer.invoke('curseforge.install', instanceId, modId, fileId, displayName),
-    installModpack:(name: string, modId: number, fileId: number): Promise<import('@refract/core').Instance> =>
+    projectDetail:  (modId: number): Promise<import('@refract/core').CFProjectDetail> =>
+      ipcRenderer.invoke('curseforge.projectDetail', modId),
+    installModpack: (name: string, modId: number, fileId: number): Promise<import('@refract/core').Instance> =>
       ipcRenderer.invoke('curseforge.installModpack', name, modId, fileId),
   },
   java: {
