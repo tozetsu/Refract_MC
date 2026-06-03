@@ -1,9 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
+﻿import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import type React from 'react'
 import { SearchIcon } from '@/components/ui/BlockIcons'
 import { api } from '@/lib/api'
-import type { ModrinthProject, ModrinthVersion, ModrinthSortIndex, Instance, CFProject, CFFile } from '@refract/core'
+import type { ModrinthProject, ModrinthVersion, ModrinthSortIndex, Instance, CFProject, CFFile, CFProjectDetail } from '@refract/core'
 import { useT } from '@/i18n'
 
 export const Route = createFileRoute('/browse/')({
@@ -809,6 +809,7 @@ function Browse() {
   const [detailTarget, setDetailTarget] = useState<ModrinthProject | null>(null)
   const [installTarget, setInstallTarget] = useState<ModrinthProject | null>(null)
   const [cfInstallTarget, setCfInstallTarget] = useState<CFProject | null>(null)
+  const [cfModDetail, setCfModDetail]         = useState<CFProject | null>(null)
   const [installingId, setInstallingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
   const [depsTarget, setDepsTarget] = useState<DepsTarget | null>(null)
@@ -1167,6 +1168,7 @@ function Browse() {
                     key={mod.id}
                     mod={mod}
                     installing={installingId === String(mod.id)}
+                    onDetail={() => setCfModDetail(mod)}
                     onInstall={() => setCfInstallTarget(mod)}
                   />
                 ))}
@@ -1226,6 +1228,14 @@ function Browse() {
           onClose={() => setDepsTarget(null)}
           onInstallAll={handleInstallWithDeps}
           onSkipDeps={handleSkipDeps}
+        />
+      )}
+
+      {cfModDetail && (
+        <CFModDetailModal
+          mod={cfModDetail}
+          onClose={() => setCfModDetail(null)}
+          onInstall={() => { setCfModDetail(null); setCfInstallTarget(cfModDetail) }}
         />
       )}
 
@@ -1384,19 +1394,20 @@ function fmtNum(n: number): string {
   return String(n)
 }
 
-function CFModTile({ mod, installing, onInstall }: { mod: CFProject; installing: boolean; onInstall: () => void }) {
+function CFModTile({ mod, installing, onDetail, onInstall }: { mod: CFProject; installing: boolean; onDetail: () => void; onInstall: () => void }) {
   const t = useT()
   const [hovered, setHovered] = useState(false)
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onClick={onDetail}
       style={{
         background: 'var(--surface)',
         border: `1px solid ${hovered ? 'var(--ender)' : 'var(--border-r)'}`,
         borderRadius: 'var(--radius)',
         display: 'flex', flexDirection: 'column',
-        transition: 'border-color .14s',
+        transition: 'border-color .14s', cursor: 'pointer',
       }}
     >
       <div style={{ padding: '14px 14px 10px', display: 'flex', gap: 12 }}>
@@ -1597,5 +1608,136 @@ function PageJumper({ current, total, onGo }: { current: number; total: number; 
         color: 'var(--ink)', borderRadius: 3, outline: 'none',
       }}
     />
+  )
+}
+
+
+// ─── CurseForge mod detail modal ─────────────────────────────────────────────
+
+function CFModDetailModal({ mod, onClose, onInstall }: { mod: CFProject; onClose: () => void; onInstall: () => void }) {
+  const t = useT()
+  const [detail, setDetail]             = useState<CFProjectDetail | null>(null)
+  const [loading, setLoading]           = useState(true)
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null)
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { if (galleryIndex !== null) setGalleryIndex(null); else onClose() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose, galleryIndex])
+
+  useEffect(() => {
+    setLoading(true)
+    api.curseforge.projectDetail(mod.id)
+      .then(d => { setDetail(d); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [mod.id])
+
+  const screenshots = detail?.screenshots ?? []
+  const bodyText    = detail?.description ? stripTags(detail.description) : mod.summary
+  const cfUrl       = mod.links?.websiteUrl ?? `https://www.curseforge.com/minecraft/mc-mods/${mod.slug}`
+  const mcVersions  = [...new Set((mod.latestFilesIndexes ?? []).map(f => f.gameVersion).filter(Boolean))].slice(0, 3)
+
+  function stripTags(html: string) {
+    return html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ').replace(/\s{2,}/g, ' ').trim()
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 75, background: 'rgba(0,0,0,.72)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ width: '86vw', maxWidth: 960, maxHeight: '90vh', background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      >
+        {/* Header */}
+        <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'flex-start', gap: 16, flexShrink: 0 }}>
+          <div style={{ width: 72, height: 72, flexShrink: 0, border: '1px solid var(--border-r)', borderRadius: 6, overflow: 'hidden', background: 'var(--surface-2)' }}>
+            {mod.logo?.thumbnailUrl ? <img src={mod.logo.thumbnailUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, color: 'var(--ink-4)' }}>{mod.name[0]}</div>}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>{mod.name}</div>
+            <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--ink-3)', flexWrap: 'wrap', marginBottom: 5 }}>
+              <span>↓ {fmtNum(mod.downloadCount)} downloads</span>
+              {mod.authors[0] && <span>by {mod.authors[0].name}</span>}
+              <span>Updated {new Date(mod.dateModified).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {mod.categories.slice(0, 4).map(c => <Tag key={c.id} color="var(--ender)">{c.name}</Tag>)}
+              {mcVersions.length > 0 && <Tag color="var(--diamond)">MC {mcVersions[0]}{mcVersions.length > 1 ? ` – ${mcVersions[mcVersions.length - 1]}` : ''}</Tag>}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'flex-start' }}>
+            <button onClick={() => window.open(cfUrl)} style={{ height: 32, padding: '0 14px', fontSize: 12, fontWeight: 600, background: 'transparent', color: 'var(--ender)', border: '1px solid var(--ender)', borderRadius: 3, cursor: 'pointer' }}>CurseForge ↗</button>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}>&#x2715;</button>
+          </div>
+        </div>
+
+        {/* Gallery */}
+        {screenshots.length > 0 && (
+          <div style={{ borderBottom: '1px solid var(--line)', padding: '10px 22px', overflowX: 'auto', display: 'flex', gap: 8, flexShrink: 0 }}>
+            {screenshots.map((s, i) => (
+              <div key={s.id} onClick={() => setGalleryIndex(i)} style={{ flexShrink: 0, cursor: 'pointer', borderRadius: 4, overflow: 'hidden', border: '1px solid var(--border-r)', height: 130 }}>
+                <img src={s.thumbnailUrl} alt={s.title} style={{ height: '100%', width: 'auto', display: 'block', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Body */}
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', minHeight: 0 }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
+            {loading
+              ? <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>{t.browse.loadingDetails}</div>
+              : <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{bodyText}</div>
+            }
+          </div>
+          <div style={{ width: 200, flexShrink: 0, borderLeft: '1px solid var(--line)', padding: '18px 16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <SideLabel>{t.browse.categories}</SideLabel>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 6 }}>
+                {mod.categories.map(c => <div key={c.id} style={{ fontSize: 12, color: 'var(--ink-3)' }}>{c.name}</div>)}
+              </div>
+            </div>
+            {(mod.links?.websiteUrl || mod.links?.issuesUrl || mod.links?.sourceUrl) && (
+              <div>
+                <SideLabel>{t.browse.links}</SideLabel>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+                  {mod.links.websiteUrl && <button onClick={() => window.open(mod.links.websiteUrl!)} style={{ fontSize: 11, color: 'var(--ender)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>CurseForge ↗</button>}
+                  {mod.links.issuesUrl  && <button onClick={() => window.open(mod.links.issuesUrl!)}  style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>Issues ↗</button>}
+                  {mod.links.sourceUrl  && <button onClick={() => window.open(mod.links.sourceUrl!)}  style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>Source ↗</button>}
+                </div>
+              </div>
+            )}
+            <div>
+              <SideLabel>{t.browse.published}</SideLabel>
+              <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>{new Date(mod.dateCreated).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+            </div>
+            <div style={{ marginTop: 'auto', paddingTop: 10 }}>
+              <button onClick={onInstall} style={{ width: '100%', height: 36, fontFamily: "'VT323',monospace", fontSize: 18, letterSpacing: '.1em', color: '#fff', background: 'var(--ender)', border: 'none', cursor: 'pointer', borderRadius: 4, boxShadow: 'inset 0 -3px 0 rgba(0,0,0,.3)' }}>
+                {t.browse.cfInstallMod}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Lightbox */}
+      {galleryIndex !== null && screenshots[galleryIndex] && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setGalleryIndex(null) }}>
+          <img src={screenshots[galleryIndex].url} alt="" style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 4 }} onClick={e => e.stopPropagation()} />
+          {screenshots.length > 1 && (
+            <>
+              <button onClick={e => { e.stopPropagation(); setGalleryIndex(i => i !== null ? (i - 1 + screenshots.length) % screenshots.length : 0) }} style={{ position: 'absolute', left: 24, fontSize: 28, color: '#fff', background: 'rgba(0,0,0,.5)', border: 'none', cursor: 'pointer', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&#x2039;</button>
+              <button onClick={e => { e.stopPropagation(); setGalleryIndex(i => i !== null ? (i + 1) % screenshots.length : 0) }} style={{ position: 'absolute', right: 24, fontSize: 28, color: '#fff', background: 'rgba(0,0,0,.5)', border: 'none', cursor: 'pointer', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&#x203A;</button>
+            </>
+          )}
+          <button onClick={e => { e.stopPropagation(); setGalleryIndex(null) }} style={{ position: 'absolute', top: 16, right: 20, fontSize: 22, color: '#fff', background: 'none', border: 'none', cursor: 'pointer' }}>&#x2715;</button>
+        </div>
+      )}
+    </div>
   )
 }
