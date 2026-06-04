@@ -78,3 +78,17 @@ export async function fetchJson<T>(url: string): Promise<T> {
     res.on('error', reject)
   })
 }
+
+export async function fetchText(url: string): Promise<string> {
+  const res = await follow(url)
+  if (res.statusCode && res.statusCode >= 400) {
+    res.resume()
+    throw new Error(`HTTP ${res.statusCode} fetching ${url}`)
+  }
+  return new Promise((resolve, reject) => {
+    let data = ''
+    res.on('data', (chunk: Buffer) => { data += chunk.toString() })
+    res.on('end', () => resolve(data))
+    res.on('error', reject)
+  })
+}

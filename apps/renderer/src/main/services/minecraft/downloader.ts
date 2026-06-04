@@ -6,7 +6,7 @@ import { pipeline } from 'stream/promises'
 import https from 'https'
 import http from 'http'
 import { paths } from '../paths'
-import { downloadFile, fetchJson } from '../download'
+import { downloadFile, fetchJson, fetchText } from '../download'
 import type { VersionJson, AssetIndex, Library } from '@refract/core'
 import { isLibraryAllowed } from '@refract/core'
 
@@ -246,6 +246,30 @@ function resolveForgeData(
   return value
 }
 
+async function fetchForgeLatestVersion(mcVersion: string): Promise<string> {
+  const promos = await fetchJson<{ promos: Record<string, string> }>(
+    'https://files.minecraftforge.net/maven/net/minecraftforge/forge/promotions_slim.json'
+  )
+  const ver = promos.promos[`${mcVersion}-recommended`] ?? promos.promos[`${mcVersion}-latest`]
+  if (!ver) throw new Error(`No Forge version found for Minecraft ${mcVersion}. It may not be supported yet.`)
+  return ver
+}
+
+async function fetchNeoForgeLatestVersion(mcVersion: string): Promise<string> {
+  const parts = mcVersion.split('.')
+  const prefix = parts.length >= 3
+    ? `${parseInt(parts[1])}.${parseInt(parts[2])}.`
+    : `${parseInt(parts[1])}.`
+
+  const xml = await fetchText('https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml')
+  const matches = [...xml.matchAll(/<version>(\d[^<]*)<\/version>/g)]
+  const versions = matches.map(m => m[1]).filter(v => v.startsWith(prefix))
+
+  const latest = versions[versions.length - 1]
+  if (!latest) throw new Error(`No NeoForge version found for Minecraft ${mcVersion}. It may not be supported yet.`)
+  return latest
+}
+
 async function installForge(
   instanceId: string,
   versionId: string,
@@ -400,8 +424,14 @@ export async function installMinecraft(
 
   // 7. Forge / NeoForge
   if (modLoader === 'forge' || modLoader === 'neoforge') {
-    if (!modLoaderVersion) throw new Error(`${modLoader} version not specified.`)
-    await installForge(instanceId, versionId, modLoaderVersion, modLoader === 'neoforge', onProgress)
+    let forgeVer = modLoaderVersion
+    if (!forgeVer) {
+      report({ step: `Fetching latest ${modLoader === 'neoforge' ? 'NeoForge' : 'Forge'} version`, current: 0, total: 1, percent: 0 })
+      forgeVer = modLoader === 'neoforge'
+        ? await fetchNeoForgeLatestVersion(versionId)
+        : await fetchForgeLatestVersion(versionId)
+    }
+    await installForge(instanceId, versionId, forgeVer, modLoader === 'neoforge', onProgress)
   }
 
   report({ step: 'Done', current: 1, total: 1, percent: 100 })

@@ -1401,6 +1401,7 @@ function Library() {
           onDone={() => {
             setInstalling(null)
             void recordActivity(`Installed MC for "${installing.name}"`)
+            void queryClient.invalidateQueries({ queryKey: ['instances'] })
           }}
           onError={(err) => {
             setInstalling(null)
