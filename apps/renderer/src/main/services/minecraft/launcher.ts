@@ -1,6 +1,9 @@
 import { join } from 'path'
 import { existsSync, readFileSync, mkdirSync } from 'fs'
-import { spawn, ChildProcess } from 'child_process'
+import { spawn, exec, ChildProcess } from 'child_process'
+import { promisify } from 'util'
+
+const execAsync = promisify(exec)
 import { BrowserWindow } from 'electron'
 import { paths } from '../paths'
 import { resolveInstanceDir } from '../instance-store'
@@ -67,11 +70,19 @@ async function resolveJava(requiredMajor: number, instanceJavaPath?: string): Pr
   }
 
   try {
-    const { spawnSync } = await import('child_process')
-    const which = require('child_process').execSync('where java', { timeout: 3000 }).toString().trim().split(/\r?\n/)[0]?.trim()
+    const whichCmd = process.platform === 'win32' ? 'where java' : 'which java'
+    const { stdout } = await execAsync(whichCmd, { timeout: 3000 })
+    const which = stdout.trim().split(/\r?\n/)[0]?.trim()
     if (which && existsSync(which)) {
-      const result = spawnSync(which, ['-version'], { encoding: 'utf8', timeout: 3000 })
-      const out = (result.stdout ?? '') + (result.stderr ?? '')
+      const out = await new Promise<string>((resolve) => {
+        const proc = spawn(which, ['-version'])
+        let buf = ''
+        proc.stdout?.on('data', (d: Buffer) => { buf += d.toString() })
+        proc.stderr?.on('data', (d: Buffer) => { buf += d.toString() })
+        proc.on('close', () => resolve(buf))
+        proc.on('error', () => resolve(''))
+        setTimeout(() => { try { proc.kill() } catch { /* ignore */ } resolve(buf) }, 3000)
+      })
       const verMatch = out.match(/version "([^"]+)"/)
       const major = verMatch ? (verMatch[1].startsWith('1.') ? parseInt(verMatch[1].split('.')[1]) : parseInt(verMatch[1].split('.')[0])) : 0
       if (major >= requiredMajor) return { exe: which, version: major }

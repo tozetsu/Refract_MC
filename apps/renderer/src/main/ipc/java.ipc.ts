@@ -1,7 +1,7 @@
 import { join } from 'path'
 import { BrowserWindow, dialog } from 'electron'
 import { existsSync, mkdirSync, writeFileSync, rmSync, readdirSync, chmodSync } from 'fs'
-import { spawn, spawnSync } from 'child_process'
+import { spawn } from 'child_process'
 import { handleIpc } from './handle'
 import type { JavaInstallation } from '@refract/core'
 import { getManagedJavaDir, loadManagedJavas, saveManagedJavas } from '../services/java-manager'
@@ -10,18 +10,27 @@ function emitJavaProgress(major: number, step: string, percent: number): void {
   BrowserWindow.getAllWindows().forEach(w => w.webContents.send('java:progress', { major, step, percent }))
 }
 
-function probeJavaExe(javaExe: string): JavaInstallation | null {
-  try {
-    const result = spawnSync(javaExe, ['-XshowSettings:property', '-version'], { timeout: 5000, encoding: 'utf8' })
-    const out = (result.stdout ?? '') + (result.stderr ?? '')
-    const vMatch = out.match(/java\.version\s*=\s*([\d._]+)/) ?? out.match(/version "([^"]+)"/)
-    if (!vMatch) return null
-    const ver = vMatch[1]
-    const major = ver.startsWith('1.') ? parseInt(ver.split('.')[1], 10) : parseInt(ver.split('.')[0], 10)
-    if (!major) return null
-    const vendor = out.match(/java\.vendor\s*=\s*(.+)/)?.[1]?.trim() ?? 'Adoptium Temurin'
-    return { version: major, path: join(javaExe, '..', '..').normalize(), vendor }
-  } catch { return null }
+function probeJavaExe(javaExe: string): Promise<JavaInstallation | null> {
+  return new Promise((resolve) => {
+    try {
+      const proc = spawn(javaExe, ['-XshowSettings:property', '-version'])
+      let out = ''
+      proc.stdout?.on('data', (d: Buffer) => { out += d.toString() })
+      proc.stderr?.on('data', (d: Buffer) => { out += d.toString() })
+      const finish = () => {
+        const vMatch = out.match(/java\.version\s*=\s*([\d._]+)/) ?? out.match(/version "([^"]+)"/)
+        if (!vMatch) { resolve(null); return }
+        const ver = vMatch[1]
+        const major = ver.startsWith('1.') ? parseInt(ver.split('.')[1], 10) : parseInt(ver.split('.')[0], 10)
+        if (!major) { resolve(null); return }
+        const vendor = out.match(/java\.vendor\s*=\s*(.+)/)?.[1]?.trim() ?? 'Adoptium Temurin'
+        resolve({ version: major, path: join(javaExe, '..', '..').normalize(), vendor })
+      }
+      proc.on('close', finish)
+      proc.on('error', () => resolve(null))
+      setTimeout(() => { try { proc.kill() } catch { /* ignore */ } finish() }, 5000)
+    } catch { resolve(null) }
+  })
 }
 
 const IS_WIN = process.platform === 'win32'
@@ -131,7 +140,7 @@ export function registerJavaIpc(): void {
     if (!javaExe) throw new Error(`${javaExeName()} not found in extracted JRE`)
     if (!IS_WIN) { try { chmodSync(javaExe, 0o755) } catch { /* ignore */ } }
 
-    const probed = probeJavaExe(javaExe)
+    const probed = await probeJavaExe(javaExe)
     const installation: JavaInstallation = probed ?? {
       version: majorNum,
       path: join(javaExe, '..', '..').normalize(),
@@ -162,10 +171,10 @@ export function registerJavaIpc(): void {
     return filePaths[0] ?? null
   })
 
-  handleIpc('java.addCustom', (_e, javaPath: unknown) => {
+  handleIpc('java.addCustom', async (_e, javaPath: unknown) => {
     const exe = String(javaPath).trim()
     if (!existsSync(exe)) throw new Error(`File not found: ${exe}`)
-    const probed = probeJavaExe(exe)
+    const probed = await probeJavaExe(exe)
     if (!probed) throw new Error('Not a valid Java executable — could not read version.')
     const installation = { ...probed, custom: true } as JavaInstallation & { custom: boolean }
     const managed = loadManagedJavas().filter(j => j.path !== probed.path)
