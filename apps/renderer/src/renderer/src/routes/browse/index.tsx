@@ -46,10 +46,8 @@ interface ModrinthProjectDetail {
 }
 
 function stripMarkdown(text: string): string {
-  return (text ?? '')
+  const md = (text ?? '')
     .replace(/```[\s\S]*?```/g, '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
     .replace(/!\[.*?\]\(.*?\)/g, '')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')
@@ -60,7 +58,9 @@ function stripMarkdown(text: string): string {
     .replace(/[^\S\n]*\n[^\S\n]*/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[​-‍﻿‎‏]/g, '')
-    .trim()
+  const div = document.createElement('div')
+  div.innerHTML = md
+  return (div.textContent ?? '').trim()
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1640,8 +1640,10 @@ function CFModDetailModal({ mod, onClose, onInstall }: { mod: CFProject; onClose
   const cfUrl       = mod.links?.websiteUrl ?? `https://www.curseforge.com/minecraft/mc-mods/${mod.slug}`
   const mcVersions  = [...new Set((mod.latestFilesIndexes ?? []).map(f => f.gameVersion).filter(Boolean))].slice(0, 3)
 
-  function stripTags(html: string) {
-    return html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ').replace(/\s{2,}/g, ' ').trim()
+  function stripTags(html: string): string {
+    const div = document.createElement('div')
+    div.innerHTML = html
+    return (div.textContent ?? '').replace(/\s{2,}/g, ' ').trim()
   }
 
   return (

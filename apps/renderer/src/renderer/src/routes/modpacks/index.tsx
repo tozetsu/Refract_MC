@@ -72,10 +72,8 @@ function loaderLabel(l: string): string {
 }
 
 function stripMarkdown(text: string): string {
-  return (text ?? '')
+  const md = (text ?? '')
     .replace(/```[\s\S]*?```/g, '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
     .replace(/!\[.*?\]\(.*?\)/g, '')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')
@@ -86,7 +84,9 @@ function stripMarkdown(text: string): string {
     .replace(/[^\S\n]*\n[^\S\n]*/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[​-‍﻿‎‏]/g, '')
-    .trim()
+  const div = document.createElement('div')
+  div.innerHTML = md
+  return (div.textContent ?? '').trim()
 }
 
 function tabColor(tab: ContentTab): string {
