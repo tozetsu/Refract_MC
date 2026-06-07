@@ -62,6 +62,7 @@ export const useThemeStore = create<ThemeStore>()(
       applyTheme: (theme) => {
         themeEngine.apply({ ...theme, layout: { ...theme.layout, ...get().layoutOverrides } })
         set({ activeThemeId: theme.id, activeTheme: theme })
+        applyAccentColor(get().accentColor)
       },
 
       applyBuiltin: (id) => {
@@ -80,6 +81,7 @@ export const useThemeStore = create<ThemeStore>()(
         const merged = { ...get().layoutOverrides, ...override }
         set({ layoutOverrides: merged })
         themeEngine.apply({ ...get().activeTheme, layout: merged })
+        applyAccentColor(get().accentColor)
       },
 
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
