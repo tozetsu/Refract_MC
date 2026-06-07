@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.0
+- **Fire streak** — Playtime panel shows a 🔥 daily streak counter with TikTok-style color tiers: light orange (1–30 days), fire red (31–90), purple (90+). Two streak saves per calendar month let you miss a day without breaking it.
+- **Launch behavior settings** — New settings section: minimize to tray on close, start minimized, hide window on game launch, reopen automatically when the game exits.
+- **Compact sidebar** — Compact mode now shows icons only with no text labels; switching widths animates smoothly.
+- **Skin preview on friend avatar click** — Clicking a friend's avatar in the Friends panel opens a 3D skin viewer popup.
+- **Full Ukrainian translation** — Accent color panel, launch behavior settings, and Playtime panel (day labels, streak, saves) fully translated.
+- **Fix:** Forge installer no longer crashes with "Invalid URL" on libraries bundled inside the installer JAR.
+- **Fix:** Microsoft login now correctly reads the Xbox User ID from the XSTS token response.
+- **Fix:** Playtime panel shows full time including minutes (e.g. "2h 29m total" instead of "2h total").
+- **Fix:** Tray quick-launch shows all pinned instances (up to 6) instead of only the first instance.
+- **Fix:** Editing an instance's Minecraft version or mod loader now clears the install flag so INSTALL is shown correctly.
+- **Fix:** Custom accent color no longer resets when switching themes or changing sidebar width.
+- **Fix:** Removed misleading version chips from friend cards.
+
 ## 1.0.8
 - **System tray (opt-in)** — Settings → Appearance → "Minimize to tray" toggle. When enabled, clicking ✕ hides the launcher to the system tray instead of quitting; double-click the tray icon to restore. Off by default
 - **Instance templates** — 6 one-click presets in the Create Instance form: Vanilla, Fabric, NeoForge, Performance (Fabric + Aikar's JVM flags), 1.8.9 PvP, Speedrun. Each chip pre-fills loader, memory, and version
