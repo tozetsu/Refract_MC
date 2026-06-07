@@ -105,11 +105,14 @@ export function buildLaunchCommand(ctx: LaunchContext): string[] {
   const mainJson = ctx.fabricJson ?? ctx.versionJson
   const assetIndex = ctx.versionJson.assetIndex.id
 
+  const sep = process.platform === 'win32' ? ';' : ':'
   const vars: Record<string, string> = {
     natives_directory: ctx.nativesDir,
     launcher_name: 'Refract',
     launcher_version: '0.4.0',
     classpath: buildClasspath(ctx),
+    library_directory: ctx.librariesDir,
+    classpath_separator: sep,
     auth_player_name: ctx.auth.username,
     version_name: ctx.versionId,
     game_directory: ctx.gameDir,
