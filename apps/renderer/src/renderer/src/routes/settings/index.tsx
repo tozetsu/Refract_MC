@@ -13,7 +13,7 @@ export const Route = createFileRoute('/settings/')({
   component: Settings,
 })
 
-const SIDEBAR_WIDTHS_VALUES = ['208px', '232px', '268px'] as const
+const SIDEBAR_WIDTHS_VALUES = ['60px', '232px', '268px'] as const
 
 function Settings() {
   const t = useT()

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { SignOutIcon } from '../ui/BlockIcons'
 import { api, type SafeAccount } from '@/lib/api'
 import { useT } from '@/i18n'
+import { useThemeStore } from '@/stores/theme'
 import type { Instance } from '@refract/core'
 import discordIcon          from '@/assets/discord-icon.webp'
 import libraryIconRaw    from '@/assets/instance-library.svg?raw'
@@ -54,8 +55,8 @@ function avatarUrl(uuid: string, fallback = false): string {
     : `https://mc-heads.net/avatar/${id}/32`
 }
 
-interface NavItemProps { to: string; label: string; iconSrc: string; exact: boolean }
-function NavItem({ to, label, iconSrc, exact }: NavItemProps) {
+interface NavItemProps { to: string; label: string; iconSrc: string; exact: boolean; compact?: boolean }
+function NavItem({ to, label, iconSrc, exact, compact }: NavItemProps) {
   const matchRoute = useMatchRoute()
   const active = !!matchRoute({ to: to as '/', fuzzy: !exact })
   const [hover, setHover] = useState(false)
@@ -63,12 +64,14 @@ function NavItem({ to, label, iconSrc, exact }: NavItemProps) {
   return (
     <Link
       to={to as '/'}
+      title={compact ? label : undefined}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
         position: 'relative',
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '8px 10px', borderRadius: 4,
+        display: 'flex', alignItems: 'center', justifyContent: compact ? 'center' : 'flex-start',
+        gap: compact ? 0 : 10,
+        padding: compact ? '9px 0' : '8px 10px', borderRadius: 4,
         color: active ? 'var(--ink)' : hover ? 'var(--ink)' : 'var(--ink-2)',
         fontSize: 13, fontWeight: 500, textDecoration: 'none',
         background: active ? 'var(--accent-tint)' : hover ? 'rgba(255,255,255,.05)' : 'transparent',
@@ -77,9 +80,9 @@ function NavItem({ to, label, iconSrc, exact }: NavItemProps) {
         transition: 'background 100ms, color 100ms, border-color 100ms',
       }}
     >
-      {active && <div style={{ position:'absolute', left:-13, top:6, bottom:6, width:3, background:'var(--accent)' }} />}
-      <NavIcon src={iconSrc} />
-      <span>{label}</span>
+      {active && !compact && <div style={{ position:'absolute', left:-13, top:6, bottom:6, width:3, background:'var(--accent)' }} />}
+      <NavIcon src={iconSrc} size={compact ? 20 : 18} />
+      {!compact && <span>{label}</span>}
     </Link>
   )
 }
@@ -90,7 +93,7 @@ function AvatarStatus({ account }: { account: SafeAccount | null }) {
   return <>{account.canPlayMinecraft ? t.sidebar.playEnabled : t.sidebar.offline}</>
 }
 
-function AvatarBlock() {
+function AvatarBlock({ compact }: { compact: boolean }) {
   const [account, setAccount] = useState<SafeAccount | null>(null)
   const [skinFailed, setSkinFailed] = useState(false)
   const [skinFallback, setSkinFallback] = useState(false)
@@ -112,26 +115,34 @@ function AvatarBlock() {
 
   const initial = account?.username[0]?.toUpperCase() ?? '?'
   const hasSkin = !!account && account.type !== 'offline'
+  const avatar = (
+    <div style={{ width:38, height:38, flexShrink:0, border:'1px solid #000', position:'relative', overflow:'hidden', background:'#1a1f2e', imageRendering:'pixelated' }}>
+      {hasSkin && !skinFailed ? (
+        <img
+          src={skinFallback ? avatarUrl(account.uuid, true) : avatarUrl(account.uuid)}
+          alt={account?.username}
+          style={{ width:'100%', height:'100%', objectFit:'cover', imageRendering:'pixelated' }}
+          onError={() => { if (!skinFallback) setSkinFallback(true); else setSkinFailed(true) }}
+        />
+      ) : (
+        <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'VT323',monospace", fontSize:20, color:'var(--ink-3)' }}>
+          {initial}
+        </div>
+      )}
+    </div>
+  )
+
+  if (compact) {
+    return (
+      <div title={account?.username ?? 'Guest'} style={{ display:'flex', justifyContent:'center', padding:'6px 0 12px', borderBottom:'1px solid var(--sb-line)' }}>
+        {avatar}
+      </div>
+    )
+  }
 
   return (
     <div style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 6px 12px', borderBottom:'1px solid var(--sb-line)' }}>
-      {/* Avatar */}
-      <div style={{ width:38, height:38, flexShrink:0, border:'1px solid #000', position:'relative', overflow:'hidden', background:'#1a1f2e', imageRendering:'pixelated' }}>
-        {hasSkin && !skinFailed ? (
-          <img
-            src={skinFallback ? avatarUrl(account.uuid, true) : avatarUrl(account.uuid)}
-            alt={account.username}
-            style={{ width:'100%', height:'100%', objectFit:'cover', imageRendering:'pixelated' }}
-            onError={() => { if (!skinFallback) setSkinFallback(true); else setSkinFailed(true) }}
-          />
-        ) : (
-          <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'VT323',monospace", fontSize:20, color:'var(--ink-3)' }}>
-            {initial}
-          </div>
-        )}
-      </div>
-
-      {/* Name + status */}
+      {avatar}
       <div style={{ minWidth:0, flex:1 }}>
         <div style={{ fontFamily:"'VT323',monospace", fontSize:18, letterSpacing:'.10em', color:'var(--ink)', lineHeight:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
           {account ? account.username.toUpperCase() : 'GUEST'}
@@ -140,8 +151,6 @@ function AvatarBlock() {
           <AvatarStatus account={account} />
         </div>
       </div>
-
-      {/* Sign out */}
       {account && (
         <button onClick={signOut} title="Sign out" style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-4)', padding:4, display:'flex', opacity:.7 }}>
           <SignOutIcon />
@@ -488,52 +497,60 @@ function RefractLogo({ size = 32 }: { size?: number }) {
 
 export function Sidebar() {
   const t = useT()
+  const layoutOverrides = useThemeStore(s => s.layoutOverrides)
+  const compact = layoutOverrides.sidebarWidth === '60px'
+
   const navItems: NavItemProps[] = [
-    { to: '/',          label: t.nav.library, iconSrc: libraryIcon,    exact: true  },
-    { to: '/browse/',   label: t.nav.browse,  iconSrc: browseModsIcon, exact: false },
-    { to: '/modpacks/', label: t.nav.content, iconSrc: modpacksIcon,   exact: false },
-    { to: '/skins',     label: t.skins.navLabel, iconSrc: skinsIcon,     exact: false },
+    { to: '/',          label: t.nav.library,    iconSrc: libraryIcon,    exact: true  },
+    { to: '/browse/',   label: t.nav.browse,     iconSrc: browseModsIcon, exact: false },
+    { to: '/modpacks/', label: t.nav.content,    iconSrc: modpacksIcon,   exact: false },
+    { to: '/skins',     label: t.skins.navLabel, iconSrc: skinsIcon,      exact: false },
   ]
+
   return (
     <aside style={{
       gridRow:'2/3', gridColumn:'1/2',
       background:'var(--sb)', borderRight:'1px solid var(--line)',
       display:'flex', flexDirection:'column',
-      padding:'14px 12px 12px', minHeight:0, overflowY:'auto',
+      padding: compact ? '14px 8px 12px' : '14px 12px 12px',
+      minHeight:0, overflowY:'auto',
     }}>
-      {/* Brand mark */}
-      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'0 6px 10px', borderBottom:'1px solid var(--sb-line)', marginBottom:6 }}>
+      {/* Brand */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent: compact ? 'center' : 'flex-start', gap:10, padding:'0 6px 10px', borderBottom:'1px solid var(--sb-line)', marginBottom:6 }}>
         <RefractLogo size={32} />
-        <span style={{ fontFamily:"'VT323',monospace", fontSize:20, letterSpacing:'.12em', color:'var(--ink)', lineHeight:1 }}>REFRACT</span>
+        {!compact && <span style={{ fontFamily:"'VT323',monospace", fontSize:20, letterSpacing:'.12em', color:'var(--ink)', lineHeight:1 }}>REFRACT</span>}
       </div>
 
       <Link to="/account" style={{ textDecoration:'none', display:'block', borderRadius:4, transition:'background 100ms, border-color 100ms', border:'1px solid transparent', marginBottom:10 }}
         onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,.05)'; el.style.borderColor = 'rgba(255,255,255,.07)' }}
         onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'transparent'; el.style.borderColor = 'transparent' }}
       >
-        <AvatarBlock />
+        <AvatarBlock compact={compact} />
       </Link>
 
       {/* Nav */}
-      <div style={{ fontSize:10, fontWeight:600, letterSpacing:'.16em', textTransform:'uppercase', color:'var(--ink-4)', padding:'10px 8px 6px' }}>{t.nav.header}</div>
+      {!compact && <div style={{ fontSize:10, fontWeight:600, letterSpacing:'.16em', textTransform:'uppercase', color:'var(--ink-4)', padding:'10px 8px 6px' }}>{t.nav.header}</div>}
       <nav style={{ display:'flex', flexDirection:'column', gap:2 }}>
-        {navItems.map(n => <NavItem key={n.to} {...n} />)}
+        {navItems.map(n => <NavItem key={n.to} {...n} compact={compact} />)}
       </nav>
 
-      {/* Friends */}
-      <FriendsPanel />
+      {/* Friends — hidden in compact */}
+      {!compact && <FriendsPanel />}
 
       {/* Bottom */}
       <div style={{ marginTop:'auto', display:'flex', flexDirection:'column', gap:2, paddingTop:10, borderTop:'1px solid var(--sb-line)' }}>
-        <NavItem to="/settings" label={t.nav.settings} iconSrc={settingsIcon} exact={true} />
+        <NavItem to="/settings" label={t.nav.settings} iconSrc={settingsIcon} exact={true} compact={compact} />
         <button
+          title={compact ? 'Discord' : undefined}
           onClick={() => window.open('https://discord.gg/SUPuuTjMGU')}
-          style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:4, color:'var(--ink-2)', fontSize:13, fontWeight:500, background:'none', border:'1px solid transparent', cursor:'pointer', textAlign:'left' }}
+          style={{ display:'flex', alignItems:'center', justifyContent: compact ? 'center' : 'flex-start', gap: compact ? 0 : 10, padding: compact ? '9px 0' : '8px 10px', borderRadius:4, color:'var(--ink-2)', fontSize:13, fontWeight:500, background:'none', border:'1px solid transparent', cursor:'pointer', textAlign:'left' }}
           onMouseEnter={e => { e.currentTarget.style.color = '#5865F2'; e.currentTarget.style.background = 'rgba(88,101,242,.1)' }}
           onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-2)'; e.currentTarget.style.background = 'none' }}
         >
-          <div style={{ width:18, height:18, display:'flex', alignItems:'center', justifyContent:'center' }}><img src={discordIcon} alt="Discord" style={{ width:16, height:16, objectFit:'contain', opacity:.75 }} /></div>
-          <span>{t.nav.discord}</span>
+          <div style={{ width: compact ? 20 : 18, height: compact ? 20 : 18, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <img src={discordIcon} alt="Discord" style={{ width: compact ? 20 : 16, height: compact ? 20 : 16, objectFit:'contain', opacity:.75 }} />
+          </div>
+          {!compact && <span>{t.nav.discord}</span>}
         </button>
       </div>
     </aside>
