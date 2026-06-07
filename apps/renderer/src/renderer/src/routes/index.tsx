@@ -1542,6 +1542,7 @@ function computeStreak(instances: Instance[]): { streak: number; savesLeft: numb
 }
 
 function PlaytimePanel({ instances }: { instances: Instance[] }) {
+  const t = useT()
   const sorted = [...instances]
     .filter(i => i.totalTimePlayed > 0)
     .sort((a, b) => b.totalTimePlayed - a.totalTimePlayed)
@@ -1558,7 +1559,7 @@ function PlaytimePanel({ instances }: { instances: Instance[] }) {
     d.setDate(d.getDate() - i)
     const key = d.toISOString().slice(0, 10)
     const dayIdx = d.getDay() // 0=Sun
-    const DAY_ABBR = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+    const DAY_ABBR = t.home.dayAbbr
     let secs = 0
     for (const inst of instances) {
       secs += inst.playtimeLog?.[key] ?? 0
@@ -1572,16 +1573,16 @@ function PlaytimePanel({ instances }: { instances: Instance[] }) {
 
   if (sorted.length === 0 && grandTotal === 0) {
     return (
-      <Panel title="Playtime">
+      <Panel title={t.home.playtime}>
         <div style={{ padding: '12px 0', fontSize: 12, color: 'var(--ink-4)', textAlign: 'center' }}>
-          No playtime recorded yet
+          {t.home.playtimeEmpty}
         </div>
       </Panel>
     )
   }
 
   return (
-    <Panel title="Playtime">
+    <Panel title={t.home.playtime}>
       {/* Per-instance bars */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
         {sorted.map(inst => {
@@ -1604,7 +1605,7 @@ function PlaytimePanel({ instances }: { instances: Instance[] }) {
 
       {/* Last 7 days */}
       <div style={{ marginTop: 10, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
-        <div style={{ fontSize: 10, color: 'var(--ink-4)', letterSpacing: '.08em', marginBottom: 6 }}>LAST 7 DAYS</div>
+        <div style={{ fontSize: 10, color: 'var(--ink-4)', letterSpacing: '.08em', marginBottom: 6 }}>{t.home.last7Days}</div>
         <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 36 }}>
           {days.map((day, i) => {
             const h = day.seconds > 0 ? Math.max(4, Math.round((day.seconds / maxDay) * 32)) : 0
@@ -1635,13 +1636,13 @@ function PlaytimePanel({ instances }: { instances: Instance[] }) {
               <span style={{ fontSize: 24, lineHeight: 1 }}>🔥</span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <span style={{ fontSize: 22, fontWeight: 800, color: streakColor, lineHeight: 1 }}>{streak}</span>
-                <span style={{ fontSize: 10, color: 'var(--ink-4)', letterSpacing: '.04em' }}>day streak</span>
+                <span style={{ fontSize: 10, color: 'var(--ink-4)', letterSpacing: '.04em' }}>{t.home.dayStreak}</span>
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 {[0, 1].map(idx => (
-                  <div key={idx} title={idx < savesLeft ? 'Save available' : 'Save used'} style={{
+                  <div key={idx} title={idx < savesLeft ? t.home.saveAvailable : t.home.saveUsed} style={{
                     width: 10, height: 10, borderRadius: '50%',
                     background: idx < savesLeft ? streakColor : 'var(--surface-2)',
                     border: `1.5px solid ${idx < savesLeft ? streakColor : 'var(--line)'}`,
@@ -1650,7 +1651,7 @@ function PlaytimePanel({ instances }: { instances: Instance[] }) {
                   }} />
                 ))}
               </div>
-              <span style={{ fontSize: 9, color: 'var(--ink-4)' }}>{savesLeft} save{savesLeft !== 1 ? 's' : ''} left</span>
+              <span style={{ fontSize: 9, color: 'var(--ink-4)' }}>{savesLeft} {savesLeft === 1 ? t.home.saveLeft : t.home.savesLeft}</span>
             </div>
           </div>
         )
@@ -1658,7 +1659,7 @@ function PlaytimePanel({ instances }: { instances: Instance[] }) {
 
       {/* Total */}
       <div style={{ marginTop: 8, fontSize: 11, color: 'var(--ink-4)', textAlign: 'right' }}>
-        {fmtSeconds(grandTotal)} total
+        {fmtSeconds(grandTotal)} {t.home.playtimeTotal}
       </div>
     </Panel>
   )

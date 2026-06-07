@@ -86,7 +86,17 @@
     "importFailed": "Помилка імпорту: {{e}}",
     "javaWarning": "⚠ Java {{v}}",
     "dropMod": "КИНЬ МОД",
-    "ungrouped": "Без групи"
+    "ungrouped": "Без групи",
+    "playtime": "Час гри",
+    "playtimeEmpty": "Час гри ще не записано",
+    "last7Days": "ОСТАННІ 7 ДНІВ",
+    "dayAbbr": ["Н", "П", "В", "С", "Ч", "П", "С"],
+    "dayStreak": "дн. поспіль",
+    "saveAvailable": "Збереження доступне",
+    "saveUsed": "Збереження використано",
+    "savesLeft": "зберігань залишилось",
+    "saveLeft": "зберігання залишилось",
+    "playtimeTotal": "загалом"
   },
   "browse": {
     "title": "Огляд модів",
