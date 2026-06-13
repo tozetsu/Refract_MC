@@ -1,5 +1,6 @@
-import { createWriteStream, existsSync, statSync, mkdirSync, unlinkSync } from 'fs'
+import { createWriteStream, existsSync, statSync, mkdirSync, unlinkSync, renameSync } from 'fs'
 import { dirname } from 'path'
+import { createHash } from 'crypto'
 import https from 'https'
 import http from 'http'
 
@@ -40,7 +41,8 @@ export async function downloadFile(
   url: string,
   dest: string,
   onProgress?: (p: DownloadProgress) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  expectedSha1?: string
 ): Promise<void> {
   if (signal?.aborted) throw new Error('Install cancelled')
   if (existsSync(dest) && statSync(dest).size > 0) return
@@ -56,15 +58,22 @@ export async function downloadFile(
   const total = parseInt(res.headers['content-length'] ?? '0', 10)
   let downloaded = 0
 
+  // Stream to a temp file and rename only on success, so an interrupted or
+  // crashed transfer never leaves a truncated file that later passes the
+  // "exists && size>0" skip check and silently corrupts the install.
+  const tmp = `${dest}.part`
+  const hash = expectedSha1 ? createHash('sha1') : null
+  const cleanupTmp = () => { try { unlinkSync(tmp) } catch { /* ignore */ } }
+
   return new Promise((resolve, reject) => {
     if (signal?.aborted) { res.destroy(); reject(new Error('Install cancelled')); return }
 
-    const file = createWriteStream(dest)
+    const file = createWriteStream(tmp)
 
     const onAbort = () => {
       res.destroy()
       file.close()
-      try { unlinkSync(dest) } catch { /* ignore */ }
+      cleanupTmp()
       reject(new Error('Install cancelled'))
     }
     signal?.addEventListener('abort', onAbort, { once: true })
@@ -73,13 +82,28 @@ export async function downloadFile(
 
     res.on('data', (chunk: Buffer) => {
       downloaded += chunk.length
+      hash?.update(chunk)
       onProgress?.({ downloaded, total, percent: total ? (downloaded / total) * 100 : 0 })
     })
 
     res.pipe(file)
-    file.on('finish', () => { cleanup(); file.close(() => resolve()) })
-    file.on('error', (err) => { cleanup(); file.close(); reject(err) })
-    res.on('error', (err) => { cleanup(); reject(err) })
+    file.on('finish', () => {
+      cleanup()
+      file.close(() => {
+        if (hash && expectedSha1) {
+          const actual = hash.digest('hex')
+          if (actual !== expectedSha1.toLowerCase()) {
+            cleanupTmp()
+            reject(new Error(`Checksum mismatch for ${url} (expected ${expectedSha1}, got ${actual})`))
+            return
+          }
+        }
+        try { renameSync(tmp, dest) } catch (err) { cleanupTmp(); reject(err as Error); return }
+        resolve()
+      })
+    })
+    file.on('error', (err) => { cleanup(); file.close(); cleanupTmp(); reject(err) })
+    res.on('error', (err) => { cleanup(); cleanupTmp(); reject(err) })
   })
 }
 

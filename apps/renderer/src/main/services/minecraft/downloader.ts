@@ -83,7 +83,7 @@ async function downloadLibraries(
       if (!lib.downloads.artifact.url) continue // bundled in installer — extracted by copyMavenLibs
       const dest = resolve(paths.libraries, lib.downloads.artifact.path)
       if (relative(paths.libraries, dest).startsWith('..')) continue
-      await downloadFile(lib.downloads.artifact.url, dest, undefined, signal)
+      await downloadFile(lib.downloads.artifact.url, dest, undefined, signal, lib.downloads.artifact.sha1)
     } else if (lib.name && lib.url) {
       const relPath = mavenCoordToPath(lib.name)
       const dest = resolve(paths.libraries, relPath)
@@ -169,7 +169,7 @@ async function downloadAssets(
     await Promise.all(batch.map(async (obj) => {
       const prefix = obj.hash.slice(0, 2)
       const dest = join(paths.assets, 'objects', prefix, obj.hash)
-      await downloadFile(`${RESOURCES_URL}/${prefix}/${obj.hash}`, dest, undefined, signal)
+      await downloadFile(`${RESOURCES_URL}/${prefix}/${obj.hash}`, dest, undefined, signal, obj.hash)
     }))
     current = Math.min(i + 10, total)
     onProgress({ step: 'Downloading assets', current, total, percent: (current / total) * 100 })
@@ -234,8 +234,18 @@ async function runForgeProcessors(
     const cp = [jarPath, ...proc.classpath.map(resolveLibPath)].join(sep)
     const args = proc.args.map(a => resolveForgeData(a, installProfile.data ?? {}, versionId, instanceId) ?? a)
 
-    await new Promise<void>(res => {
-      execFile(javaExe, ['-cp', cp, ...args], { timeout: 120_000 }, () => res())
+    // A failed processor must abort the install — otherwise the client JAR is
+    // left unpatched and the game crashes cryptically at launch instead of here.
+    // maxBuffer is bumped so chatty processors don't trip a false ENOBUFS error.
+    await new Promise<void>((res, rej) => {
+      execFile(javaExe, ['-cp', cp, ...args], { timeout: 600_000, maxBuffer: 16 * 1024 * 1024 }, (error, _stdout, stderr) => {
+        if (error) {
+          const tail = (stderr?.toString() ?? '').trim().slice(-600)
+          rej(new Error(`Forge processor failed (${proc.jar}): ${tail || error.message}`))
+        } else {
+          res()
+        }
+      })
     })
   }
 }
@@ -288,10 +298,13 @@ export async function fetchForgeVersionList(mcVersion: string): Promise<{ versio
 }
 
 export async function fetchNeoForgeVersionList(mcVersion: string): Promise<string[]> {
+  // NeoForge versions are `<mcMinor>.<mcPatch>.<build>`; a 2-part MC version
+  // (e.g. "1.21") has an implicit patch of 0 → "21.0.". Without the explicit
+  // patch the prefix "21." also matched 1.21.1's "21.1.x" builds.
   const parts = mcVersion.split('.')
-  const prefix = parts.length >= 3
-    ? `${parseInt(parts[1])}.${parseInt(parts[2])}.`
-    : `${parseInt(parts[1])}.`
+  const minor = parseInt(parts[1])
+  const patch = parts.length >= 3 ? parseInt(parts[2]) : 0
+  const prefix = `${minor}.${patch}.`
 
   const xml = await fetchText('https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml')
   return [...xml.matchAll(/<version>(\d[^<]*)<\/version>/g)]
@@ -389,11 +402,19 @@ async function installForge(
       const mavenDir = join(extractDir, 'maven')
       if (existsSync(mavenDir)) copyMavenLibs(mavenDir, paths.libraries)
 
-      // Run Forge processors (patch the Minecraft client JAR)
+      // Run Forge processors (patch the Minecraft client JAR). They must run on
+      // a Java at least as new as the Minecraft version requires — picking the
+      // first detected JDK could hand a Java 8 to a Forge that needs 17+.
       report('Running Forge processors', 70)
       const { detectJavaInstallations } = await import('@refract/core/java-manager')
-      const javas = await detectJavaInstallations()
-      const javaExe = javas[0] ? join(javas[0].path, 'bin', process.platform === 'win32' ? 'java.exe' : 'java') : 'java'
+      const javas = (await detectJavaInstallations()).sort((a, b) => b.version - a.version)
+      let requiredJava = 8
+      try {
+        const vj = JSON.parse(readFileSync(versionJsonPath(versionId), 'utf-8')) as VersionJson
+        requiredJava = vj.javaVersion?.majorVersion ?? 8
+      } catch { /* fall back to 8 */ }
+      const picked = javas.find(j => j.version >= requiredJava) ?? javas[0]
+      const javaExe = picked ? join(picked.path, 'bin', process.platform === 'win32' ? 'java.exe' : 'java') : 'java'
       await runForgeProcessors(profile, versionId, instanceId, javaExe, onProgress)
     }
 
@@ -441,7 +462,7 @@ export async function installMinecraft(
 
   // 2. Download client jar
   report({ step: 'Downloading client', current: 0, total: 1, percent: 0 })
-  await downloadFile(versionJson.downloads.client.url, clientJarPath(versionId), undefined, signal)
+  await downloadFile(versionJson.downloads.client.url, clientJarPath(versionId), undefined, signal, versionJson.downloads.client.sha1)
   report({ step: 'Downloading client', current: 1, total: 1, percent: 100 })
 
   // 3. Download vanilla libraries
