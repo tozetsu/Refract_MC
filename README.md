@@ -1,125 +1,116 @@
 <p align="center">
-  <img src="logo/refract-iris-256.png" width="96" alt="Refract logo" />
+  <img alt="Refract Logo" src="logo/refract-iris-256.png" width="18%">
 </p>
 
-<h1 align="center">Refract</h1>
-<p align="center">A fast, modern, open-source Minecraft launcher built with Electron and React.</p>
-
 <p align="center">
+  Refract is a fast, modern, open-source Minecraft launcher built with Electron and React.<br />
+  <br />
   <a href="https://github.com/RefractMC/Refract_MC/releases/latest">
-    <img src="https://img.shields.io/github/v/release/RefractMC/Refract_MC?style=flat-square&color=5316D4" alt="Latest Release" />
+    <img src="https://img.shields.io/github/v/release/RefractMC/Refract_MC?style=for-the-badge&color=5316D4" alt="Latest Release" />
   </a>
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-5316D4?style=flat-square" alt="Platform" />
-  <img src="https://img.shields.io/badge/Minecraft-Java%20Edition-5316D4?style=flat-square" alt="Minecraft" />
-  <a href="https://discord.gg/7Q5sGzhUQJ](https://discord.gg/SUPuuTjMGU">
-    <img src="https://img.shields.io/badge/Discord-Join-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord" />
+  <a href="https://github.com/RefractMC/Refract_MC/stargazers">
+    <img src="https://img.shields.io/github/stars/RefractMC/Refract_MC?style=for-the-badge&color=5316D4" alt="GitHub Stars" />
+  </a>
+  <a href="https://github.com/RefractMC/Refract_MC/releases">
+    <img src="https://img.shields.io/github/downloads/RefractMC/Refract_MC/total?style=for-the-badge&color=5316D4" alt="Total Downloads" />
+  </a>
+  <a href="https://discord.gg/7Q5sGzhUQJ">
+    <img src="https://img.shields.io/badge/Discord-Join%20Refract-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord" />
   </a>
 </p>
 
 <p align="center">
-  <img src="logo/screenshot.png" alt="Refract screenshot" width="780" />
+  <img src="logo/screenshot.png" alt="Refract screenshot" width="80%" />
+</p>
+
+---
+
+## Supported Operating Systems
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Windows-0078D4?style=for-the-badge&logo=windows11&logoColor=white" alt="Windows Support" />
+  &nbsp;&nbsp;
+  <img src="https://img.shields.io/badge/macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="macOS Support" />
+  &nbsp;&nbsp;
+  <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Linux Support" />
+</p>
+
+<p align="center">
+  Built for cross-platform performance. Fully compatible with <b>Windows 10/11</b>, <b>macOS (Intel & Apple Silicon)</b>, and major <b>Linux distributions</b>.
 </p>
 
 ---
 
 ## Features
 
-**Instance management**
-- Create, group, duplicate, export and delete instances
-- Custom install location per instance — store anywhere on any drive
-- Drag-and-drop group reordering
-- Search and filter by mod loader and Minecraft version
-- Pin favourite instances
-
-**Mod & content browsing**
-- Browse and install mods, resource packs, shaders, datapacks and modpacks from **Modrinth** and **CurseForge**
-- Sort by downloads, followers, newest, recently updated or relevance
-- One-click mod updates with a badge showing outdated count
-- Bulk enable / disable / delete mods with checkboxes
-- Mod profiles — save and switch named sets of enabled mods per instance (e.g. "Survival", "Performance")
-
-**Instance details**
-- Worlds tab with last-played date, size and one-click backup to any folder
-- Screenshots tab with in-app full-res zoom viewer
-- Servers tab with live ping, latency colour-coding and player count
-- Resource packs, shaders and datapack management tabs
-
-**Accounts**
-- Microsoft device-code login with Java Edition licence verification
-- Offline / guest profiles
-- Yggdrasil authentication for custom auth servers (e.g. Ely.by)
-
-**Java management**
-- Auto-downloads the correct JRE (8 / 17 / 21) for each Minecraft version
-- Register any custom `java` / `java.exe` executable from disk
-- JVM performance presets — Aikar's flags and Low-end with one click
-
-**Launcher**
-- Auto-updater with in-title-bar progress bar and Restart button
-- Custom accent colour with preset swatches and a full colour picker
-- Dark and light themes
-- Crash report auto-copy and in-app console viewer
-- MultiMC / Prism Launcher instance import
-- Discord Rich Presence — shows instance name, version and elapsed playtime
-- Friends panel with NameMC links, UUID copy, whitelist helper and inline notes
-- Community translations via `locales/` JSON files
+- **Instance Management:** Create, group, duplicate, export, and delete instances. Supports custom install locations per instance, drag-and-drop group reordering, search/filter by mod loader and version, and pinning favorites.
+- **Mod & Content Browsing:** Browse and install mods, resource packs, shaders, datapacks, and modpacks directly from Modrinth and CurseForge. Includes sorting, one-click updates, bulk toggles, and savable mod profiles.
+- **Instance Details:** Dedicated tabs for Worlds (with one-click backups), Screenshots (with an in-app full-res zoom viewer), Servers (live ping and player count), and resource/shader management.
+- **Accounts:** Microsoft device-code login with Java Edition license verification, offline/guest profiles, and Yggdrasil authentication for custom auth servers (e.g: Ely.by).
+- **Java Management:** Automatically downloads the correct JRE (8, 17, or 21), allows custom executable registration, and includes one-click JVM performance presets (Aikar's flags, Low-end).
+- **Launcher Extras:** Auto-updater, customizable accent colors and themes (Dark/Light), crash report auto-copy, MultiMC/Prism instance import, and Discord Rich Presence.
 
 ---
 
-## Download
+## Downloads
 
-Get the latest release from the [Releases page](https://github.com/RefractMC/Refract_MC/releases/latest).
+Get the matching binary for your platform. These buttons automatically point to the latest stable release infrastructure.
 
-| Platform | File |
-|---|---|
-| Windows | `Refract-x.x.x-setup.exe` |
-| macOS (Apple Silicon) | `Refract-x.x.x-arm64.dmg` |
-| macOS (Intel) | `Refract-x.x.x-x64.dmg` |
-| Linux (portable) | `Refract-x.x.x.AppImage` |
-| Linux (Debian/Ubuntu) | `Refract-x.x.x.deb` |
+<p align="left">
+  <a href="https://github.com/RefractMC/Refract_MC/releases/latest">
+    <img src="https://img.shields.io/badge/Download%20for%20Windows-setup.exe-5316D4?style=flat-square&logo=windows11&logoColor=white" alt="Download Windows" height="28"/>
+  </a>
+  <br /><br />
+  <a href="https://github.com/RefractMC/Refract_MC/releases/latest">
+    <img src="https://img.shields.io/badge/Download%20for%20macOS%20(M1/M2/M3)-arm64.dmg-5316D4?style=flat-square&logo=apple&logoColor=white" alt="Download macOS ARM" height="28"/>
+  </a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/RefractMC/Refract_MC/releases/latest">
+    <img src="https://img.shields.io/badge/Download%20for%20macOS%20(Intel)-x64.dmg-5316D4?style=flat-square&logo=apple&logoColor=white" alt="Download macOS Intel" height="28"/>
+  </a>
+  <br /><br />
+  <a href="https://github.com/RefractMC/Refract_MC/releases/latest">
+    <img src="https://img.shields.io/badge/Download%20for%20Linux-AppImage-5316D4?style=flat-square&logo=linux&logoColor=white" alt="Download Linux AppImage" height="28"/>
+  </a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/RefractMC/Refract_MC/releases/latest">
+    <img src="https://img.shields.io/badge/Download%20for%20Ubuntu/Debian-.deb-5316D4?style=flat-square&logo=ubuntu&logoColor=white" alt="Download Linux Debian" height="28"/>
+  </a>
+</p>
 
-> **macOS note:** The DMG is currently unsigned. Right-click → Open on first launch to bypass Gatekeeper.
+> **Note for macOS users:** The DMG payload is currently unsigned. To bypass Apple Gatekeeper on initial launch, right-click the application icon and select **Open**.
 
 ---
 
-## Translating
+## Community & Support
 
-All UI strings live in [`locales/en.json`](locales/en.json). To add a new language:
+Feel free to open a GitHub issue if you hit a bug or want to suggest a feature. You can also join our interactive hub to chat with other community members and get live troubleshooting help:
 
-1. Copy `locales/en.json` and name it after the [BCP 47 tag](https://en.wikipedia.org/wiki/IETF_language_tag) for your language (e.g. `fr.json`)
-2. Translate the values — keep the JSON keys unchanged
-3. Open a pull request
-
-See [`locales/README.md`](locales/README.md) for the full contribution guide.
+[![Refract Discord Banner](https://discordapp.com/api/guilds/1507409148331954408/widget.png?style=banner3)]([https://discord.gg/7Q5sGzhUQJ](https://discord.gg/DQQCwuDjRs))
 
 ---
 
-## Development
+## Translations
 
-### Requirements
+All interface strings live in [`locales/en.json`](locales/en.json). To add a new localization target:
 
+1. Copy `locales/en.json` and title it using the standard [BCP 47 language code](https://en.wikipedia.org/wiki/IETF_language_tag) (e.g: `fr.json`).
+2. Translate the values directly—leave the JSON keys completely unmodified.
+3. Open a pull request against the main branch.
+
+Review [`locales/README.md`](locales/README.md) for the deep contribution guide.
+
+---
+
+## Building from Source
+
+### Prerequisites
 - [Node.js](https://nodejs.org/) 20+
 - [pnpm](https://pnpm.io/) 9+
 
 ### Setup
-
 ```bash
-git clone https://github.com/RefractMC/Refract_MC.git
+git clone [https://github.com/RefractMC/Refract_MC.git](https://github.com/RefractMC/Refract_MC.git)
 cd Refract_MC
 pnpm install
 pnpm --filter @refract/app dev
-```
-
-### Build
-
-```bash
-pnpm --filter @refract/app build
-pnpm --filter @refract/app exec electron-builder --win
-```
-
----
-
-## License
-
-All launcher code is available under the [GPL-3.0-only](LICENSE) license.  
-The logo and related assets are under the [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) license.
