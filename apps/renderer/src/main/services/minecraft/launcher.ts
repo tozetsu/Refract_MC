@@ -13,7 +13,7 @@ import type { VersionJson } from '@refract/core'
 import { buildLaunchCommand } from '@refract/core/launcher'
 import { detectJavaInstallations } from '@refract/core/java-manager'
 import { loadManagedJavas } from '../java-manager'
-import { versionJsonPath, clientJarPath, nativesDir } from './downloader'
+import { versionJsonPath, clientJarPath, nativesDir, forgeJsonPath } from './downloader'
 import { setGameActivity, clearGameActivity } from '../discord'
 import { notify } from '../notifications'
 
@@ -31,10 +31,19 @@ function readFabricJson(versionId: string): VersionJson | null {
   try { return JSON.parse(readFileSync(p, 'utf-8')) as VersionJson } catch { return null }
 }
 
-function readForgeJson(versionId: string): VersionJson | null {
-  const p = join(paths.versions, `${versionId}-forge`, `${versionId}-forge.json`)
-  if (!existsSync(p)) return null
-  try { return JSON.parse(readFileSync(p, 'utf-8')) as VersionJson } catch { return null }
+function readForgeJson(versionId: string, loader: 'forge' | 'neoforge', loaderVersion?: string): VersionJson | null {
+  // Prefer the loader+version-specific path; fall back to loader-only and the
+  // legacy shared "{mc}-forge" path so instances installed before the
+  // collision fix still launch without a reinstall.
+  const candidates: string[] = []
+  if (loaderVersion) candidates.push(forgeJsonPath(versionId, loader, loaderVersion))
+  candidates.push(forgeJsonPath(versionId, loader))
+  candidates.push(join(paths.versions, `${versionId}-forge`, `${versionId}-forge.json`))
+  for (const p of candidates) {
+    if (!existsSync(p)) continue
+    try { return JSON.parse(readFileSync(p, 'utf-8')) as VersionJson } catch { /* try next */ }
+  }
+  return null
 }
 
 function readQuiltJson(versionId: string): VersionJson | null {
@@ -116,7 +125,9 @@ export async function launchInstance(
   if (!versionJson) throw new Error('Version JSON missing. Please reinstall.')
 
   const isForge = instance.modLoader === 'forge' || instance.modLoader === 'neoforge'
-  const forgeJson = isForge ? readForgeJson(instance.minecraftVersion) : null
+  const forgeJson = isForge
+    ? readForgeJson(instance.minecraftVersion, instance.modLoader as 'forge' | 'neoforge', instance.modLoaderVersion)
+    : null
   if (isForge && !forgeJson) {
     throw new Error('Forge is not fully installed. Please reinstall this instance.')
   }

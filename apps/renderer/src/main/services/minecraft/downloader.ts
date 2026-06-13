@@ -1,4 +1,4 @@
-import { join, relative, resolve } from 'path'
+import { join, relative, resolve, dirname } from 'path'
 import { resolveInstanceDir } from '../instance-store'
 import { existsSync, createWriteStream, mkdirSync, rmSync, copyFileSync, readdirSync, readFileSync, writeFileSync } from 'fs'
 import { createUnzip } from 'zlib'
@@ -48,6 +48,16 @@ export function clientJarPath(versionId: string): string {
 
 export function nativesDir(instanceId: string): string {
   return join(resolveInstanceDir(instanceId), 'minecraft', 'natives')
+}
+
+// Forge and NeoForge version JSONs are keyed by loader + loader version so
+// two instances on the same Minecraft version (e.g. Forge vs NeoForge, or two
+// different Forge builds) never overwrite each other's JSON. When loaderVersion
+// is omitted the folder is loader-only (used as a read fallback for older
+// installs that didn't record their loader version).
+export function forgeJsonPath(versionId: string, loader: 'forge' | 'neoforge', loaderVersion?: string): string {
+  const tag = loaderVersion ? `${loader}-${loaderVersion}` : loader
+  return join(paths.versions, `${versionId}-${tag}`, `${versionId}-${tag}.json`)
 }
 
 export function libraryPath(libPath: string): string {
@@ -357,11 +367,11 @@ async function installForge(
 
     const forgeJson = JSON.parse(readFileSync(versionJsonSrc, 'utf-8')) as VersionJson
 
-    // Save forge version JSON (used by launcher to build classpath/mainClass)
-    const forgeJsonDir  = join(paths.versions, `${versionId}-forge`)
-    const forgeJsonPath = join(forgeJsonDir, `${versionId}-forge.json`)
-    mkdirSync(forgeJsonDir, { recursive: true })
-    writeFileSync(forgeJsonPath, JSON.stringify(forgeJson, null, 2))
+    // Save loader version JSON, keyed by loader + version so Forge/NeoForge
+    // installs on the same MC version don't clobber each other.
+    const loaderJsonPath = forgeJsonPath(versionId, isNeoForge ? 'neoforge' : 'forge', forgeVersion)
+    mkdirSync(dirname(loaderJsonPath), { recursive: true })
+    writeFileSync(loaderJsonPath, JSON.stringify(forgeJson, null, 2))
 
     // Download Forge libraries
     report('Downloading Forge libraries', 35)
@@ -415,8 +425,11 @@ export async function installMinecraft(
   modLoaderVersion?: string,
   onProgress?: ProgressCallback,
   signal?: AbortSignal
-): Promise<void> {
+): Promise<{ modLoaderVersion?: string }> {
   const report = (p: InstallProgress) => onProgress?.(p)
+  // The concrete loader version actually installed (may be auto-resolved
+  // "latest" when the caller passed none) — returned so it can be persisted.
+  let resolvedLoaderVersion: string | undefined = modLoaderVersion
 
   // 1. Download version JSON
   report({ step: 'Fetching version data', current: 0, total: 1, percent: 0 })
@@ -452,6 +465,7 @@ export async function installMinecraft(
       fabricLoaderVer = loaders[0]?.loader.version
       if (!fabricLoaderVer) throw new Error('No Fabric loader found for ' + versionId)
     }
+    resolvedLoaderVersion = fabricLoaderVer
 
     const fabricJson = await fetchFabricVersionJson(versionId, fabricLoaderVer)
     const fabricJsonPath = join(paths.versions, `${versionId}-fabric`, `${versionId}-fabric.json`)
@@ -472,6 +486,7 @@ export async function installMinecraft(
       quiltLoaderVer = loaders[0]?.loader.version
       if (!quiltLoaderVer) throw new Error('No Quilt loader found for ' + versionId)
     }
+    resolvedLoaderVersion = quiltLoaderVer
 
     const quiltJson = await fetchQuiltVersionJson(versionId, quiltLoaderVer)
     const quiltJsonPath = join(paths.versions, `${versionId}-quilt`, `${versionId}-quilt.json`)
@@ -491,8 +506,10 @@ export async function installMinecraft(
         ? await fetchNeoForgeLatestVersion(versionId)
         : await fetchForgeLatestVersion(versionId)
     }
+    resolvedLoaderVersion = forgeVer
     await installForge(instanceId, versionId, forgeVer, modLoader === 'neoforge', onProgress, signal)
   }
 
   report({ step: 'Done', current: 1, total: 1, percent: 100 })
+  return { modLoaderVersion: resolvedLoaderVersion }
 }

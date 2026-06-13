@@ -174,7 +174,7 @@ export function registerMinecraftIpc(mainWindow: BrowserWindow): void {
     const controller = new AbortController()
     activeInstallController = controller
     try {
-      await installMinecraft(
+      const result = await installMinecraft(
         String(instanceId),
         String(versionId),
         String(versionUrl),
@@ -185,11 +185,13 @@ export function registerMinecraftIpc(mainWindow: BrowserWindow): void {
         },
         controller.signal
       )
-      // Mark instance as installed
+      // Mark installed and persist the loader version actually installed
+      // (may be an auto-resolved "latest"). Only write it when present so we
+      // never clobber an existing value with undefined for vanilla installs.
       const instanceStore = await import('../services/instance-store')
       instanceStore.updateInstance(String(instanceId), {
         isInstalled: true,
-        modLoaderVersion: modLoaderVersion ? String(modLoaderVersion) : undefined,
+        ...(result.modLoaderVersion ? { modLoaderVersion: result.modLoaderVersion } : {}),
       })
     } finally {
       activeInstallController = null
@@ -209,7 +211,7 @@ export function registerMinecraftIpc(mainWindow: BrowserWindow): void {
     const ver = versions.find(v => v.id === instance.minecraftVersion)
     if (!ver) throw new Error(`Minecraft ${instance.minecraftVersion} not found in Mojang manifest.`)
 
-    await installMinecraft(
+    const result = await installMinecraft(
       String(instanceId),
       ver.id,
       ver.url,
@@ -220,7 +222,10 @@ export function registerMinecraftIpc(mainWindow: BrowserWindow): void {
       }
     )
 
-    instanceStore.updateInstance(String(instanceId), { isInstalled: true })
+    instanceStore.updateInstance(String(instanceId), {
+      isInstalled: true,
+      ...(result.modLoaderVersion ? { modLoaderVersion: result.modLoaderVersion } : {}),
+    })
   })
 
   handleIpc('mc.launch', (_event, instanceId) =>
