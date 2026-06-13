@@ -1,7 +1,7 @@
 import { join, basename } from 'path'
 import { existsSync, readFileSync, mkdirSync, readdirSync, cpSync } from 'fs'
 import { createAndSaveInstance, resolveInstanceDir } from './instance-store'
-import type { Instance } from '@refract/core'
+import type { Instance, ModLoader } from '@refract/core'
 
 interface MmcComponent {
   uid: string
@@ -22,7 +22,7 @@ function parseInstanceCfg(text: string): Record<string, string> {
   return result
 }
 
-function detectLoader(components: MmcComponent[]): { modLoader?: string; modLoaderVersion?: string } {
+function detectLoader(components: MmcComponent[]): { modLoader?: ModLoader; modLoaderVersion?: string } {
   for (const c of components) {
     if (c.uid === 'net.minecraftforge')           return { modLoader: 'forge',   modLoaderVersion: c.version }
     if (c.uid === 'net.neoforged.neoforge')       return { modLoader: 'neoforge', modLoaderVersion: c.version }
@@ -56,8 +56,8 @@ export function importMultiMcInstance(instanceFolder: string): Instance {
     minecraftVersion: mcComponent.version,
     modLoader,
     modLoaderVersion,
-    isInstalled: false,
-    group: 'Imported',
+    memoryMb: 2048,
+    groupId: 'Imported',
   })
 
   // Copy game content from minecraft/ subdir

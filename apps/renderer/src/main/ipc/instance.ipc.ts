@@ -117,7 +117,6 @@ export function registerInstanceIpc(): void {
       modLoader: e.modLoader as import('@refract/core').ModLoader | undefined,
       modLoaderVersion: e.modLoaderVersion,
       memoryMb: 2048,
-      isInstalled: false,
       externalGameDir: e.gameDir,
       externalSource: e.sourceName,
     })
@@ -136,8 +135,7 @@ export function registerInstanceIpc(): void {
       modLoader: e.modLoader as import('@refract/core').ModLoader | undefined,
       modLoaderVersion: e.modLoaderVersion,
       memoryMb: 2048,
-      isInstalled: false,
-      group: 'Imported',
+      groupId: 'Imported',
     })
 
     const destBase = join(resolveInstanceDir(instance.id), 'minecraft')

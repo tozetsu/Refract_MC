@@ -150,8 +150,12 @@ export function updateInstance(id: string, patch: Partial<Omit<Instance, 'id' | 
   return saveInstance({ ...existing, ...patch, folderName: newFolder })
 }
 
-export function deleteInstance(id: string): void {
-  const dir = resolveInstanceDir(id)
-  if (existsSync(dir)) rmSync(dir, { recursive: true, force: true })
+// deleteFiles=false deregisters the instance without touching the filesystem —
+// used by rollback paths that have already removed the directory themselves.
+export function deleteInstance(id: string, deleteFiles = true): void {
+  if (deleteFiles) {
+    const dir = resolveInstanceDir(id)
+    if (existsSync(dir)) rmSync(dir, { recursive: true, force: true })
+  }
   writeRegistry(readRegistry().filter(r => r.id !== id))
 }

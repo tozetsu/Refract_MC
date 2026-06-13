@@ -184,9 +184,6 @@ declare global {
         linkExternal:   (ext: ExternalInstance) => Promise<import('@refract/core').Instance>
         importExternal: (ext: ExternalInstance) => Promise<import('@refract/core').Instance>
       }
-      system: {
-        totalMemoryMb: () => Promise<number>
-      }
       window: {
         minimize: () => void
         maximize: () => void
