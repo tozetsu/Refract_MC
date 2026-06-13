@@ -23,11 +23,15 @@ function get(url: string, signal?: AbortSignal): Promise<http.IncomingMessage> {
   })
 }
 
+const REDIRECT_CODES = new Set([301, 302, 303, 307, 308])
+
 async function follow(url: string, depth = 0, signal?: AbortSignal): Promise<http.IncomingMessage> {
   const res = await get(url, signal)
-  if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location && depth < 5) {
+  if (res.statusCode && REDIRECT_CODES.has(res.statusCode) && res.headers.location && depth < 5) {
     res.resume()
-    const next = res.headers.location
+    // Location may be relative ("/path" or "file.jar") — resolve it against the
+    // URL we just requested. new URL() also handles absolute Locations.
+    const next = new URL(res.headers.location, url).toString()
     // Reject http-downgrade redirects from https origins
     if (url.startsWith('https://') && next.startsWith('http://')) {
       throw new Error(`Redirect from https to http rejected: ${next}`)
