@@ -1,5 +1,5 @@
 import { join } from 'path'
-import { existsSync, readFileSync, mkdirSync, statSync } from 'fs'
+import { existsSync, readFileSync, mkdirSync, statSync, writeFileSync } from 'fs'
 import { spawn, exec, ChildProcess } from 'child_process'
 import { promisify } from 'util'
 
@@ -19,6 +19,34 @@ import { setGameActivity, clearGameActivity } from '../discord'
 import { notify } from '../notifications'
 
 const runningProcesses = new Map<string, ChildProcess>()
+
+// The in-memory map is lost when the launcher restarts, but a game launched
+// detached keeps running. Mirror live PIDs to disk so isRunning / stop / the
+// "already running" guard survive a restart. (Live log streaming can't be
+// recovered for a pre-restart process — only liveness and stop.)
+type RunningRecord = Record<string, { pid: number; startedAt: string }>
+const runningFile = () => join(paths.userData, 'running.json')
+
+function readRunning(): RunningRecord {
+  try { return JSON.parse(readFileSync(runningFile(), 'utf-8')) as RunningRecord } catch { return {} }
+}
+function writeRunning(rec: RunningRecord): void {
+  try { writeFileSync(runningFile(), JSON.stringify(rec)) } catch { /* best-effort */ }
+}
+function pidAlive(pid: number): boolean {
+  // signal 0 doesn't kill — it only probes. ESRCH = gone, EPERM = alive but
+  // owned by another user (treat as alive).
+  try { process.kill(pid, 0); return true } catch (e) { return (e as NodeJS.ErrnoException).code === 'EPERM' }
+}
+function setRunningPid(instanceId: string, pid: number): void {
+  const rec = readRunning()
+  rec[instanceId] = { pid, startedAt: new Date().toISOString() }
+  writeRunning(rec)
+}
+function clearRunningPid(instanceId: string): void {
+  const rec = readRunning()
+  if (instanceId in rec) { delete rec[instanceId]; writeRunning(rec) }
+}
 
 function readVersionJson(versionId: string): VersionJson | null {
   const p = versionJsonPath(versionId)
@@ -121,7 +149,7 @@ export async function launchInstance(
   instanceId: string,
   mainWindow: BrowserWindow
 ): Promise<void> {
-  if (runningProcesses.has(instanceId)) {
+  if (isInstanceRunning(instanceId)) {
     throw new Error('Instance is already running.')
   }
 
@@ -222,6 +250,7 @@ export async function launchInstance(
   proc.unref()
 
   runningProcesses.set(instanceId, proc)
+  if (proc.pid) setRunningPid(instanceId, proc.pid)
 
   if (getConfig().launchMinimizesToTray && !mainWindow.isDestroyed()) mainWindow.hide()
 
@@ -256,6 +285,7 @@ export async function launchInstance(
   })
   proc.on('exit', (code) => {
     runningProcesses.delete(instanceId)
+    clearRunningPid(instanceId)
     recordPlaytime()
     void clearGameActivity(instanceId)
     send('mc:exit', { instanceId, code })
@@ -269,6 +299,7 @@ export async function launchInstance(
   })
   proc.on('error', (err) => {
     runningProcesses.delete(instanceId)
+    clearRunningPid(instanceId)
     recordPlaytime()
     void clearGameActivity(instanceId)
     send('mc:exit', { instanceId, code: -1, error: err.message })
@@ -281,10 +312,25 @@ export function stopInstance(instanceId: string): void {
   if (proc) {
     proc.kill()
     runningProcesses.delete(instanceId)
-    void clearGameActivity(instanceId)
+  } else {
+    // Launched in a previous session — we no longer hold the handle, so kill
+    // it by the PID we persisted at launch.
+    const entry = readRunning()[instanceId]
+    if (entry && pidAlive(entry.pid)) {
+      try { process.kill(entry.pid) } catch { /* already gone */ }
+    }
   }
+  clearRunningPid(instanceId)
+  void clearGameActivity(instanceId)
 }
 
 export function isInstanceRunning(instanceId: string): boolean {
-  return runningProcesses.has(instanceId)
+  if (runningProcesses.has(instanceId)) return true
+  // Survive a launcher restart: a game from a previous session is tracked by
+  // PID on disk. Report it running while alive, and prune once it has exited.
+  const entry = readRunning()[instanceId]
+  if (!entry) return false
+  if (pidAlive(entry.pid)) return true
+  clearRunningPid(instanceId)
+  return false
 }
