@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow, nativeImage, shell, dialog } from 'electron'
-import { join, basename, dirname } from 'path'
+import { join, basename, dirname, resolve, sep } from 'path'
 import { readdirSync, statSync, readFileSync, existsSync, rmSync } from 'fs'
 import { createConnection } from 'net'
 import { spawn } from 'child_process'
@@ -53,6 +53,18 @@ function parseServersDat(buf: Buffer): ServerEntry[] {
     }
     return servers
   } catch { return [] }
+}
+
+// Resolve a renderer-supplied name (world folder, screenshot file) against a
+// trusted base directory, rejecting anything that escapes it via "..", an
+// absolute path, or a separator. Returns null when the name is unsafe or would
+// resolve to the base itself (so e.g. deleteWorld can never target the whole
+// saves directory). Defence-in-depth: the renderer is trusted, but these names
+// flow into rmSync(recursive) / shell.openPath / zip and must not traverse.
+function resolveWithin(baseDir: string, name: string): string | null {
+  const base = resolve(baseDir)
+  const full = resolve(base, name)
+  return full.startsWith(base + sep) ? full : null
 }
 
 function getWorldSizeKb(worldPath: string): number {
@@ -269,8 +281,9 @@ export function registerMinecraftIpc(mainWindow: BrowserWindow): void {
   })
 
   handleIpc('mc.deleteWorld', (_event, instanceId, worldName) => {
-    const worldPath = join(resolveGameDir(String(instanceId)), 'saves', String(worldName))
-    if (existsSync(worldPath)) rmSync(worldPath, { recursive: true, force: true })
+    const savesDir = join(resolveGameDir(String(instanceId)), 'saves')
+    const worldPath = resolveWithin(savesDir, String(worldName))
+    if (worldPath && existsSync(worldPath)) rmSync(worldPath, { recursive: true, force: true })
   })
 
   handleIpc('mc.screenshots', (_event, instanceId) => {
@@ -298,12 +311,16 @@ export function registerMinecraftIpc(mainWindow: BrowserWindow): void {
   })
 
   handleIpc('mc.openScreenshot', (_event, instanceId, filename) => {
-    const p = join(resolveGameDir(String(instanceId)), 'screenshots', String(filename))
+    const screenshotsDir = join(resolveGameDir(String(instanceId)), 'screenshots')
+    const p = resolveWithin(screenshotsDir, String(filename))
+    if (!p) return undefined
     return shell.openPath(p)
   })
 
   handleIpc('mc.screenshotFull', (_event, instanceId, filename) => {
-    const p = join(resolveGameDir(String(instanceId)), 'screenshots', String(filename))
+    const screenshotsDir = join(resolveGameDir(String(instanceId)), 'screenshots')
+    const p = resolveWithin(screenshotsDir, String(filename))
+    if (!p) return null
     try {
       const img = nativeImage.createFromPath(p)
       if (img.isEmpty()) return null
@@ -315,8 +332,9 @@ export function registerMinecraftIpc(mainWindow: BrowserWindow): void {
   })
 
   handleIpc('mc.backupWorld', async (_event, instanceId, worldName) => {
-    const worldPath = join(resolveGameDir(String(instanceId)), 'saves', String(worldName))
-    if (!existsSync(worldPath)) throw new Error('World not found')
+    const savesDir = join(resolveGameDir(String(instanceId)), 'saves')
+    const worldPath = resolveWithin(savesDir, String(worldName))
+    if (!worldPath || !existsSync(worldPath)) throw new Error('World not found')
     const { filePath, canceled } = await dialog.showSaveDialog({
       title: 'Save World Backup',
       defaultPath: `${worldName}-backup.zip`,

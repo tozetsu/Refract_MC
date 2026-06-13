@@ -39,7 +39,7 @@ function createWindow(): BrowserWindow {
     icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
     },
   })
 
@@ -83,7 +83,7 @@ app.whenReady().then(() => {
   if (process.platform === 'win32') app.setAppUserModelId('com.refract')
   app.on('browser-window-created', (_, window) => {
     window.webContents.on('before-input-event', (event, input) => {
-      if (input.key === 'F12') { window.webContents.toggleDevTools(); event.preventDefault() }
+      if (isDev && input.key === 'F12') { window.webContents.toggleDevTools(); event.preventDefault() }
     })
   })
 

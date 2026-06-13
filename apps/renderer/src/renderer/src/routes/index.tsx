@@ -14,6 +14,7 @@ import { ServersDialog } from '@/components/instances/ServersDialog'
 import { InstallProgress } from '@/components/minecraft/InstallProgress'
 import { useInstances, useCreateInstance, useUpdateInstance, useDeleteInstance } from '@/hooks/use-instances'
 import { api, type AppConfig } from '@/lib/api'
+import { getFilePath } from '@/lib/file-path'
 
 export const Route = createFileRoute('/')({
   component: Library,
@@ -148,9 +149,8 @@ function InstanceCard({ instance, onLaunch, onEdit, onConsole, onMods, onOpenFol
         e.preventDefault()
         setDragOver(false)
         const file = e.dataTransfer.files[0]
-        if (file && (file as File & { path?: string }).path) {
-          onDropJar((file as File & { path: string }).path)
-        }
+        const path = file && getFilePath(file)
+        if (path) onDropJar(path)
       }}
       style={{
         width: 300,

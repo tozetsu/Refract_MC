@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, type ChangeEvent } from 'reac
 import { createPortal } from 'react-dom'
 import { api } from '@/lib/api'
 import { compressImage } from '@/lib/image'
+import { getFilePath } from '@/lib/file-path'
 import type { Instance } from '@refract/core'
 import { useT } from '@/i18n'
 
@@ -262,11 +263,12 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
 
   async function handleAddModFile(e: ChangeEvent<HTMLInputElement>) {
     if (!instance) return
-    const file = e.target.files?.[0] as (File & { path?: string }) | undefined
-    if (!file?.path) return
+    const file = e.target.files?.[0]
+    const path = file && getFilePath(file)
+    if (!path) return
     setAddingMod(true)
     try {
-      await api.mods.installLocal(instance.id, file.path)
+      await api.mods.installLocal(instance.id, path)
       await load()
     } catch { /* ignore */ } finally {
       setAddingMod(false)
