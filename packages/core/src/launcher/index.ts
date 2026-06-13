@@ -179,6 +179,33 @@ export function buildLaunchCommand(ctx: LaunchContext): string[] {
     gameArgs = []
   }
 
-  const extraJvmArgs = ctx.javaArgs ? ctx.javaArgs.trim().split(/\s+/).filter(Boolean) : []
+  const extraJvmArgs = ctx.javaArgs ? tokenizeArgs(ctx.javaArgs) : []
   return [ctx.javaExe, ...jvmArgs, ...extraJvmArgs, mainJson.mainClass, ...gameArgs]
+}
+
+// Split a user-supplied JVM-args string into argv tokens, honouring single and
+// double quotes so a value with spaces survives as one argument —
+// `-Dfoo="bar baz"` and `"-Dpath=C:\Program Files\x"` each yield one token.
+// A naive split(/\s+/) would shatter these into broken fragments.
+function tokenizeArgs(input: string): string[] {
+  const tokens: string[] = []
+  let cur = ''
+  let quote: '"' | "'" | null = null
+  let started = false
+  for (const c of input) {
+    if (quote) {
+      if (c === quote) quote = null
+      else cur += c
+    } else if (c === '"' || c === "'") {
+      quote = c
+      started = true
+    } else if (/\s/.test(c)) {
+      if (started) { tokens.push(cur); cur = ''; started = false }
+    } else {
+      cur += c
+      started = true
+    }
+  }
+  if (started) tokens.push(cur)
+  return tokens
 }
