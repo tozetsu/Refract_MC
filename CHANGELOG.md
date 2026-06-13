@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.1
+- **Sync instances from other launchers** — a new Sync panel detects instances from Prism Launcher, MultiMC, Modrinth, ATLauncher, CurseForge, and GDLauncher, and lets you link (launch in place) or import (copy into Refract) them.
+- **Smooth page transitions** — navigating between pages now animates with a horizontal slide and blur.
+- **Old Minecraft versions get their assets** — pre-1.7 / legacy versions now receive their sounds, language files, and menu icons (virtual/legacy asset trees are materialised on install).
+- **Fix:** NeoForge / Forge launch reliability — clearer errors when an install is incomplete, a custom Java path pointing at a JDK folder now resolves to the right executable, the closest matching Java is chosen instead of the newest, and duplicate loader libraries no longer break older Forge.
+- **Fix:** Running state now survives a launcher restart — Stop and the "already running" guard keep working if you reopen Refract while a game is still running.
+- **Fix:** The 🔥 daily streak now rolls over at your local midnight instead of UTC, so late-evening sessions count on the right day.
+- **Fix:** Sync panel works in all builds, is fully translated to Ukrainian, and uses the correct accent styling.
+- **Fix:** Custom JVM arguments containing quoted values with spaces (e.g. a Windows path) are no longer split incorrectly.
+- **Fix:** Downloads now follow modern HTTP redirects (307/308) and relative redirect URLs, fixing some mirror/CDN failures.
+- **Fix:** Content added to a linked external instance now goes to that instance's own game folder; installs can be cancelled per-instance.
+- **Security:** Renderer sandbox enabled, world/screenshot/asset file operations hardened against path traversal, production builds no longer open devtools, and untrusted HTML is stripped via an inert parser.
+
 ## 1.1.0
 - **Fire streak** — Playtime panel shows a 🔥 daily streak counter with TikTok-style color tiers: light orange (1–30 days), fire red (31–90), purple (90+). Two streak saves per calendar month let you miss a day without breaking it.
 - **Launch behavior settings** — New settings section: minimize to tray on close, start minimized, hide window on game launch, reopen automatically when the game exits.
