@@ -1,5 +1,6 @@
 export * from './auth/index'
 export * from './curseforge/index'
+export * from './date/index'
 export * from './version-manager/index'
 export * from './instance-manager/index'
 export * from './modrinth/index'

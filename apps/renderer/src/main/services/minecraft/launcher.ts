@@ -10,6 +10,7 @@ import { resolveInstanceDir } from '../instance-store'
 import { getConfig } from '../config'
 import { getOrRefreshMinecraftToken } from '../auth'
 import type { VersionJson } from '@refract/core'
+import { localDateKey } from '@refract/core'
 import { buildLaunchCommand } from '@refract/core/launcher'
 import { detectJavaInstallations } from '@refract/core/java-manager'
 import { loadManagedJavas } from '../java-manager'
@@ -202,7 +203,7 @@ export async function launchInstance(
     const elapsed = Math.floor((Date.now() - launchTime) / 1000)
     if (elapsed > 0) {
       const current = instanceStore.getInstanceById(instanceId)
-      const today = new Date().toISOString().split('T')[0]
+      const today = localDateKey()
       const log = { ...(current?.playtimeLog ?? {}) }
       log[today] = (log[today] ?? 0) + elapsed
       instanceStore.updateInstance(instanceId, {

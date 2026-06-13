@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect, useRef } from 'react'
 import type React from 'react'
 import type { Instance, MinecraftVersion } from '@refract/core'
+import { localDateKey } from '@refract/core'
 import { useT, type T } from '@/i18n'
 import { PixelScene, loaderToScene } from '@/components/ui/PixelScene'
 import { ChevLeftIcon, ChevRightIcon } from '@/components/ui/BlockIcons'
@@ -1720,7 +1721,7 @@ function computeStreak(instances: Instance[]): { streak: number; savesLeft: numb
   if (played.size === 0) return { streak: 0, savesLeft: 2 }
 
   const now = new Date()
-  const todayStr = now.toISOString().slice(0, 10)
+  const todayStr = localDateKey(now)
   const currentMonth = todayStr.slice(0, 7)
   const missedPerMonth: Record<string, number> = {}
   let streak = 0
@@ -1731,7 +1732,7 @@ function computeStreak(instances: Instance[]): { streak: number; savesLeft: numb
   for (let i = startI; i < 400; i++) {
     const d = new Date(now)
     d.setDate(d.getDate() - i)
-    const dateStr = d.toISOString().slice(0, 10)
+    const dateStr = localDateKey(d)
     const month = dateStr.slice(0, 7)
 
     if (played.has(dateStr)) {
@@ -1764,7 +1765,7 @@ function PlaytimePanel({ instances }: { instances: Instance[] }) {
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today)
     d.setDate(d.getDate() - i)
-    const key = d.toISOString().slice(0, 10)
+    const key = localDateKey(d)
     const dayIdx = d.getDay() // 0=Sun
     const DAY_ABBR = t.home.dayAbbr
     let secs = 0
