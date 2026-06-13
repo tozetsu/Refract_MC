@@ -174,6 +174,42 @@ async function downloadAssets(
     current = Math.min(i + 10, total)
     onProgress({ step: 'Downloading assets', current, total, percent: (current / total) * 100 })
   }
+
+  // Legacy/virtual indexes: the game can't read the hashed objects store, it
+  // expects assets at their real names. Materialise them under assets/virtual/
+  // <id> so old versions (which launch with --assetsDir ${game_assets}) get
+  // their sounds, lang files and icons. pre-1.6's resources/ layout is then
+  // derived from this at launch (see linkLegacyResources).
+  if (index.virtual || index.map_to_resources) {
+    const virtualDir = join(paths.assets, 'virtual', versionJson.assetIndex.id)
+    for (const [name, obj] of Object.entries(index.objects)) {
+      const src = join(paths.assets, 'objects', obj.hash.slice(0, 2), obj.hash)
+      const dst = join(virtualDir, name)
+      if (!existsSync(src) || existsSync(dst)) continue
+      mkdirSync(dirname(dst), { recursive: true })
+      try { copyFileSync(src, dst) } catch { /* ignore */ }
+    }
+  }
+}
+
+// pre-1.6 versions (asset index with map_to_resources) read assets from
+// <gameDir>/resources/ rather than via --assetsDir. Mirror the materialised
+// virtual assets into the instance's resources dir just before launch.
+export function linkLegacyResources(versionJson: VersionJson, gameDir: string): void {
+  const indexPath = join(paths.assets, 'indexes', `${versionJson.assetIndex.id}.json`)
+  if (!existsSync(indexPath)) return
+  let index: AssetIndex
+  try { index = JSON.parse(readFileSync(indexPath, 'utf-8')) as AssetIndex } catch { return }
+  if (!index.map_to_resources) return
+
+  const resourcesDir = join(gameDir, 'resources')
+  for (const [name, obj] of Object.entries(index.objects)) {
+    const src = join(paths.assets, 'objects', obj.hash.slice(0, 2), obj.hash)
+    const dst = join(resourcesDir, name)
+    if (!existsSync(src) || existsSync(dst)) continue
+    mkdirSync(dirname(dst), { recursive: true })
+    try { copyFileSync(src, dst) } catch { /* ignore */ }
+  }
 }
 
 export async function fetchFabricVersionJson(

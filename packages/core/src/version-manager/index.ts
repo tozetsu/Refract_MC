@@ -67,6 +67,11 @@ export interface VersionJson {
 
 export interface AssetIndex {
   objects: Record<string, { hash: string; size: number }>
+  // Old versions don't read assets from the hashed objects store directly:
+  // 1.7.2/legacy indexes set `virtual` (game reads assets/virtual/<id>/<name>);
+  // pre-1.6 indexes set `map_to_resources` (game reads <gameDir>/resources/<name>).
+  virtual?: boolean
+  map_to_resources?: boolean
 }
 
 export async function fetchVersionManifest(): Promise<VersionManifest> {

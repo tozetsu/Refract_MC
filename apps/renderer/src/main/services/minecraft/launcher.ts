@@ -14,7 +14,7 @@ import { localDateKey } from '@refract/core'
 import { buildLaunchCommand } from '@refract/core/launcher'
 import { detectJavaInstallations } from '@refract/core/java-manager'
 import { loadManagedJavas } from '../java-manager'
-import { versionJsonPath, clientJarPath, nativesDir, forgeJsonPath } from './downloader'
+import { versionJsonPath, clientJarPath, nativesDir, forgeJsonPath, linkLegacyResources } from './downloader'
 import { setGameActivity, clearGameActivity } from '../discord'
 import { notify } from '../notifications'
 
@@ -158,6 +158,9 @@ export async function launchInstance(
   const gameDir = instance.externalGameDir ?? join(resolveInstanceDir(instanceId), 'minecraft')
   mkdirSync(join(gameDir, 'mods'), { recursive: true })
   mkdirSync(join(gameDir, 'saves'), { recursive: true })
+
+  // pre-1.6 versions read assets from <gameDir>/resources/ — populate it.
+  linkLegacyResources(versionJson, gameDir)
 
   const { token: accessToken, xuid, clientId } = await getOrRefreshMinecraftToken(account.uuid)
 

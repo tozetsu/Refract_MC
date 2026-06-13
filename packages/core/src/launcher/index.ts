@@ -136,6 +136,9 @@ export function buildLaunchCommand(ctx: LaunchContext): string[] {
     version_name: ctx.versionId,
     game_directory: ctx.gameDir,
     assets_root: ctx.assetsDir,
+    // Legacy versions launch with `--assetsDir ${game_assets}` and expect the
+    // un-hashed virtual asset tree the installer materialises per index.
+    game_assets: join(ctx.assetsDir, 'virtual', assetIndex),
     assets_index_name: assetIndex,
     auth_uuid: ctx.auth.uuid.replace(/-/g, ''),
     auth_access_token: ctx.auth.accessToken,
