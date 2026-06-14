@@ -517,10 +517,44 @@ function RefractLogo({ size = 32 }: { size?: number }) {
   )
 }
 
+function CollapseToggle({ compact, onClick, label }: { compact: boolean; onClick: () => void; label: string }) {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: 26, height: 26, flexShrink: 0, padding: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: hover ? 'rgba(255,255,255,.06)' : 'transparent',
+        border: '1px solid', borderColor: hover ? 'var(--accent)' : 'var(--border-r)',
+        borderRadius: 4, cursor: 'pointer',
+        color: hover ? 'var(--ink)' : 'var(--ink-3)',
+        fontSize: 15, lineHeight: 1,
+        transition: 'background 100ms, color 100ms, border-color 100ms',
+      }}
+    >
+      {compact ? '»' : '«'}
+    </button>
+  )
+}
+
 export function Sidebar() {
   const t = useT()
   const layoutOverrides = useThemeStore(s => s.layoutOverrides)
-  const compact = layoutOverrides.sidebarWidth === '60px'
+  const setLayoutOverride = useThemeStore(s => s.setLayoutOverride)
+  const sidebarWidth = layoutOverrides.sidebarWidth ?? '232px'
+  const compact = sidebarWidth === '60px'
+
+  // Remember the last expanded width so the collapse toggle restores the user's
+  // chosen Default/Wide size (kept in sync with the Settings → sidebar control)
+  // rather than snapping to a fixed value.
+  const lastExpanded = useRef(compact ? '232px' : sidebarWidth)
+  useEffect(() => { if (!compact) lastExpanded.current = sidebarWidth }, [compact, sidebarWidth])
+  const toggleCollapsed = () => setLayoutOverride({ sidebarWidth: compact ? lastExpanded.current : '60px' })
 
   const navItems: NavItemProps[] = [
     { to: '/',          label: t.nav.library,    iconSrc: libraryIcon,    exact: true  },
@@ -538,11 +572,20 @@ export function Sidebar() {
       transition: 'padding 220ms cubic-bezier(.4,0,.2,1)',
       minHeight:0, overflow:'hidden',
     }}>
-      {/* Brand */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent: compact ? 'center' : 'flex-start', gap:10, padding:'0 6px 10px', borderBottom:'1px solid var(--sb-line)', marginBottom:6 }}>
-        <RefractLogo size={32} />
-        {!compact && <span style={{ fontFamily:"'VT323',monospace", fontSize:20, letterSpacing:'.12em', color:'var(--ink)', lineHeight:1 }}>REFRACT</span>}
-      </div>
+      {/* Brand + collapse toggle */}
+      {compact ? (
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, padding:'0 0 10px', borderBottom:'1px solid var(--sb-line)', marginBottom:6 }}>
+          <RefractLogo size={32} />
+          <CollapseToggle compact onClick={toggleCollapsed} label={t.sidebar.expand} />
+        </div>
+      ) : (
+        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'0 6px 10px', borderBottom:'1px solid var(--sb-line)', marginBottom:6 }}>
+          <RefractLogo size={32} />
+          <span style={{ fontFamily:"'VT323',monospace", fontSize:20, letterSpacing:'.12em', color:'var(--ink)', lineHeight:1 }}>REFRACT</span>
+          <div style={{ flex:1 }} />
+          <CollapseToggle compact={false} onClick={toggleCollapsed} label={t.sidebar.collapse} />
+        </div>
+      )}
 
       <Link to="/account" style={{ textDecoration:'none', display:'block', borderRadius:4, transition:'background 100ms, border-color 100ms', border:'1px solid transparent', marginBottom:10 }}
         onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.background = 'rgba(255,255,255,.05)'; el.style.borderColor = 'rgba(255,255,255,.07)' }}
