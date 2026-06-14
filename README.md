@@ -14,7 +14,7 @@
   <a href="https://github.com/RefractMC/Refract_MC/releases">
     <img src="https://img.shields.io/github/downloads/RefractMC/Refract_MC/total?style=for-the-badge&color=5316D4" alt="Total Downloads" />
   </a>
-  <a href="[https://discord.gg/7Q5sGzhUQJ](https://discord.gg/tE8s5VaWmS)">
+  <a href="https://discord.gg/tE8s5VaWmS">
     <img src="https://img.shields.io/badge/Discord-Join%20Refract-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord" />
   </a>
 </p>
