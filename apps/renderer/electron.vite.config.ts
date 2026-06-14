@@ -1,6 +1,7 @@
 import { resolve } from 'path'
 import { readFileSync } from 'fs'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import { loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite'
@@ -16,15 +17,20 @@ const workspaceAlias = {
 
 const workspaceExclude = ['@refract/core', '@refract/core/java-manager', '@refract/core/launcher', '@refract/plugin-api', 'electron-updater', '@xhayper/discord-rpc']
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // Merge a local (gitignored) .env file with the process env so GA_API_SECRET
+  // can come from apps/renderer/.env in dev or a CI secret in release builds.
+  const env = loadEnv(mode, __dirname, '')
+
+  return {
   main: {
     plugins: [externalizeDepsPlugin({ exclude: workspaceExclude })],
     resolve: { alias: workspaceAlias },
-    // Inline the GA Measurement Protocol API secret at build time from the
-    // environment (set as a CI secret). Empty when unset → analytics stays
-    // inert. Kept out of source so it isn't exposed in this public repo.
+    // Inline the GA Measurement Protocol API secret at build time. Empty when
+    // unset → analytics stays inert and its network path is dead-code-removed.
+    // Kept out of source so it isn't exposed in this public repo.
     define: {
-      __GA_API_SECRET__: JSON.stringify(process.env.GA_API_SECRET ?? ''),
+      __GA_API_SECRET__: JSON.stringify(env.GA_API_SECRET ?? ''),
     },
     build: {
       rollupOptions: {
@@ -53,4 +59,5 @@ export default defineConfig({
     },
     plugins: [tailwindcss(), react(), TanStackRouterVite()],
   },
+  }
 })
