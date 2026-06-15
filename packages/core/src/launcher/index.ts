@@ -63,10 +63,14 @@ function ruleApplies(rules: LibraryRule[]): boolean {
 }
 
 function resolveArgs(
-  args: Array<string | { rules: LibraryRule[]; value: string | string[] }>,
+  args: Array<string | { rules: LibraryRule[]; value: string | string[] }> | undefined,
   vars: Record<string, string>
 ): string[] {
   const out: string[] = []
+  // A loader overlay (e.g. Quilt) may define `arguments.jvm` without `game`, or
+  // vice versa — treat a missing/non-array section as empty rather than crashing
+  // with "args is not iterable".
+  if (!Array.isArray(args)) return out
   for (const arg of args) {
     if (typeof arg === 'string') {
       out.push(substituteVars(arg, vars))
@@ -154,6 +158,11 @@ export function buildLaunchCommand(ctx: LaunchContext): string[] {
     `-Xmx${ctx.memoryMb}m`,
     `-Xms${Math.floor(ctx.memoryMb / 2)}m`,
     `-Djava.library.path=${ctx.nativesDir}`,
+    // Force UTF-8 so a non-Latin game directory / log output isn't mangled by a
+    // legacy Windows code page (e.g. a Cyrillic instance path).
+    '-Dfile.encoding=UTF-8',
+    '-Dsun.stdout.encoding=UTF-8',
+    '-Dsun.stderr.encoding=UTF-8',
     '-Dminecraft.launcher.brand=Refract',
     '-Dminecraft.launcher.version=0.4.0',
   ]

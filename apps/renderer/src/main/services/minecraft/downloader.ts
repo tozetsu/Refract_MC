@@ -241,8 +241,40 @@ async function fetchQuiltVersionJson(mcVersion: string, loaderVersion: string): 
 
 interface ForgeInstallProfile {
   libraries?: Library[]
-  processors?: Array<{ jar: string; classpath: string[]; args: string[]; outputs?: Record<string, string> }>
+  processors?: Array<{ sides?: string[]; jar: string; classpath: string[]; args: string[]; outputs?: Record<string, string> }>
   data?: Record<string, { client: string; server: string }>
+}
+
+// Forge/NeoForge processor jars declare their entry point in the jar manifest;
+// the install_profile.json processor entries do NOT carry a main class. Read it
+// from META-INF/MANIFEST.MF (unfolding the 72-byte continuation lines) so we can
+// invoke `java -cp <cp> <Main-Class> <args>`. Without the main class, Java treats
+// the first processor arg (e.g. `--task`) as a JVM option and dies with
+// "Unrecognized option: --task / Could not create the Java Virtual Machine".
+//
+// Reads the manifest entry directly: PowerShell's ZipFile on Windows, `unzip -p`
+// elsewhere — mirroring how this file extracts natives and the Forge installer
+// (Windows has no `unzip`, so the CLI route only works on macOS/Linux).
+function readJarMainClass(jarPath: string): Promise<string | null> {
+  const { execFile } = require('child_process') as typeof import('child_process')
+  const parse = (text: string): string | null => {
+    const unfolded = text.replace(/\r?\n /g, '')
+    const m = unfolded.match(/^Main-Class:\s*(.+?)\s*$/m)
+    return m ? m[1].trim() : null
+  }
+  return new Promise(res => {
+    if (process.platform === 'win32') {
+      const ps = "Add-Type -AssemblyName System.IO.Compression.FileSystem; $z=[System.IO.Compression.ZipFile]::OpenRead($env:_ZIP_SRC); try { $e=$z.GetEntry('META-INF/MANIFEST.MF'); if ($e) { $r=New-Object System.IO.StreamReader($e.Open()); [Console]::Out.Write($r.ReadToEnd()); $r.Dispose() } } finally { $z.Dispose() }"
+      const env = { ...process.env, _ZIP_SRC: jarPath }
+      execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { timeout: 30_000, env, maxBuffer: 4 * 1024 * 1024 }, (err, stdout) => {
+        res(err ? null : parse(stdout.toString()))
+      })
+    } else {
+      execFile('unzip', ['-p', jarPath, 'META-INF/MANIFEST.MF'], { timeout: 30_000, maxBuffer: 4 * 1024 * 1024 }, (err, stdout) => {
+        res(err ? null : parse(stdout.toString()))
+      })
+    }
+  })
 }
 
 async function runForgeProcessors(
@@ -250,10 +282,20 @@ async function runForgeProcessors(
   versionId: string,
   instanceId: string,
   javaExe: string,
+  installerPath: string,
+  extractDir: string,
   onProgress?: ProgressCallback
 ): Promise<void> {
   const { execFile } = require('child_process') as typeof import('child_process')
-  const processors = installProfile.processors?.filter(p => !p.outputs || Object.keys(p.outputs).length > 0) ?? []
+  const data = installProfile.data ?? {}
+  const resolve1 = (v: string) => resolveForgeData(v, data, versionId, instanceId, installerPath, extractDir)
+  // Only run client-side processors. Many entries are tagged `"sides": ["server"]`
+  // (e.g. EXTRACT_FILES of run.bat / BUNDLER_EXTRACT) and must be skipped for a
+  // client install — running them fails (server-only tokens like {INSTALLER}).
+  const processors = (installProfile.processors ?? []).filter(p =>
+    (!p.outputs || Object.keys(p.outputs).length > 0) &&
+    (!p.sides || p.sides.includes('client'))
+  )
   const total = processors.length
   let done = 0
 
@@ -263,7 +305,7 @@ async function runForgeProcessors(
 
     // Skip if all outputs already exist
     if (proc.outputs && Object.entries(proc.outputs).every(([k]) => {
-      const out = resolveForgeData(k, installProfile.data ?? {}, versionId, instanceId)
+      const out = resolve1(k)
       return out && existsSync(out)
     })) continue
 
@@ -272,13 +314,19 @@ async function runForgeProcessors(
 
     const sep = process.platform === 'win32' ? ';' : ':'
     const cp = [jarPath, ...proc.classpath.map(resolveLibPath)].join(sep)
-    const args = proc.args.map(a => resolveForgeData(a, installProfile.data ?? {}, versionId, instanceId) ?? a)
+    const args = proc.args.map(a => resolve1(a) ?? a)
+
+    // The processor's entry point lives in its jar manifest, not in the profile.
+    const mainClass = await readJarMainClass(jarPath)
+    if (!mainClass) {
+      throw new Error(`Forge processor failed (${proc.jar}): could not read Main-Class from ${jarPath}`)
+    }
 
     // A failed processor must abort the install — otherwise the client JAR is
     // left unpatched and the game crashes cryptically at launch instead of here.
     // maxBuffer is bumped so chatty processors don't trip a false ENOBUFS error.
     await new Promise<void>((res, rej) => {
-      execFile(javaExe, ['-cp', cp, ...args], { timeout: 600_000, maxBuffer: 16 * 1024 * 1024 }, (error, _stdout, stderr) => {
+      execFile(javaExe, ['-cp', cp, mainClass, ...args], { timeout: 600_000, maxBuffer: 16 * 1024 * 1024 }, (error, _stdout, stderr) => {
         if (error) {
           const tail = (stderr?.toString() ?? '').trim().slice(-600)
           rej(new Error(`Forge processor failed (${proc.jar}): ${tail || error.message}`))
@@ -291,14 +339,19 @@ async function runForgeProcessors(
 }
 
 function resolveLibPath(coord: string): string {
-  // Maven coord format: group:artifact:version or group:artifact:version:classifier
+  // Maven coord: group:artifact:version[:classifier][@ext]. The optional @ext
+  // (default jar) sits on the final token — Forge uses it for mappings@txt and
+  // mcp_config@zip, so it must not become part of the filename.
   const clean = coord.startsWith('[') ? coord.slice(1, -1) : coord
-  const parts = clean.split(':')
+  const at = clean.lastIndexOf('@')
+  const ext = at !== -1 ? clean.slice(at + 1) : 'jar'
+  const coordNoExt = at !== -1 ? clean.slice(0, at) : clean
+  const parts = coordNoExt.split(':')
   const [group, artifact, version, classifier] = parts
   const groupPath = group.replace(/\./g, '/')
   const fname = classifier
-    ? `${artifact}-${version}-${classifier}.jar`
-    : `${artifact}-${version}.jar`
+    ? `${artifact}-${version}-${classifier}.${ext}`
+    : `${artifact}-${version}.${ext}`
   return join(paths.libraries, groupPath, artifact, version, fname)
 }
 
@@ -306,17 +359,34 @@ function resolveForgeData(
   value: string,
   data: Record<string, { client: string; server: string }>,
   versionId: string,
-  instanceId: string
+  instanceId: string,
+  installerPath?: string,
+  extractDir?: string
 ): string | undefined {
   if (value.startsWith('{') && value.endsWith('}')) {
     const key = value.slice(1, -1)
+    // Data-map tokens (resolved recursively — values may be [maven], /archive
+    // paths or literals).
     const entry = data[key]?.client ?? data[key]?.server
-    if (entry) return resolveForgeData(entry, data, versionId, instanceId)
-    return undefined
+    if (entry) return resolveForgeData(entry, data, versionId, instanceId, installerPath, extractDir)
+    // Built-in tokens the installer provides outside the data map.
+    switch (key) {
+      case 'MINECRAFT_JAR':     return clientJarPath(versionId)
+      case 'SIDE':              return 'client'
+      case 'MINECRAFT_VERSION': return versionId
+      case 'ROOT':              return paths.userData
+      case 'LIBRARY_DIR':       return paths.libraries
+      case 'INSTALLER':         return installerPath
+      default:                  return undefined
+    }
   }
+  // Maven coordinate → libraries path.
   if (value.startsWith('[') && value.endsWith(']')) return resolveLibPath(value)
-  if (value === '{MINECRAFT_JAR}') return clientJarPath(versionId)
-  if (value === '{SIDE}') return 'client'
+  // A path inside the installer archive (e.g. /data/client.lzma). The installer
+  // is already fully unpacked to extractDir, so map it straight there.
+  if (value.startsWith('/') && extractDir) return join(extractDir, value.slice(1))
+  // Forge wraps literal data values in single quotes (e.g. SHAs, MCP version).
+  if (value.length >= 2 && value.startsWith("'") && value.endsWith("'")) return value.slice(1, -1)
   return value
 }
 
@@ -455,7 +525,7 @@ async function installForge(
       } catch { /* fall back to 8 */ }
       const picked = javas.find(j => j.version >= requiredJava) ?? javas[0]
       const javaExe = picked ? join(picked.path, 'bin', process.platform === 'win32' ? 'java.exe' : 'java') : 'java'
-      await runForgeProcessors(profile, versionId, instanceId, javaExe, onProgress)
+      await runForgeProcessors(profile, versionId, instanceId, javaExe, installerPath, extractDir, onProgress)
     }
 
     report('Forge installed', 100)
