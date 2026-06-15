@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { RefreshCw, Check, MemoryStick, Palette, Boxes, Download, Terminal } from 'lucide-react'
+import { RefreshCw, Check, MemoryStick, Palette, Boxes, Download, Terminal, LogIn, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { configApi, instancesApi, downloadApi, processApi, type AppConfig, type InstanceSummary, type DownloadProgress } from './tauri-api'
+import { configApi, instancesApi, downloadApi, processApi, authApi, type AppConfig, type InstanceSummary, type DownloadProgress, type DeviceStart } from './tauri-api'
+import { vaultSet, vaultGet } from './vault'
 
 const DEMO_URL = 'https://libraries.minecraft.net/com/google/guava/guava/31.1-jre/guava-31.1-jre.jar'
 // A universal, time-spread command so streamed log lines are visible (Windows).
@@ -44,6 +45,48 @@ export function App() {
     setRunning(true)
     try { await processApi.run(DEMO_PROGRAM, DEMO_ARGS) }
     catch (e) { setError(String(e)); setRunning(false) }
+  }
+
+  const [device, setDevice] = useState<DeviceStart | null>(null)
+  const [authState, setAuthState] = useState<'idle' | 'pending' | 'done'>('idle')
+  const [storedLen, setStoredLen] = useState<number | null>(null)
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (pollTimer.current) clearTimeout(pollTimer.current) }, [])
+
+  // On mount, surface whether a token is already in the vault.
+  useEffect(() => { vaultGet('msa_access_token').then(t => { if (t) setStoredLen(t.length) }).catch(() => {}) }, [])
+
+  async function startLogin() {
+    setError(null)
+    setStoredLen(null)
+    try {
+      const d = await authApi.deviceStart()
+      setDevice(d)
+      setAuthState('pending')
+      const poll = async () => {
+        try {
+          const r = await authApi.devicePoll(d.device_code)
+          if (r.status === 'success') {
+            await vaultSet('msa_access_token', r.access_token)
+            if (r.refresh_token) await vaultSet('msa_refresh_token', r.refresh_token)
+            setStoredLen(r.access_token.length)
+            setAuthState('done')
+            setDevice(null)
+            return
+          }
+          pollTimer.current = setTimeout(poll, d.interval * 1000) // pending — keep waiting
+        } catch (e) {
+          setError(String(e))
+          setAuthState('idle')
+          setDevice(null)
+        }
+      }
+      pollTimer.current = setTimeout(poll, d.interval * 1000)
+    } catch (e) {
+      setError(String(e))
+      setAuthState('idle')
+    }
   }
 
   async function startDownload() {
@@ -200,6 +243,35 @@ export function App() {
             <pre className="bg-muted text-muted-foreground h-40 overflow-auto rounded-lg p-4 font-mono text-xs leading-relaxed">
               {logs.length ? logs.join('\n') : 'No output yet — hit Run.'}
             </pre>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><LogIn className="size-4" /> Microsoft login (device code)</CardTitle>
+            <CardDescription>
+              Rust runs the MSA device-code OAuth flow; the token is stored in an encrypted <strong>Stronghold</strong> vault.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <Button size="sm" onClick={startLogin} disabled={authState === 'pending'}>
+                <LogIn /> {authState === 'pending' ? 'Waiting for authorization…' : 'Sign in with Microsoft'}
+              </Button>
+              {storedLen != null && (
+                <span className="text-primary flex items-center gap-1.5 text-xs">
+                  <ShieldCheck className="size-4" /> token in vault ({storedLen} chars)
+                </span>
+              )}
+            </div>
+
+            {device && (
+              <div className="bg-muted flex flex-col gap-2 rounded-lg p-4 text-sm">
+                <span>1. Open <code className="text-foreground">{device.verification_uri}</code></span>
+                <span>2. Enter code: <span className="text-primary font-mono text-lg font-bold tracking-widest">{device.user_code}</span></span>
+                <span className="text-muted-foreground text-xs">Polling every {device.interval}s — this card updates when you finish.</span>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

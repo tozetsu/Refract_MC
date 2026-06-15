@@ -11,11 +11,19 @@ This is intentionally **separate** from the Electron app (`apps/renderer`). It e
 port and get a velocity read, not to replace anything yet.
 
 ## What it demonstrates
-1. Tauri shell builds and opens a WebView2 window on Windows.
-2. A former Electron IPC handler (`config.ts`) reimplemented as a `#[tauri::command]` in Rust.
-3. The renderer calling it with `@tauri-apps/api`'s `invoke()` — the pattern every one of the
-   ~114 channels will follow.
-4. Binary size / RAM you can compare against the Electron build.
+Every core backend mechanic the full migration needs, each as a ported command/module:
+
+| Primitive | Command(s) | Module |
+|---|---|---|
+| Request/response (read+write JSON) | `config_get` / `config_set` | `config.rs` |
+| Bulk on-disk read (same format as Electron) | `instances_list` | `instances.rs`, `paths.rs` |
+| Streaming progress (HTTP via reqwest) | `download_demo` → `download://progress` | `download.rs` |
+| Process spawn + log streaming (the launch primitive) | `process_run` → `process://log` / `process://exit` | `process.rs` |
+| Microsoft device-code OAuth + encrypted token storage | `auth_device_start` / `auth_device_poll` + Stronghold | `auth.rs` |
+
+Plus: the renderer calls everything via `@tauri-apps/api`'s `invoke()` / `listen()` (the pattern all
+~114 channels follow), Tailwind v4 + shadcn/ui rendering, and a `capabilities/` file granting the
+Stronghold plugin. Compare the dev `refract-tauri.exe` size/RAM against the Electron build.
 
 ## Prerequisites (one‑time)
 Rust is **not** installed in this repo yet. Install the toolchain, then the per‑platform Tauri deps:

@@ -52,3 +52,22 @@ export const processApi = {
   onExit: (cb: (code: number) => void): Promise<UnlistenFn> =>
     listen<number>('process://exit', e => cb(e.payload)),
 }
+
+export interface DeviceStart {
+  device_code: string
+  user_code: string
+  verification_uri: string
+  interval: number
+  expires_in: number
+  message: string
+}
+export type PollResult =
+  | { status: 'pending' }
+  | { status: 'success'; access_token: string; refresh_token?: string; expires_in: number }
+
+export const authApi = {
+  deviceStart: (): Promise<DeviceStart> => invoke<DeviceStart>('auth_device_start'),
+  devicePoll: (deviceCode: string): Promise<PollResult> =>
+    invoke<PollResult>('auth_device_poll', { deviceCode }),
+  vaultPath: (): Promise<string> => invoke<string>('vault_path'),
+}

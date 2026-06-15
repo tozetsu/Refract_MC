@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Refract — Tauri POC",
         "width": 1100,
         "height": 720,
