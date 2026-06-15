@@ -1,5 +1,6 @@
 mod auth;
 mod config;
+mod content;
 mod download;
 mod instances;
 mod paths;
@@ -23,6 +24,11 @@ pub fn run() {
             auth::auth_device_start,
             auth::auth_device_poll,
             auth::auth_status,
+            content::ftb_search,
+            content::ftb_modpack,
+            content::curseforge_search,
+            content::curseforge_files,
+            content::curseforge_project_detail,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

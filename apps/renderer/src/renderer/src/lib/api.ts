@@ -389,6 +389,23 @@ function createTauriApi(): RefractAPI {
       update: ((id: string, patch: Partial<Instance>) => invoke('update_instance', { id, patch })) as RefractAPI['instance']['update'],
       delete: ((id: string) => invoke('delete_instance', { id })) as RefractAPI['instance']['delete'],
     },
+    // Modrinth stays on the fallback — its API is CORS-open, so the WebView
+    // reaches it directly. CurseForge (key + no CORS) and FTB go through Rust.
+    curseforge: {
+      ...base.curseforge,
+      searchMods: ((query?: string, gameVersion?: string, _loader?: string, pageSize?: number, index?: number) =>
+        invoke('curseforge_search', { classId: 6, query, gameVersion, pageSize, index })) as RefractAPI['curseforge']['searchMods'],
+      searchModpacks: ((query?: string, gameVersion?: string, pageSize?: number, index?: number) =>
+        invoke('curseforge_search', { classId: 4471, query, gameVersion, pageSize, index })) as RefractAPI['curseforge']['searchModpacks'],
+      files: ((modId: number, gameVersion?: string, loader?: string) =>
+        invoke('curseforge_files', { modId, gameVersion, loader })) as RefractAPI['curseforge']['files'],
+      projectDetail: ((modId: number) => invoke('curseforge_project_detail', { modId })) as RefractAPI['curseforge']['projectDetail'],
+    },
+    ftb: {
+      ...base.ftb,
+      search: ((query?: string, limit?: number) => invoke('ftb_search', { query, limit })) as RefractAPI['ftb']['search'],
+      modpack: ((id: number) => invoke('ftb_modpack', { id })) as RefractAPI['ftb']['modpack'],
+    },
   }
 }
 

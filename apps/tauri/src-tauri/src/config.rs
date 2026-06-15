@@ -64,6 +64,11 @@ pub fn config_get() -> Result<Value, String> {
     Ok(cfg)
 }
 
+/// The stored CurseForge API key, if configured (read by the content commands).
+pub fn curseforge_api_key() -> Option<String> {
+    load().get("curseforgeApiKey").and_then(Value::as_str).map(str::to_string)
+}
+
 /// Equivalent of the renderer's `api.config.set(key, value)`.
 #[tauri::command]
 pub fn config_set(key: String, value: Value) -> Result<Value, String> {
