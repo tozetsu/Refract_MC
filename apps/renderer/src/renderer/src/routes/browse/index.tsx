@@ -5,7 +5,8 @@ import { SearchIcon } from '@/components/ui/BlockIcons'
 import { Button } from '@/components/ui/Button'
 import { api } from '@/lib/api'
 import { htmlToText } from '@/lib/sanitize'
-import type { ModrinthProject, ModrinthVersion, ModrinthSortIndex, Instance, CFProject, CFFile, CFProjectDetail } from '@refract/core'
+import type { ModrinthProject, ModrinthVersion, ModrinthSortIndex, Instance, CFProject, CFFile, CFProjectDetail, ResolvedDep } from '@refract/core'
+import { useScrollLock } from '@/lib/use-scroll-lock'
 import { useT } from '@/i18n'
 
 export const Route = createFileRoute('/browse/')({
@@ -309,28 +310,28 @@ function VersionDropdown({ value, onChange }: { value: string | null; onChange: 
 
 // ─── DepsModal ────────────────────────────────────────────────────────────────
 
-interface DepEntry {
-  projectId: string
-  name: string
-  alreadyInstalled: boolean
-}
-
 interface DepsTarget {
   instanceId: string
-  mainProjectId: string
-  mainProjectName: string
-  mainVersionId: string
-  deps: DepEntry[]
+  mainName: string
+  mainKey: string                 // for the tile install spinner
+  deps: ResolvedDep[]
+  install: () => Promise<void>     // installs the main mod itself
 }
 
-function DepsModal({ target, onClose, onInstallAll, onSkipDeps }: {
+function DepsModal({ target, onClose, onConfirm, onSkip }: {
   target: DepsTarget
   onClose: () => void
-  onInstallAll: () => void
-  onSkipDeps: () => void
+  onConfirm: (selectedOptionalKeys: Set<string>) => void
+  onSkip: () => void
 }) {
-  const missing = target.deps.filter(d => !d.alreadyInstalled)
-  const already = target.deps.filter(d => d.alreadyInstalled)
+  useScrollLock()
+  const requiredMissing = target.deps.filter(d => d.type === 'required' && !d.alreadyInstalled)
+  const optional        = target.deps.filter(d => d.type === 'optional' && !d.alreadyInstalled)
+  const already         = target.deps.filter(d => d.alreadyInstalled)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  const toggle = (k: string) => setPicked(prev => { const n = new Set(prev); n.has(k) ? n.delete(k) : n.add(k); return n })
+  const total = requiredMissing.length + picked.size
+
   return (
     <div
       style={{ position: 'fixed', inset: 0, zIndex: 91, background: 'rgba(0,0,0,.60)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -338,40 +339,55 @@ function DepsModal({ target, onClose, onInstallAll, onSkipDeps }: {
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-lg)', width: 460, maxHeight: '70vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-floating)' }}
+        style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-lg)', width: 480, maxHeight: '74vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-floating)' }}
       >
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', letterSpacing: '.1em' }}>REQUIRED DEPENDENCIES</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Dependencies</div>
             <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>
-              Installing <strong style={{ color: 'var(--ink)' }}>{target.mainProjectName}</strong>
+              Installing <strong style={{ color: 'var(--ink)' }}>{target.mainName}</strong>
             </div>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} style={{ color: 'var(--ink-4)', fontSize: 16 }}>✕</Button>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {missing.length > 0 && (
+          {requiredMissing.length > 0 && (
             <>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 2 }}>
-                Will be installed ({missing.length})
-              </div>
-              {missing.map(dep => (
-                <div key={dep.projectId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--accent-tint)', border: '1px solid var(--accent)', borderRadius: 'var(--radius-sm)' }}>
-                  <div style={{ width: 6, height: 6, background: 'var(--accent)', flexShrink: 0 }} />
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 2 }}>Required ({requiredMissing.length})</div>
+              {requiredMissing.map(dep => (
+                <div key={dep.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: 'var(--accent-tint)', border: '1px solid var(--accent)', borderRadius: 'var(--radius-sm)' }}>
+                  <span style={{ width: 14, height: 14, borderRadius: 4, background: 'var(--accent)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.2 2.2L8 3" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </span>
                   <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{dep.name}</span>
                 </div>
               ))}
             </>
           )}
+          {optional.length > 0 && (
+            <>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-4)', marginTop: requiredMissing.length > 0 ? 8 : 2, marginBottom: 2 }}>Optional ({optional.length})</div>
+              {optional.map(dep => {
+                const on = picked.has(dep.key)
+                return (
+                  <button key={dep.key} onClick={() => toggle(dep.key)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: on ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${on ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 'var(--radius-sm)', cursor: 'pointer', textAlign: 'left' }}>
+                    <span style={{ width: 14, height: 14, borderRadius: 4, background: on ? 'var(--accent)' : 'var(--bg)', border: `1.5px solid ${on ? 'var(--accent)' : 'var(--border-2)'}`, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      {on && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.2 2.2L8 3" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)' }}>{dep.name}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--ink-4)' }}>optional</span>
+                  </button>
+                )
+              })}
+            </>
+          )}
           {already.length > 0 && (
             <>
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-4)', marginTop: missing.length > 0 ? 8 : 2, marginBottom: 2 }}>
-                Already installed ({already.length})
-              </div>
+              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-4)', marginTop: 8, marginBottom: 2 }}>Already installed ({already.length})</div>
               {already.map(dep => (
-                <div key={dep.projectId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', opacity: 0.7 }}>
-                  <div style={{ width: 6, height: 6, background: 'var(--ink-4)', flexShrink: 0 }} />
+                <div key={dep.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', opacity: 0.7 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ink-4)', flexShrink: 0 }} />
                   <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{dep.name}</span>
                   <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--grass)', border: '1px solid var(--grass)', borderRadius: 'var(--radius-sm)', padding: '0 4px' }}>✓ installed</span>
                 </div>
@@ -381,19 +397,9 @@ function DepsModal({ target, onClose, onInstallAll, onSkipDeps }: {
         </div>
 
         <div style={{ padding: '12px 18px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-          <Button
-            variant="outline"
-            onClick={onSkipDeps}
-            style={{ fontSize: 12, color: 'var(--ink-3)', padding: '0 16px', height: 32 }}
-          >
-            Skip deps
-          </Button>
-          <Button
-            variant="primary"
-            onClick={onInstallAll}
-            style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', padding: '0 24px', height: 36 }}
-          >
-            Install all {missing.length > 0 ? `(+${missing.length} dep${missing.length > 1 ? 's' : ''})` : ''}
+          <Button variant="outline" onClick={onSkip} style={{ fontSize: 12, color: 'var(--ink-3)', padding: '0 16px', height: 32 }}>Just this mod</Button>
+          <Button variant="primary" onClick={() => onConfirm(picked)} style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', padding: '0 24px', height: 36 }}>
+            Install{total > 0 ? ` (+${total})` : ''}
           </Button>
         </div>
       </div>
@@ -411,6 +417,7 @@ interface InstallModalProps {
 }
 
 function InstallModal({ mod, instances, onClose, onInstall }: InstallModalProps) {
+  useScrollLock()
   const t = useT()
   const [versions, setVersions] = useState<ModrinthVersion[]>([])
   const [loadingVersions, setLoadingVersions] = useState(true)
@@ -557,6 +564,7 @@ function ModDetailModal({ mod, onClose, onInstall }: {
   onClose: () => void
   onInstall: () => void
 }) {
+  useScrollLock()
   const t = useT()
   const [detail, setDetail] = useState<ModrinthProjectDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -944,120 +952,79 @@ function Browse() {
     setTimeout(() => setToast(null), 3500)
   }
 
+  // Install a single mod directly (no deps to resolve).
+  async function installOne(key: string, run: () => Promise<void>, name: string) {
+    setInstallingId(key)
+    try {
+      await run()
+      showToast(`${name} installed successfully!`, true)
+      api.instance.list().then(setInstances).catch(() => {})
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Install failed', false)
+    } finally {
+      setInstallingId(null)
+    }
+  }
+
   async function handleInstall(instanceId: string, version: ModrinthVersion) {
     if (!installTarget) return
     const modName = installTarget.title
     const mainProjectId = installTarget.project_id
-    const mainVersionId = version.id
-
-    // Feature 1: check required dependencies
-    const requiredDeps = version.dependencies.filter(
-      d => d.dependency_type === 'required' && d.project_id && !d.project_id.startsWith('cf:')
-    )
-
-    if (requiredDeps.length > 0) {
-      // Find the instance to check existing mods
-      const inst = instances.find(i => i.id === instanceId)
-      const installedProjectIds = new Set((inst?.mods ?? []).map(m => m.projectId))
-
-      // Try to resolve project names from Modrinth
-      const projectIds = requiredDeps.map(d => d.project_id!)
-      let nameMap: Record<string, string> = {}
-      try {
-        const resp = await fetch(
-          `https://api.modrinth.com/v2/projects?ids=${encodeURIComponent(JSON.stringify(projectIds))}`,
-          { headers: { 'User-Agent': 'Refract/1.0 (github.com/ShevRuslan1)', Accept: 'application/json' } }
-        )
-        if (resp.ok) {
-          const projects = await resp.json() as Array<{ id: string; title: string }>
-          for (const p of projects) nameMap[p.id] = p.title
-        }
-      } catch {
-        // silently fall through — install directly if fetch fails
-      }
-
-      const deps: DepEntry[] = requiredDeps.map(d => ({
-        projectId: d.project_id!,
-        name: nameMap[d.project_id!] ?? d.project_id!,
-        alreadyInstalled: installedProjectIds.has(d.project_id!),
-      }))
-
-      const hasMissing = deps.some(d => !d.alreadyInstalled)
-      if (hasMissing) {
-        setInstallTarget(null)
-        setDepsTarget({ instanceId, mainProjectId, mainProjectName: modName, mainVersionId, deps })
-        return
-      }
-    }
-
-    // No missing deps — install directly
     setInstallTarget(null)
-    setInstallingId(mainProjectId)
-    try {
-      await api.modrinth.install(instanceId, mainProjectId, modName, mainVersionId)
-      showToast(`${modName} installed successfully!`, true)
-      api.instance.list().then(setInstances).catch(() => {})
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Install failed', false)
-    } finally {
-      setInstallingId(null)
+
+    let deps: ResolvedDep[] = []
+    try { deps = await api.mods.planDeps({ source: 'modrinth', instanceId, version }) } catch { /* resolve best-effort */ }
+    const actionable = deps.some(d => (d.type === 'required' && !d.alreadyInstalled) || (d.type === 'optional' && !d.alreadyInstalled))
+    const install = () => api.modrinth.install(instanceId, mainProjectId, modName, version.id)
+    if (actionable) {
+      setDepsTarget({ instanceId, mainName: modName, mainKey: mainProjectId, deps, install: async () => { await install() } })
+    } else {
+      await installOne(mainProjectId, async () => { await install() }, modName)
     }
   }
 
-  async function handleInstallWithDeps() {
-    if (!depsTarget) return
-    const { instanceId, mainProjectId, mainProjectName, mainVersionId, deps } = depsTarget
-    setDepsTarget(null)
-    setInstallingId(mainProjectId)
-    const missing = deps.filter(d => !d.alreadyInstalled)
-    try {
-      for (const dep of missing) {
-        await api.modrinth.install(instanceId, dep.projectId, dep.name)
-      }
-      await api.modrinth.install(instanceId, mainProjectId, mainProjectName, mainVersionId)
-      const depCount = missing.length
-      showToast(
-        depCount > 0
-          ? `${mainProjectName} + ${depCount} dependenc${depCount > 1 ? 'ies' : 'y'} installed!`
-          : `${mainProjectName} installed successfully!`,
-        true
-      )
-      api.instance.list().then(setInstances).catch(() => {})
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Install failed', false)
-    } finally {
-      setInstallingId(null)
-    }
-  }
-
-  async function handleSkipDeps() {
-    if (!depsTarget) return
-    const { instanceId, mainProjectId, mainProjectName, mainVersionId } = depsTarget
-    setDepsTarget(null)
-    setInstallingId(mainProjectId)
-    try {
-      await api.modrinth.install(instanceId, mainProjectId, mainProjectName, mainVersionId)
-      showToast(`${mainProjectName} installed successfully!`, true)
-      api.instance.list().then(setInstances).catch(() => {})
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Install failed', false)
-    } finally {
-      setInstallingId(null)
-    }
-  }
-
-  async function handleCfInstall(instanceId: string, modId: number, fileId: number, displayName: string) {
+  async function handleCfInstall(instanceId: string, file: CFFile, displayName: string) {
     setCfInstallTarget(null)
-    setInstallingId(String(modId))
+    const key = `cf:${file.modId}`
+    let deps: ResolvedDep[] = []
+    try { deps = await api.mods.planDeps({ source: 'curseforge', instanceId, file }) } catch { /* best-effort */ }
+    const actionable = deps.some(d => !d.alreadyInstalled)
+    const install = () => api.curseforge.install(instanceId, file.modId, file.id, displayName)
+    if (actionable) {
+      setDepsTarget({ instanceId, mainName: displayName, mainKey: key, deps, install: async () => { await install() } })
+    } else {
+      await installOne(key, async () => { await install() }, displayName)
+    }
+  }
+
+  // Install the chosen deps (required + selected optional) then the main mod.
+  async function handleDepsConfirm(selectedOptional: Set<string>) {
+    if (!depsTarget) return
+    const { instanceId, mainName, mainKey, deps, install } = depsTarget
+    setDepsTarget(null)
+    setInstallingId(mainKey)
+    const toInstall = deps.filter(d => !d.alreadyInstalled && (d.type === 'required' || selectedOptional.has(d.key)))
     try {
-      await api.curseforge.install(instanceId, modId, fileId, displayName)
-      showToast(`${displayName} installed successfully!`, true)
+      for (const d of toInstall) {
+        if (d.source === 'modrinth' && d.projectId) await api.modrinth.install(instanceId, d.projectId, d.name, d.versionId)
+        else if (d.source === 'curseforge' && d.modId != null && d.fileId != null) await api.curseforge.install(instanceId, d.modId, d.fileId, d.name)
+      }
+      await install()
+      const n = toInstall.length
+      showToast(n > 0 ? `${mainName} + ${n} dependenc${n > 1 ? 'ies' : 'y'} installed!` : `${mainName} installed successfully!`, true)
       api.instance.list().then(setInstances).catch(() => {})
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Install failed', false)
     } finally {
       setInstallingId(null)
     }
+  }
+
+  async function handleDepsSkip() {
+    if (!depsTarget) return
+    const { mainName, mainKey, install } = depsTarget
+    setDepsTarget(null)
+    await installOne(mainKey, install, mainName)
   }
 
   const totalPages = Math.ceil(total / LIMIT)
@@ -1241,8 +1208,8 @@ function Browse() {
         <DepsModal
           target={depsTarget}
           onClose={() => setDepsTarget(null)}
-          onInstallAll={handleInstallWithDeps}
-          onSkipDeps={handleSkipDeps}
+          onConfirm={handleDepsConfirm}
+          onSkip={handleDepsSkip}
         />
       )}
 
@@ -1474,8 +1441,9 @@ function CFInstallModal({ mod, instances, onClose, onInstall }: {
   mod: CFProject
   instances: Instance[]
   onClose: () => void
-  onInstall: (instanceId: string, modId: number, fileId: number, displayName: string) => void
+  onInstall: (instanceId: string, file: CFFile, displayName: string) => void
 }) {
+  useScrollLock()
   const t = useT()
   const [files, setFiles] = useState<CFFile[]>([])
   const [loadingFiles, setLoadingFiles] = useState(true)
@@ -1563,7 +1531,7 @@ function CFInstallModal({ mod, instances, onClose, onInstall }: {
           <div style={{ fontSize: 12, color: 'var(--ink-4)' }}>
             {!selectedInst ? t.browse.selectInstanceHint : !selectedFile ? t.browse.selectVersionHint : t.browse.installingTo(selectedInst.name)}
           </div>
-          <Button variant="primary" disabled={!canInstall} onClick={() => canInstall && onInstall(selectedInst!.id, mod.id, selectedFile!.id, selectedFile!.displayName)} style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', color: canInstall ? '#fff' : 'var(--ink-4)', background: canInstall ? 'var(--ender)' : 'var(--surface-3)', padding: '0 24px', height: 34 }}>
+          <Button variant="primary" disabled={!canInstall} onClick={() => canInstall && onInstall(selectedInst!.id, selectedFile!, selectedFile!.displayName)} style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', color: canInstall ? '#fff' : 'var(--ink-4)', background: canInstall ? 'var(--ender)' : 'var(--surface-3)', padding: '0 24px', height: 34 }}>
             {t.browse.cfInstallBtn}
           </Button>
         </div>
@@ -1628,6 +1596,7 @@ function PageJumper({ current, total, onGo }: { current: number; total: number; 
 // ─── CurseForge mod detail modal ─────────────────────────────────────────────
 
 function CFModDetailModal({ mod, onClose, onInstall }: { mod: CFProject; onClose: () => void; onInstall: () => void }) {
+  useScrollLock()
   const t = useT()
   const [detail, setDetail]             = useState<CFProjectDetail | null>(null)
   const [loading, setLoading]           = useState(true)

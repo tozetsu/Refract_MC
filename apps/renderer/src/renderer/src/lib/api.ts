@@ -249,6 +249,7 @@ function createBrowserApi(): RefractAPI {
     },
     mods: {
       list:           async () => [],
+      planDeps:       async () => [],
       toggle:         async () => { throw new Error('Mod management requires the Electron app.') },
       delete:         async () => { throw new Error('Mod management requires the Electron app.') },
       installLocal:   async () => { throw new Error('Mod install requires the Electron app.') },

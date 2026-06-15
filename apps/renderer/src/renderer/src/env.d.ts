@@ -228,6 +228,7 @@ declare global {
       }
       mods: {
         list:           (instanceId: string) => Promise<Array<{ filename: string; displayName: string; type: 'mod' | 'resourcepack' | 'shader' | 'datapack'; enabled: boolean; sizeKb: number; iconDataUrl?: string }>>
+        planDeps:       (payload: unknown) => Promise<import('@refract/core').ResolvedDep[]>
         toggle:         (instanceId: string, filename: string, type: string) => Promise<void>
         delete:         (instanceId: string, filename: string, type: string) => Promise<void>
         installLocal:   (instanceId: string, srcPath: string) => Promise<string>

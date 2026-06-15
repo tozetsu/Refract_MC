@@ -4,6 +4,9 @@ import { inflateRawSync } from 'zlib'
 import { randomUUID } from 'crypto'
 import { handleIpc } from './handle'
 import { resolveInstanceDir, resolveGameDir } from '../services/instance-store'
+import { getConfig } from '../services/config'
+import { planModrinthDeps, planCfDeps } from '../services/mod-deps'
+import type { ModrinthVersion, CFFile, ResolvedDep } from '@refract/core'
 
 export type ContentType = 'mod' | 'resourcepack' | 'shader' | 'datapack'
 
@@ -177,6 +180,19 @@ function resolveDir(instanceId: string, type: ContentType): string {
 }
 
 export function registerModsIpc(): void {
+  // Resolve a mod's dependency tree (transitive required + direct optional) for
+  // the given instance, before install. Source-specific payload carries the
+  // chosen Modrinth version or CurseForge file (which hold the dep lists).
+  handleIpc('mods.planDeps', async (_e, payload): Promise<ResolvedDep[]> => {
+    const p = payload as
+      | { source: 'modrinth'; instanceId: string; version: ModrinthVersion }
+      | { source: 'curseforge'; instanceId: string; file: CFFile }
+    if (p.source === 'modrinth') return planModrinthDeps(p.instanceId, p.version)
+    const apiKey = getConfig().curseforgeApiKey
+    if (!apiKey) return []
+    return planCfDeps(p.instanceId, p.file, apiKey)
+  })
+
   handleIpc('mods.list', (_e, instanceId) => {
     const id = String(instanceId)
     return [

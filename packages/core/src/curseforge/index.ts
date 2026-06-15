@@ -70,6 +70,8 @@ export interface CFFile {
   downloadUrl:   string | null
   gameVersions:  string[]
   releaseType:   number
+  // relationType: 1=embedded, 2=optional, 3=required, 4=tool, 5=incompatible, 6=include
+  dependencies?: Array<{ modId: number; relationType: number }>
 }
 
 export interface CFSearchResult {

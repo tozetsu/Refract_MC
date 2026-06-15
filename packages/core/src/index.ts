@@ -1,6 +1,7 @@
 export * from './auth/index'
 export * from './curseforge/index'
 export * from './ftb/index'
+export * from './mods/index'
 export * from './date/index'
 export * from './version-manager/index'
 export * from './instance-manager/index'

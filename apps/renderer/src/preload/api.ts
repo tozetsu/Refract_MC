@@ -148,6 +148,7 @@ export const api = {
   },
   mods: {
     list:           (instanceId: string) => ipcRenderer.invoke('mods.list', instanceId),
+    planDeps:       (payload: unknown): Promise<import('@refract/core').ResolvedDep[]> => ipcRenderer.invoke('mods.planDeps', payload),
     toggle:         (instanceId: string, filename: string, type: string) => ipcRenderer.invoke('mods.toggle', instanceId, filename, type),
     delete:         (instanceId: string, filename: string, type: string) => ipcRenderer.invoke('mods.delete', instanceId, filename, type),
     installLocal:   (instanceId: string, srcPath: string) => ipcRenderer.invoke('mods.installLocal', instanceId, srcPath),
