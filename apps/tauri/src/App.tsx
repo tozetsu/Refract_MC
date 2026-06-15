@@ -1,19 +1,24 @@
 import { useEffect, useState } from 'react'
-import { RefreshCw, Check, MemoryStick, Palette } from 'lucide-react'
+import { RefreshCw, Check, MemoryStick, Palette, Boxes } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { configApi, type AppConfig } from './tauri-api'
+import { configApi, instancesApi, type AppConfig, type InstanceSummary } from './tauri-api'
 
 // POC harness: exercises the Rust `config_get` / `config_set` commands end-to-end
 // through shadcn/ui + Tailwind, proving the full Tauri + frontend stack.
 export function App() {
   const [config, setConfig] = useState<AppConfig | null>(null)
+  const [instances, setInstances] = useState<InstanceSummary[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function reload() {
-    try { setConfig(await configApi.get()); setError(null) }
-    catch (e) { setError(String(e)) }
+    try {
+      const [cfg, list] = await Promise.all([configApi.get(), instancesApi.list()])
+      setConfig(cfg)
+      setInstances(list)
+      setError(null)
+    } catch (e) { setError(String(e)) }
   }
 
   useEffect(() => { void reload() }, [])
@@ -66,9 +71,37 @@ export function App() {
               </Button>
             </div>
 
-            <pre className="bg-muted text-muted-foreground max-h-[50vh] overflow-auto rounded-lg p-4 font-mono text-xs leading-relaxed">
+            <pre className="bg-muted text-muted-foreground max-h-[40vh] overflow-auto rounded-lg p-4 font-mono text-xs leading-relaxed">
               {config ? JSON.stringify(config, null, 2) : 'Loading…'}
             </pre>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Boxes className="size-4" /> Instances</CardTitle>
+            <CardDescription>
+              Read by Rust from <code className="text-foreground">{'<data>/instances'}</code> — the same data the Electron app shows.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            {instances == null ? (
+              <p className="text-muted-foreground text-sm">Loading…</p>
+            ) : instances.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No instances found yet — create one in the Electron app, then Reload.</p>
+            ) : (
+              instances.map(inst => (
+                <div key={inst.id} className="flex items-center gap-3 rounded-md border px-3 py-2">
+                  <span className={`size-2 rounded-full ${inst.isInstalled ? 'bg-primary' : 'bg-muted-foreground/40'}`} />
+                  <span className="font-medium">{inst.name}</span>
+                  <span className="text-muted-foreground font-mono text-xs">MC {inst.minecraftVersion}</span>
+                  {inst.modLoader && (
+                    <span className="bg-secondary text-secondary-foreground rounded px-1.5 py-0.5 text-xs uppercase">{inst.modLoader}</span>
+                  )}
+                  <span className="text-muted-foreground ml-auto text-xs">{inst.isInstalled ? 'installed' : 'not installed'}</span>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

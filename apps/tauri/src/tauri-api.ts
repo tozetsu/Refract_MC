@@ -17,3 +17,17 @@ export const configApi = {
   set: (key: string, value: unknown): Promise<AppConfig> =>
     invoke<AppConfig>('config_set', { key, value }),
 }
+
+export interface InstanceSummary {
+  id: string
+  name: string
+  minecraftVersion: string
+  modLoader?: string
+  isInstalled?: boolean
+  lastPlayed?: string
+  [key: string]: unknown
+}
+
+export const instancesApi = {
+  list: (): Promise<InstanceSummary[]> => invoke<InstanceSummary[]>('instances_list'),
+}

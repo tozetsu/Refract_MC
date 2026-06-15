@@ -5,18 +5,13 @@
 //! `%APPDATA%\Refract\config.json` — identical to Electron's
 //! `app.getPath('userData')`. (macOS: ~/Library/Application Support; Linux: ~/.config.)
 
+use crate::paths;
 use serde_json::{json, Map, Value};
 use std::fs;
 use std::path::PathBuf;
 
-fn config_dir() -> PathBuf {
-    dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("Refract")
-}
-
 fn config_path() -> PathBuf {
-    config_dir().join("config.json")
+    paths::data_dir().join("config.json")
 }
 
 /// Defaults mirror DEFAULTS in config.ts so a fresh file matches the Electron app.
@@ -54,7 +49,7 @@ fn load() -> Value {
 }
 
 fn save(cfg: &Value) -> Result<(), String> {
-    fs::create_dir_all(config_dir()).map_err(|e| e.to_string())?;
+    fs::create_dir_all(paths::data_dir()).map_err(|e| e.to_string())?;
     let text = serde_json::to_string_pretty(cfg).map_err(|e| e.to_string())?;
     fs::write(config_path(), text).map_err(|e| e.to_string())
 }
