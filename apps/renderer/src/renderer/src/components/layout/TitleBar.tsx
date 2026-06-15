@@ -129,14 +129,14 @@ export function TitleBar() {
       {/* Update chip */}
       {update && (
         <div className="no-drag-region" style={{
-          display: 'flex', alignItems: 'center', gap: 8, marginRight: 6, padding: '0 8px', height: 22, borderRadius: 4,
+          display: 'flex', alignItems: 'center', gap: 8, marginRight: 6, padding: '0 8px', height: 22, borderRadius: 'var(--radius-sm)',
           background: update.phase === 'ready' ? 'rgba(74,222,128,.12)' : 'rgba(255,255,255,.06)',
           border: `1px solid ${update.phase === 'ready' ? 'rgba(74,222,128,.35)' : 'var(--line)'}`,
         }}>
           {update.phase === 'ready' ? (
             <>
               <span style={{ fontSize: 10, color: 'var(--grass)', fontWeight: 600 }}>v{update.version} ready</span>
-              <button onClick={() => api.updater.install()} style={{ height: 16, padding: '0 6px', fontSize: 10, fontWeight: 700, background: 'var(--grass)', color: '#000', border: 'none', borderRadius: 2, cursor: 'pointer', lineHeight: 1 }}>
+              <button onClick={() => api.updater.install()} style={{ height: 16, padding: '0 6px', fontSize: 10, fontWeight: 700, background: 'var(--grass)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', lineHeight: 1 }}>
                 Restart ↺
               </button>
             </>
@@ -151,7 +151,7 @@ export function TitleBar() {
           ) : (
             <>
               <span style={{ fontSize: 10, color: 'var(--ink-3)', fontWeight: 600 }}>v{update.version} available</span>
-              <button onClick={() => api.updater.download()} style={{ height: 16, padding: '0 6px', fontSize: 10, fontWeight: 700, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 2, cursor: 'pointer', lineHeight: 1 }}>
+              <button onClick={() => api.updater.download()} style={{ height: 16, padding: '0 6px', fontSize: 10, fontWeight: 700, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', lineHeight: 1 }}>
                 Update
               </button>
               <button onClick={() => setUpdate(null)} title="Stay on current version" style={{ height: 16, width: 16, fontSize: 12, background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -167,7 +167,7 @@ export function TitleBar() {
         <button
           onClick={togglePanel}
           style={{
-            width: 28, height: 28, borderRadius: 4,
+            width: 28, height: 28, borderRadius: 'var(--radius-sm)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: open ? 'rgba(255,255,255,.08)' : 'transparent',
             border: 'none', cursor: 'default',
@@ -192,8 +192,8 @@ export function TitleBar() {
             width: 260,
             background: 'var(--surface-2)',
             border: '1px solid var(--line)',
-            borderRadius: 6,
-            boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-raised)',
             zIndex: 9999,
             overflow: 'hidden',
           }}>

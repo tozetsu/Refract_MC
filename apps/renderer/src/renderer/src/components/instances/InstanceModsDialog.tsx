@@ -5,6 +5,7 @@ import { compressImage } from '@/lib/image'
 import { getFilePath } from '@/lib/file-path'
 import type { Instance } from '@refract/core'
 import { useT } from '@/i18n'
+import { Button } from '@/components/ui/Button'
 
 type ContentType = 'mod' | 'resourcepack' | 'shader' | 'datapack'
 type ContentEntry = {
@@ -377,7 +378,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
             onMouseEnter={() => setIconHover(true)}
             onMouseLeave={() => setIconHover(false)}
             style={{
-              width: 56, height: 56, borderRadius: 6, overflow: 'hidden', flexShrink: 0,
+              width: 56, height: 56, borderRadius: 'var(--radius-md)', overflow: 'hidden', flexShrink: 0,
               border: `1px solid ${iconHover ? 'var(--accent)' : 'var(--border-r)'}`,
               background: 'var(--bg)', cursor: 'pointer', position: 'relative',
               transition: 'border-color 120ms',
@@ -400,9 +401,9 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
               {instance.name}
             </div>
             <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: "'VT323',monospace", fontSize: 13, letterSpacing: '.06em' }}>MC {instance.minecraftVersion}</span>
+              <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11 }}>MC {instance.minecraftVersion}</span>
               <span style={{ color: 'var(--border-r)' }}>·</span>
-              <span style={{ fontFamily: "'VT323',monospace", fontSize: 13, letterSpacing: '.06em', color: 'var(--accent)' }}>{instance.modLoader?.toUpperCase() ?? 'VANILLA'}</span>
+              <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: 'var(--accent)' }}>{instance.modLoader?.toUpperCase() ?? 'VANILLA'}</span>
               <span style={{ color: 'var(--border-r)' }}>·</span>
               <span>{items.length} mod{items.length !== 1 ? 's' : ''}</span>
             </div>
@@ -414,43 +415,40 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
           {/* Actions */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
             {onLaunch && (
-              <button
+              <Button
+                variant={isRunning ? 'danger' : 'primary'}
                 onClick={() => { onLaunch(); onOpenChange(false) }}
                 style={{
                   height: 36, padding: '0 18px',
-                  background: isRunning ? 'rgba(217,59,59,.15)' : 'var(--accent)',
-                  color: isRunning ? 'var(--lava)' : '#fff',
-                  border: isRunning ? '1px solid rgba(217,59,59,.4)' : 'none',
-                  borderRadius: 3, cursor: 'pointer',
-                  fontFamily: "'VT323',monospace", fontSize: 15, letterSpacing: '.1em', fontWeight: 700,
+                  fontSize: 13, letterSpacing: '.04em', fontWeight: 700,
                 }}
               >
                 {isRunning ? td.stopBtn : td.playBtn}
-              </button>
+              </Button>
             )}
             {onEdit && (
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => { onEdit(); onOpenChange(false) }}
-                style={{ height: 36, padding: '0 12px', background: 'var(--surface-3)', color: 'var(--ink-2)', border: '1px solid var(--border-r)', borderRadius: 3, cursor: 'pointer', fontSize: 12 }}
+                style={{ height: 36, padding: '0 12px', fontSize: 12 }}
               >
                 Edit
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleExport}
               disabled={exporting}
               title="Export instance as ZIP"
-              style={{
-                fontSize: 11, color: 'var(--ink-3)',
-                background: 'var(--surface-3)', border: '1px solid var(--border-r)',
-                borderRadius: 3, padding: '3px 10px', cursor: exporting ? 'not-allowed' : 'pointer',
-                opacity: exporting ? .6 : 1,
-              }}
+              style={{ fontSize: 11 }}
             >
               {exporting ? td.exporting : td.exportZip}
-            </button>
+            </Button>
             {tab === 'updates' && updatesAvailable.length > 0 && (
-              <button
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={async () => {
                   if (!instance || updatingAll) return
                   setUpdatingAll(true)
@@ -466,50 +464,38 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                   }
                 }}
                 disabled={updatingAll}
-                style={{
-                  fontSize: 11, color: '#fff',
-                  background: updatingAll ? 'var(--surface-3)' : 'var(--accent)',
-                  border: 'none',
-                  borderRadius: 3, padding: '3px 10px',
-                  cursor: updatingAll ? 'not-allowed' : 'pointer',
-                  opacity: updatingAll ? 0.6 : 1,
-                  fontWeight: 600,
-                }}
+                style={{ fontSize: 11 }}
               >
                 {updatingAll ? td.updating : td.updateAll(updatesAvailable.length)}
-              </button>
+              </Button>
             )}
             {isContentTab && (
-              <button
+              <Button
+                variant="primary"
+                size="sm"
                 onClick={() => modInputRef.current?.click()}
                 disabled={addingMod}
-                style={{
-                  fontSize: 11, color: '#fff',
-                  background: addingMod ? 'var(--surface-3)' : 'var(--accent)',
-                  border: 'none',
-                  borderRadius: 3, padding: '3px 10px', cursor: addingMod ? 'not-allowed' : 'pointer',
-                  opacity: addingMod ? .6 : 1, fontWeight: 600,
-                }}
+                style={{ fontSize: 11 }}
               >
                 {addingMod ? td.adding : td.addFile}
-              </button>
+              </Button>
             )}
-            <button
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={tab === 'worlds' ? loadWorlds : tab === 'screenshots' ? loadScreenshots : tab === 'updates' ? loadUpdates : tab === 'servers' ? loadServers : load}
-              style={{
-                fontSize: 11, color: 'var(--ink-3)',
-                background: 'var(--surface-3)', border: '1px solid var(--border-r)',
-                borderRadius: 3, padding: '3px 10px', cursor: 'pointer',
-              }}
+              style={{ fontSize: 11 }}
             >
               {td.refresh}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => onOpenChange(false)}
-              style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}
+              style={{ color: 'var(--ink-4)', fontSize: 18, lineHeight: 1 }}
             >
               ✕
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -522,13 +508,15 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
           flexWrap: 'wrap',
         }}>
           {CONTENT_TABS.map(t => (
-            <button
+            <Button
               key={t.id}
+              variant={tab === t.id ? 'outline' : 'ghost'}
+              size="sm"
               onClick={() => setTab(t.id)}
               className="glow-hover"
               style={{
-                padding: '4px 10px', borderRadius: 3,
-                fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                padding: '4px 10px', borderRadius: 'var(--radius-sm)',
+                fontSize: 11, fontWeight: 600,
                 border: tab === t.id ? '1px solid var(--accent)' : '1px solid transparent',
                 background: tab === t.id ? 'var(--accent-tint)' : 'transparent',
                 color: tab === t.id ? 'var(--ink)' : 'var(--ink-4)',
@@ -541,12 +529,12 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                   fontSize: 10, lineHeight: 1,
                   background: tab === t.id ? 'var(--accent)' : 'var(--surface-3)',
                   color: tab === t.id ? '#fff' : 'var(--ink-4)',
-                  borderRadius: 8, padding: '1px 5px',
+                  borderRadius: 'var(--radius-md)', padding: '1px 5px',
                 }}>
                   {counts[t.id]}
                 </span>
               )}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -563,35 +551,39 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
             </span>
             {profiles.map(p => (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center' }}>
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => handleApplyProfile(p.id)}
                   title={`Apply "${p.name}" — ${p.enabledFiles.length} mods enabled`}
                   className="glow-hover"
                   style={{
                     fontSize: 11, padding: '2px 8px',
                     background: 'var(--surface-2)', border: '1px solid var(--border-r)',
-                    borderRadius: '3px 0 0 3px', cursor: 'pointer', color: 'var(--ink-2)',
+                    borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)', color: 'var(--ink-2)',
                     borderRight: 'none',
                   }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-r)'; (e.currentTarget as HTMLElement).style.color = 'var(--ink-2)' }}
                 >
                   {p.name}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
                   onClick={() => handleDeleteProfile(p.id)}
                   title="Delete profile"
                   style={{
                     fontSize: 10, padding: '2px 5px',
                     background: 'var(--surface-2)', border: '1px solid var(--border-r)',
-                    borderRadius: '0 3px 3px 0', cursor: 'pointer', color: 'var(--ink-4)',
+                    borderRadius: '0 var(--radius-sm) var(--radius-sm) 0', color: 'var(--ink-4)',
                     lineHeight: 1,
                   }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'var(--lava)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--lava)' }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'var(--ink-4)'; (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-r)' }}
                 >
                   ✕
-                </button>
+                </Button>
               </div>
             ))}
             {savingProfile ? (
@@ -608,35 +600,41 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                   style={{
                     height: 22, padding: '0 7px', fontSize: 11, width: 120,
                     background: 'var(--bg)', border: '1px solid var(--accent)',
-                    borderRadius: 3, color: 'var(--ink)', outline: 'none',
+                    borderRadius: 'var(--radius-sm)', color: 'var(--ink)', outline: 'none',
                   }}
                 />
-                <button
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={handleSaveProfile}
-                  style={{ fontSize: 11, padding: '1px 8px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 3, cursor: 'pointer' }}
+                  style={{ fontSize: 11, padding: '1px 8px' }}
                 >
                   {td.saving}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={() => { setSavingProfile(false); setNewProfileName('') }}
-                  style={{ fontSize: 11, padding: '1px 8px', background: 'var(--surface-2)', color: 'var(--ink-4)', border: '1px solid var(--border-r)', borderRadius: 3, cursor: 'pointer' }}
+                  style={{ fontSize: 11, padding: '1px 8px' }}
                 >
                   {td.cancel}
-                </button>
+                </Button>
               </div>
             ) : (
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setSavingProfile(true)}
                 style={{
                   fontSize: 11, padding: '2px 8px',
                   background: 'none', border: '1px dashed var(--border-r)',
-                  borderRadius: 3, cursor: 'pointer', color: 'var(--ink-4)',
+                  borderRadius: 'var(--radius-sm)', color: 'var(--ink-4)',
                 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent)' }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-r)'; (e.currentTarget as HTMLElement).style.color = 'var(--ink-4)' }}
               >
                 {td.saveProfile}
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -645,12 +643,12 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
         {isContentTab && selectedMods.size > 0 && (
           <div style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 12px', background:'var(--accent-tint)', borderBottom:'1px solid var(--accent)', flexShrink:0 }}>
             <span style={{ fontSize:11, color:'var(--accent)', fontWeight:700, minWidth:70 }}>{td.selected(selectedMods.size)}</span>
-            <button onClick={() => handleBulkToggle(true)}  style={{ fontSize:11, padding:'2px 10px', background:'var(--surface-2)', color:'var(--grass)', border:'1px solid var(--grass)', borderRadius:3, cursor:'pointer', fontWeight:600 }}>{td.enable}</button>
-            <button onClick={() => handleBulkToggle(false)} style={{ fontSize:11, padding:'2px 10px', background:'var(--surface-2)', color:'var(--gold)',  border:'1px solid var(--gold)',  borderRadius:3, cursor:'pointer', fontWeight:600 }}>{td.disable}</button>
-            <button onClick={handleBulkDelete}              style={{ fontSize:11, padding:'2px 10px', background:'var(--surface-2)', color:'var(--lava)',  border:'1px solid var(--lava)',  borderRadius:3, cursor:'pointer', fontWeight:600 }}>{td.delete}</button>
+            <Button variant="outline" size="sm" onClick={() => handleBulkToggle(true)}  style={{ fontSize:11, padding:'2px 10px', background:'var(--surface-2)', color:'var(--grass)', border:'1px solid var(--grass)', fontWeight:600 }}>{td.enable}</Button>
+            <Button variant="danger"  size="sm" onClick={() => handleBulkToggle(false)} style={{ fontSize:11, padding:'2px 10px', background:'var(--surface-2)', color:'var(--gold)',  border:'1px solid var(--gold)',  fontWeight:600 }}>{td.disable}</Button>
+            <Button variant="danger"  size="sm" onClick={handleBulkDelete}              style={{ fontSize:11, padding:'2px 10px', background:'var(--surface-2)', color:'var(--lava)',  border:'1px solid var(--lava)',  fontWeight:600 }}>{td.delete}</Button>
             <div style={{ flex:1 }} />
-            <button onClick={() => setSelectedMods(new Set(visible.filter(e => !e.filename.includes('/')).map(e => e.filename)))} style={{ fontSize:10, color:'var(--ink-3)', background:'none', border:'none', cursor:'pointer' }}>{td.selectAll}</button>
-            <button onClick={() => setSelectedMods(new Set())} style={{ fontSize:10, color:'var(--ink-4)', background:'none', border:'none', cursor:'pointer' }}>{td.clear}</button>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedMods(new Set(visible.filter(e => !e.filename.includes('/')).map(e => e.filename)))} style={{ fontSize:10, color:'var(--ink-3)' }}>{td.selectAll}</Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedMods(new Set())} style={{ fontSize:10, color:'var(--ink-4)' }}>{td.clear}</Button>
           </div>
         )}
 
@@ -669,7 +667,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
               value={modSearch}
               onChange={e => setModSearch(e.target.value)}
               placeholder="Search mods…"
-              style={{ width: '100%', height: 28, background: 'var(--surface-2)', border: '1px solid var(--border-r)', color: 'var(--ink)', padding: '0 10px', outline: 'none', fontSize: 12, borderRadius: 3 }}
+              style={{ width: '100%', height: 28, background: 'var(--surface-2)', border: '1px solid var(--border-r)', color: 'var(--ink)', padding: '0 10px', outline: 'none', fontSize: 12, borderRadius: 'var(--radius-sm)' }}
             />
           </div>
         )}
@@ -786,8 +784,8 @@ function ScreenshotLightbox({ shot, instanceId, onClose, onOpenExternal }: {
         onClick={e => e.stopPropagation()}
         style={{
           maxWidth: '90vw', maxHeight: '82vh',
-          objectFit: 'contain', borderRadius: 4,
-          boxShadow: '0 0 60px rgba(0,0,0,.8)',
+          objectFit: 'contain', borderRadius: 'var(--radius-sm)',
+          boxShadow: 'var(--shadow-floating)',
           opacity: fullSrc ? 1 : 0.65,
           transition: 'opacity 200ms',
         }}
@@ -796,13 +794,13 @@ function ScreenshotLightbox({ shot, instanceId, onClose, onOpenExternal }: {
         onClick={e => e.stopPropagation()}
         style={{ display: 'flex', gap: 10, alignItems: 'center' }}
       >
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,.4)' }}>{shot.filename} · {shot.sizeKb} KB</span>
-        <button onClick={onOpenExternal} style={{ fontSize: 11, color: 'rgba(255,255,255,.7)', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.18)', borderRadius: 3, padding: '3px 10px', cursor: 'pointer' }}>
+        <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: 'rgba(255,255,255,.4)' }}>{shot.filename} · {shot.sizeKb} KB</span>
+        <Button variant="ghost" size="sm" onClick={onOpenExternal} style={{ fontSize: 11, color: 'rgba(255,255,255,.7)', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.18)' }}>
           {t.instanceDetail.openViewer}
-        </button>
-        <button onClick={onClose} style={{ fontSize: 11, color: 'rgba(255,255,255,.7)', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.18)', borderRadius: 3, padding: '3px 10px', cursor: 'pointer' }}>
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onClose} style={{ fontSize: 11, color: 'rgba(255,255,255,.7)', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.18)' }}>
           ✕ Close
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -836,18 +834,18 @@ function ServerRow({ server }: { server: ServerEntry }) {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 16px', borderBottom: '1px solid var(--line)' }}>
-      <div style={{ width: 36, height: 36, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18, overflow: 'hidden' }}>
+      <div style={{ width: 36, height: 36, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18, overflow: 'hidden' }}>
         {server.icon ? <img src={`data:image/png;base64,${server.icon}`} alt="" style={{ width: '100%', height: '100%', imageRendering: 'pixelated' }} /> : '🖥'}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{server.name || 'Unknown Server'}</div>
         <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2, display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span>{server.ip}</span>
+          <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{server.ip}</span>
           {ping === 'loading' && <span style={{ color: 'var(--ink-4)', fontStyle: 'italic' }}>{t.instanceDetail.pinging}</span>}
           {ping !== 'loading' && ping !== null && (
             <>
-              <span style={{ color: pingColor(ping.latencyMs), fontWeight: 600 }}>{ping.latencyMs}ms</span>
-              <span style={{ color: 'var(--ink-3)' }}>{t.instanceDetail.players(ping.online, ping.max)}</span>
+              <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: pingColor(ping.latencyMs), fontWeight: 600 }}>{ping.latencyMs}ms</span>
+              <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: 'var(--ink-3)' }}>{t.instanceDetail.players(ping.online, ping.max)}</span>
             </>
           )}
           {isOffline && <span style={{ color: 'var(--ink-4)' }}>{t.instanceDetail.offline}</span>}
@@ -859,12 +857,14 @@ function ServerRow({ server }: { server: ServerEntry }) {
         background: ping === 'loading' ? 'var(--border-r)' : isOnline ? 'var(--grass)' : 'var(--lava)',
         transition: 'background 300ms',
       }} />
-      <button
+      <Button
+        variant="secondary"
+        size="sm"
         onClick={copy}
-        style={{ fontSize: 11, color: copied ? 'var(--grass)' : 'var(--ink-3)', background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 3, padding: '3px 10px', cursor: 'pointer' }}
+        style={{ fontSize: 11, color: copied ? 'var(--grass)' : 'var(--ink-3)' }}
       >
         {copied ? t.instanceDetail.copied : t.instanceDetail.copyIp}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -872,7 +872,7 @@ function ServerRow({ server }: { server: ServerEntry }) {
 function EmptyMsg({ msg, sub }: { msg: string; sub: string }) {
   return (
     <div style={{ padding: '40px 16px', textAlign: 'center' }}>
-      <div style={{ fontFamily: "'VT323',monospace", fontSize: 16, color: 'var(--ink-4)', letterSpacing: '.08em', marginBottom: 6 }}>{msg}</div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-4)', letterSpacing: '.04em', marginBottom: 6 }}>{msg}</div>
       <div style={{ fontSize: 12, color: 'var(--ink-4)' }}>{sub}</div>
     </div>
   )
@@ -888,41 +888,45 @@ function WorldRow({ world, isBusy, onDelete, onBackup }: { world: WorldEntry; is
       display: 'flex', alignItems: 'center', gap: 12, padding: '9px 16px',
       borderBottom: '1px solid var(--line)', opacity: isBusy ? 0.5 : 1,
     }}>
-      <div style={{ width: 36, height: 36, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
+      <div style={{ width: 36, height: 36, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
         🌍
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{world.name}</div>
         <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2, display: 'flex', gap: 10 }}>
           <span>{formatDate(world.lastModified)}</span>
-          {world.sizeKb > 0 && <span>{formatSize(world.sizeKb)}</span>}
+          {world.sizeKb > 0 && <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{formatSize(world.sizeKb)}</span>}
         </div>
       </div>
       <div style={{ display:'flex', gap:5 }}>
         {onBackup && (
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={async () => { setBacking(true); await onBackup(); setBacking(false) }}
             disabled={isBusy || backing}
-            style={{ fontSize:11, color:'var(--diamond)', background:'none', border:'1px solid var(--diamond)', borderRadius:3, padding:'3px 9px', cursor:'pointer', opacity: backing ? .6 : 1 }}
+            style={{ fontSize:11, color:'var(--diamond)', background:'none', border:'1px solid var(--diamond)', padding:'3px 9px', opacity: backing ? .6 : 1 }}
           >
             {backing ? td.backing : td.backup}
-          </button>
+          </Button>
         )}
         {confirm ? (
           <div style={{ display: 'flex', gap: 5 }}>
-            <button onClick={() => { setConfirm(false); onDelete() }} disabled={isBusy} style={{ fontSize: 11, color: '#fff', background: 'var(--lava)', border: 'none', borderRadius: 3, padding: '3px 10px', cursor: 'pointer' }}>{td.delete}</button>
-            <button onClick={() => setConfirm(false)} style={{ fontSize: 11, color: 'var(--ink-3)', background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 3, padding: '3px 10px', cursor: 'pointer' }}>Cancel</button>
+            <Button variant="danger" size="sm" onClick={() => { setConfirm(false); onDelete() }} disabled={isBusy} style={{ fontSize: 11, padding: '3px 10px' }}>{td.delete}</Button>
+            <Button variant="secondary" size="sm" onClick={() => setConfirm(false)} style={{ fontSize: 11, padding: '3px 10px' }}>Cancel</Button>
           </div>
         ) : (
-          <button
+          <Button
+            variant="danger"
+            size="sm"
             onClick={() => setConfirm(true)}
             disabled={isBusy}
-            style={{ fontSize: 11, color: 'var(--ink-4)', background: 'none', border: '1px solid transparent', borderRadius: 3, padding: '3px 8px', cursor: 'pointer' }}
+            style={{ fontSize: 11, color: 'var(--ink-4)', background: 'none', border: '1px solid transparent', padding: '3px 8px' }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--lava)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--lava)' }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--ink-4)' }}
           >
             {td.delete}
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -937,7 +941,7 @@ function ScreenshotThumb({ shot, onClick }: { shot: ScreenshotEntry; onClick: ()
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        position: 'relative', borderRadius: 4, overflow: 'hidden', cursor: 'pointer',
+        position: 'relative', borderRadius: 'var(--radius-sm)', overflow: 'hidden', cursor: 'pointer',
         border: `1px solid ${hover ? 'var(--accent)' : 'var(--border-r)'}`,
         background: 'var(--surface-2)', aspectRatio: '16 / 9',
         transition: 'border-color 120ms',
@@ -953,8 +957,8 @@ function ScreenshotThumb({ shot, onClick }: { shot: ScreenshotEntry; onClick: ()
           position: 'absolute', inset: 0, background: 'rgba(0,0,0,.55)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6,
         }}>
-          <div style={{ fontSize: 10, color: '#fff', fontFamily: "'VT323',monospace", letterSpacing: '.06em' }}>OPEN</div>
-          <div style={{ fontSize: 9, color: 'rgba(255,255,255,.6)', textAlign: 'center', lineHeight: 1.3, wordBreak: 'break-all' }}>{shot.sizeKb} KB</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#fff', letterSpacing: '.10em' }}>OPEN</div>
+          <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 9, color: 'rgba(255,255,255,.6)', textAlign: 'center', lineHeight: 1.3, wordBreak: 'break-all' }}>{shot.sizeKb} KB</div>
         </div>
       )}
     </div>
@@ -987,8 +991,8 @@ function UpdateRow({ entry }: { entry: ModUpdateEntry }) {
       </div>
       {entry.hasUpdate && (
         <div style={{
-          fontSize: 9, fontWeight: 700, letterSpacing: '.06em',
-          padding: '2px 7px', borderRadius: 3,
+          fontSize: 9, fontWeight: 700, letterSpacing: '.10em',
+          padding: '2px 7px', borderRadius: 'var(--radius-sm)',
           background: 'color-mix(in srgb, var(--gold) 20%, transparent)',
           color: 'var(--gold)',
           border: '1px solid var(--gold)',
@@ -1028,7 +1032,7 @@ function ContentRow({ entry, isBusy, selected, onSelect, onToggle, onDelete }: {
       )}
       {/* Icon */}
       <div style={{
-        width: 34, height: 34, flexShrink: 0, borderRadius: 4, overflow: 'hidden',
+        width: 34, height: 34, flexShrink: 0, borderRadius: 'var(--radius-sm)', overflow: 'hidden',
         background: entry.enabled ? 'color-mix(in srgb, ' + color + ' 18%, var(--surface-2))' : 'var(--surface-2)',
         border: `1px solid ${entry.enabled ? color : 'var(--border-r)'}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1059,7 +1063,7 @@ function ContentRow({ entry, isBusy, selected, onSelect, onToggle, onDelete }: {
             {entry.type === 'resourcepack' ? 'Resource Pack' : entry.type === 'datapack' ? 'Datapack' : entry.type === 'shader' ? 'Shader' : 'Mod'}
           </span>
           {entry.sizeKb > 0 && (
-            <span>{entry.sizeKb >= 1024 ? `${(entry.sizeKb / 1024).toFixed(1)} MB` : `${entry.sizeKb} KB`}</span>
+            <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{entry.sizeKb >= 1024 ? `${(entry.sizeKb / 1024).toFixed(1)} MB` : `${entry.sizeKb} KB`}</span>
           )}
           {!entry.enabled && <span style={{ color: 'var(--gold)' }}>disabled</span>}
         </div>
@@ -1075,7 +1079,7 @@ function ContentRow({ entry, isBusy, selected, onSelect, onToggle, onDelete }: {
             width: 36, height: 20, flexShrink: 0,
             background: entry.enabled ? color : 'var(--surface-3)',
             border: `1px solid ${entry.enabled ? color : 'var(--border-r)'}`,
-            borderRadius: 10,
+            borderRadius: 'var(--radius-lg)',
             cursor: 'pointer',
             position: 'relative',
             transition: 'background 150ms',
@@ -1098,37 +1102,34 @@ function ContentRow({ entry, isBusy, selected, onSelect, onToggle, onDelete }: {
       {/* Delete */}
       {confirmDelete ? (
         <div style={{ display: 'flex', gap: 4 }}>
-          <button
+          <Button
+            variant="danger"
+            size="sm"
             onClick={() => { setConfirmDelete(false); onDelete() }}
             disabled={isBusy}
-            style={{
-              fontSize: 11, color: '#fff',
-              background: 'var(--lava)', border: 'none',
-              borderRadius: 3, padding: '2px 8px', cursor: 'pointer',
-            }}
+            style={{ fontSize: 11, padding: '2px 8px' }}
           >
             Delete
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => setConfirmDelete(false)}
-            style={{
-              fontSize: 11, color: 'var(--ink-3)',
-              background: 'var(--surface-2)', border: '1px solid var(--border-r)',
-              borderRadius: 3, padding: '2px 8px', cursor: 'pointer',
-            }}
+            style={{ fontSize: 11, padding: '2px 8px' }}
           >
             Cancel
-          </button>
+          </Button>
         </div>
       ) : (
-        <button
+        <Button
+          variant="danger"
+          size="icon"
           onClick={() => setConfirmDelete(true)}
           disabled={isBusy}
           title="Delete"
           style={{
             width: 24, height: 24, flexShrink: 0,
             background: 'none', border: '1px solid transparent',
-            borderRadius: 3, cursor: 'pointer',
             color: 'var(--ink-4)',
             fontSize: 14, lineHeight: 1,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1145,7 +1146,7 @@ function ContentRow({ entry, isBusy, selected, onSelect, onToggle, onDelete }: {
           }}
         >
           ✕
-        </button>
+        </Button>
       )}
     </div>
   )
@@ -1153,7 +1154,7 @@ function ContentRow({ entry, isBusy, selected, onSelect, onToggle, onDelete }: {
 
 function TypeIcon({ type, color }: { type: ContentType; color: string }) {
   if (type === 'mod') {
-    return <div style={{ width: 14, height: 14, background: color, borderRadius: 2 }} />
+    return <div style={{ width: 14, height: 14, background: color, borderRadius: 'var(--radius-sm)' }} />
   }
   if (type === 'resourcepack') {
     return (
@@ -1211,7 +1212,7 @@ function PlaytimeChart({ log }: { log: Record<string, number> }) {
               width: '100%', minHeight: 2,
               height: `${Math.max(2, (d.mins / max) * 24)}px`,
               background: d.isToday ? 'var(--accent)' : d.mins > 0 ? 'var(--surface-3)' : 'var(--surface-2)',
-              borderRadius: 2,
+              borderRadius: 'var(--radius-sm)',
             }}
           />
           <div style={{ fontSize: 8, color: 'var(--ink-4)' }}>{d.label.slice(0, 2).toUpperCase()}</div>

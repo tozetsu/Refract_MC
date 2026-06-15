@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { api, type SafeAccount } from '@/lib/api'
 import { SkinViewer3DLazy as SkinViewer3D } from '@/components/ui/SkinViewer3DLazy'
+import { Button } from '@/components/ui/Button'
 import { useT } from '@/i18n'
 
 export const Route = createFileRoute('/skins/')({ component: SkinsPage })
@@ -116,7 +117,7 @@ function SkinsPage_() {
       }}>
         {/* Header */}
         <div style={{ padding: '16px 14px 10px', borderBottom: '1px solid var(--line)' }}>
-          <div style={{ fontFamily: "'VT323',monospace", fontSize: 16, letterSpacing: '.1em', color: 'var(--ink)' }}>{t.skins.mySkins}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink)' }}>{t.skins.mySkins}</div>
         </div>
 
         {/* List */}
@@ -151,19 +152,14 @@ function SkinsPage_() {
 
         {/* Add skin button */}
         <div style={{ padding: 10, borderTop: '1px solid var(--line)' }}>
-          <button
+          <Button
+            variant="primary"
             onClick={handleBrowse}
-            style={{
-              width: '100%', height: 36,
-              background: 'var(--accent)', color: '#fff',
-              border: 'none', borderRadius: 6, cursor: 'pointer',
-              fontWeight: 700, fontSize: 13,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            }}
+            style={{ width: '100%', height: 36 }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
             {t.skins.addSkin}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -173,45 +169,45 @@ function SkinsPage_() {
         {newPath ? (
           /* ── New skin upload panel ── */
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, padding: 32 }}>
-            <div style={{ fontFamily: "'VT323',monospace", fontSize: 20, letterSpacing: '.1em', color: 'var(--ink)' }}>{t.skins.newSkin}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink)' }}>{t.skins.newSkin}</div>
             <div style={{ display: 'flex', gap: 40, alignItems: 'flex-start' }}>
               {/* 3D preview */}
-              <div style={{ background: 'var(--surface-2)', borderRadius: 12, padding: 16, border: '1px solid var(--border-r)' }}>
+              <div style={{ background: 'var(--surface-2)', borderRadius: 'var(--radius-lg)', padding: 16, border: '1px solid var(--border-r)' }}>
                 <SkinViewer3D skinUrl={newUrl} width={180} height={280} walk rotate />
               </div>
               {/* Form */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 240 }}>
                 <div>
-                  <label style={{ display: 'block', fontFamily: "'VT323',monospace", fontSize: 12, letterSpacing: '.12em', color: 'var(--ink-4)', marginBottom: 6 }}>{t.skins.skinName}</label>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 6 }}>{t.skins.skinName}</label>
                   <input
                     value={newName}
                     onChange={e => setNewName(e.target.value)}
-                    style={{ width: '100%', height: 36, background: 'var(--bg)', border: '1px solid var(--border-r)', borderRadius: 6, color: 'var(--ink)', padding: '0 12px', outline: 'none', fontSize: 14 }}
+                    style={{ width: '100%', height: 36, background: 'var(--bg)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-md)', color: 'var(--ink)', padding: '0 12px', outline: 'none', fontSize: 14 }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontFamily: "'VT323',monospace", fontSize: 12, letterSpacing: '.12em', color: 'var(--ink-4)', marginBottom: 6 }}>{t.skins.model}</label>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 6 }}>{t.skins.model}</label>
                   <div style={{ display: 'flex', gap: 8 }}>
                     {(['classic', 'slim'] as const).map(v => (
-                      <button key={v} onClick={() => setNewVariant(v)} style={{
+                      <Button key={v} variant="outline" onClick={() => setNewVariant(v)} style={{
                         flex: 1, height: 34, fontSize: 13, fontWeight: 600,
-                        background: newVariant === v ? 'var(--accent-tint)' : 'var(--surface-2)',
-                        color: newVariant === v ? 'var(--accent)' : 'var(--ink-3)',
-                        border: `1px solid ${newVariant === v ? 'var(--accent)' : 'var(--border-r)'}`,
-                        borderRadius: 6, cursor: 'pointer',
+                        borderRadius: 'var(--radius-md)',
+                        ...(newVariant === v
+                          ? { background: 'var(--accent-tint)', color: 'var(--accent)', borderColor: 'var(--accent)' }
+                          : { background: 'var(--surface-2)', color: 'var(--ink-3)' }),
                       }}>
                         {v === 'classic' ? t.skins.classic : t.skins.slim}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <button onClick={handleAdd} disabled={!newName.trim() || adding} style={{ flex: 1, height: 38, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14, opacity: adding ? .6 : 1 }}>
+                  <Button variant="primary" onClick={handleAdd} disabled={!newName.trim() || adding} style={{ flex: 1, height: 38 }}>
                     {adding ? t.skins.saving : t.skins.saveSkin}
-                  </button>
-                  <button onClick={() => { setNewPath(null); setNewUrl(null); setNewName('') }} style={{ height: 38, padding: '0 16px', background: 'var(--surface-2)', color: 'var(--ink-3)', border: '1px solid var(--border-r)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+                  </Button>
+                  <Button variant="secondary" onClick={() => { setNewPath(null); setNewUrl(null); setNewName('') }} style={{ height: 38 }}>
                     {t.skins.cancel}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -220,7 +216,7 @@ function SkinsPage_() {
           /* ── Selected skin viewer ── */
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0, padding: '24px 32px' }}>
             {/* 3D viewer */}
-            <div style={{ background: 'linear-gradient(180deg, var(--surface-2) 0%, var(--bg) 100%)', borderRadius: 16, padding: 20, border: '1px solid var(--border-r)', marginBottom: 24 }}>
+            <div style={{ background: 'linear-gradient(180deg, var(--surface-2) 0%, var(--bg) 100%)', borderRadius: 'var(--radius-xl)', padding: 20, border: '1px solid var(--border-r)', marginBottom: 24 }}>
               <SkinViewer3D skinUrl={skinUrl} width={200} height={320} walk rotate />
             </div>
 
@@ -235,28 +231,26 @@ function SkinsPage_() {
             {/* Actions */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 400 }}>
               {msAccount && (
-                <button
+                <Button
+                  variant="primary"
                   onClick={handleApply}
                   disabled={applying || msAccount.type !== 'microsoft'}
                   style={{
                     height: 42, padding: '0 24px',
-                    background: msAccount.type === 'microsoft' ? 'var(--accent)' : 'var(--surface-3)',
-                    color: msAccount.type === 'microsoft' ? '#fff' : 'var(--ink-4)',
-                    border: 'none', borderRadius: 8, cursor: msAccount.type === 'microsoft' ? 'pointer' : 'not-allowed',
-                    fontWeight: 700, fontSize: 14,
-                    boxShadow: msAccount.type === 'microsoft' ? '0 4px 14px var(--accent-tint)' : 'none',
-                    opacity: applying ? .6 : 1,
+                    fontSize: 14,
+                    boxShadow: msAccount.type === 'microsoft' ? 'var(--shadow-card)' : 'none',
                   }}
                 >
                   {applying ? t.skins.applying : msAccount.type === 'microsoft' ? t.skins.useSkinAs(msAccount.username) : t.skins.microsoftRequired}
-                </button>
+                </Button>
               )}
-              <button
+              <Button
+                variant="danger"
                 onClick={() => handleDelete(selected.id)}
-                style={{ height: 42, padding: '0 18px', background: 'transparent', color: 'var(--lava)', border: '1px solid rgba(217,59,59,.4)', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
+                style={{ height: 42, padding: '0 18px', fontSize: 13 }}
               >
                 {t.skins.delete}
-              </button>
+              </Button>
             </div>
 
             {msg && (
@@ -302,7 +296,7 @@ function SkinListItem({ skin, selected, onSelect, onDelete, renaming, renameVal,
       onMouseLeave={() => setHover(false)}
       style={{
         display: 'flex', alignItems: 'center', gap: 10,
-        padding: '8px 10px', borderRadius: 8, marginBottom: 2,
+        padding: '8px 10px', borderRadius: 'var(--radius-md)', marginBottom: 2,
         background: selected ? 'var(--accent-tint)' : hover ? 'var(--surface-2)' : 'transparent',
         border: `1px solid ${selected ? 'var(--accent)' : 'transparent'}`,
         cursor: 'pointer', transition: 'background 100ms',
@@ -316,11 +310,11 @@ function SkinListItem({ skin, selected, onSelect, onDelete, renaming, renameVal,
           backgroundSize: '256px 256px',
           backgroundPosition: '-32px -32px',
           imageRendering: 'pixelated',
-          borderRadius: 3,
+          borderRadius: 'var(--radius-sm)',
         }} />
       ) : (
         <div style={{
-          width: 32, height: 32, flexShrink: 0, borderRadius: 4, overflow: 'hidden',
+          width: 32, height: 32, flexShrink: 0, borderRadius: 'var(--radius-sm)', overflow: 'hidden',
           background: 'var(--surface-3)', border: '1px solid var(--border-r)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: selected ? 'var(--accent)' : 'var(--ink-4)', fontSize: 16,
@@ -344,7 +338,7 @@ function SkinListItem({ skin, selected, onSelect, onDelete, renaming, renameVal,
             onBlur={onRenameCommit}
             onKeyDown={e => { if (e.key === 'Enter') onRenameCommit(); if (e.key === 'Escape') onRenameChange('') }}
             onClick={e => e.stopPropagation()}
-            style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--accent)', borderRadius: 4, color: 'var(--ink)', padding: '2px 6px', outline: 'none', fontSize: 13 }}
+            style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--accent)', borderRadius: 'var(--radius-sm)', color: 'var(--ink)', padding: '2px 6px', outline: 'none', fontSize: 13 }}
           />
         ) : (
           <div
@@ -361,14 +355,16 @@ function SkinListItem({ skin, selected, onSelect, onDelete, renaming, renameVal,
 
       {/* Delete on hover */}
       {hover && !renaming && (
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={e => { e.stopPropagation(); onDelete() }}
-          style={{ width: 22, height: 22, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, flexShrink: 0 }}
+          style={{ width: 22, height: 22, padding: 0, color: 'var(--ink-4)', borderRadius: 'var(--radius-sm)', flexShrink: 0 }}
           onMouseEnter={e => (e.currentTarget.style.color = 'var(--lava)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--ink-4)')}
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
-        </button>
+        </Button>
       )}
     </div>
   )

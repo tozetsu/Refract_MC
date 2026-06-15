@@ -23,11 +23,11 @@ export function StatusBar() {
       borderTop: '1px solid var(--sb-line)',
       display: 'flex', alignItems: 'center',
       padding: '0 14px',
-      gap: 18,
-      fontFamily: "'VT323',monospace",
-      fontSize: 15,
+      gap: 14,
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+      fontSize: 12,
       color: 'var(--ink-4)',
-      letterSpacing: '.04em',
+      letterSpacing: '.01em',
       userSelect: 'none',
       flexShrink: 0,
     }}>
@@ -37,20 +37,20 @@ export function StatusBar() {
       <Dot color="var(--grass)" />
       <span style={{ color: 'var(--ink-3)' }}>{ping} MS</span>
 
-      <Dot color="#e8c84a" />
+      <Dot color="var(--gold)" />
       <span style={{ color: 'var(--ink-3)' }}>{mem} MB</span>
 
       <span style={{ color: 'var(--ink-4)' }}>JAVA 21</span>
 
       <div style={{ flex: 1 }} />
 
-      <span style={{ color: 'var(--ink-4)', fontSize: 13 }}>Refract v{__APP_VERSION__}</span>
+      <span style={{ color: 'var(--ink-4)', fontSize: 11 }}>Refract v{__APP_VERSION__}</span>
     </footer>
   )
 }
 
 function Dot({ color }: { color: string }) {
   return (
-    <div style={{ width: 6, height: 6, background: color, flexShrink: 0 }} />
+    <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
   )
 }

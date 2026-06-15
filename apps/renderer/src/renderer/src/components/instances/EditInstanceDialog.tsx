@@ -4,6 +4,7 @@ import type React from 'react'
 import type { Instance, ModLoader, JavaInstallation } from '@refract/core'
 import { compressImage } from '@/lib/image'
 import { McVersionSelect } from './McVersionSelect'
+import { Button } from '@/components/ui/Button'
 import { api } from '@/lib/api'
 import { useT } from '@/i18n'
 
@@ -180,7 +181,7 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
             <IrisLogo />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
               <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1, color: 'var(--ink)' }}>{t.editInst.title}</h2>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, letterSpacing: '.08em', color: 'var(--ink-3)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', color: 'var(--ink-3)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {displayName}
               </span>
             </div>
@@ -196,13 +197,13 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
 
             {/* Left: live preview */}
             <aside className="ni-preview" style={{ padding: '22px 20px', background: 'var(--surface-2)', borderRight: '1px solid var(--border-r)', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
                 Live Preview
               </div>
 
               {/* Preview card — clickable to pick image */}
               <div
-                style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 10px 30px -18px rgba(0,0,0,.5)', cursor: 'pointer' }}
+                style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', boxShadow: 'var(--shadow-card)', cursor: 'pointer' }}
                 onClick={() => fileInputRef.current?.click()}
                 onMouseEnter={() => setPreviewHover(true)}
                 onMouseLeave={() => setPreviewHover(false)}
@@ -230,7 +231,7 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
                     opacity: previewHover ? 1 : 0,
                     transition: 'opacity .14s',
                   }}>
-                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: '.1em', color: '#fff', textTransform: 'uppercase' }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', color: '#fff', textTransform: 'uppercase' }}>
                       {coverImage || instance?.iconPath ? 'Change' : 'Set Image'}
                     </div>
                     <div style={{ fontSize: 10, color: 'rgba(255,255,255,.6)' }}>click to browse</div>
@@ -240,13 +241,13 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
                 {/* Card body */}
                 <div style={{ padding: '13px 14px 15px', display: 'flex', flexDirection: 'column', gap: 9 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: 'var(--ink-3)', letterSpacing: '.02em' }}>Minecraft {mcVersion}</div>
+                  <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11.5, color: 'var(--ink-3)', letterSpacing: '.02em' }}>Minecraft {mcVersion}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ni-p-deep, var(--accent-hi))', background: 'var(--ni-p-tint, var(--accent-tint))', border: '1px solid var(--ni-p-tint-2, var(--accent-tint))', borderRadius: 6, padding: '3px 8px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 10.5, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ni-p-deep, var(--accent-hi))', background: 'var(--ni-p-tint, var(--accent-tint))', border: '1px solid var(--ni-p-tint-2, var(--accent-tint))', borderRadius: 'var(--radius-sm)', padding: '3px 8px' }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
                       {loaderLabel}
                     </span>
-                    <span style={{ marginLeft: 'auto', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--ink-3)', border: '1px solid var(--border-r)', borderRadius: 6, padding: '3px 8px', background: 'var(--bg)' }}>
+                    <span style={{ marginLeft: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: 'var(--ink-3)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', padding: '3px 8px', background: 'var(--bg)' }}>
                       {memGB} GB
                     </span>
                   </div>
@@ -261,7 +262,7 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
 
               {/* Name */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label htmlFor={nameId} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                <label htmlFor={nameId} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
                   {t.editInst.name}
                 </label>
                 <input
@@ -279,7 +280,7 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
               {/* Minecraft version */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <label htmlFor={verId} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                  <label htmlFor={verId} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
                     {t.editInst.mcVersion}
                   </label>
                   <label className="ni-check">
@@ -307,7 +308,7 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
 
               {/* Mod loader */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
                   {t.editInst.modLoader}
                 </label>
                 <div className="ni-seg">
@@ -329,7 +330,7 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
               {/* Loader version picker — Fabric / Quilt / Forge / NeoForge */}
               {(modLoader === 'fabric' || modLoader === 'quilt' || modLoader === 'forge' || modLoader === 'neoforge') && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
                     {modLoader === 'neoforge' ? 'NeoForge' : modLoader === 'fabric' ? 'Fabric' : modLoader === 'quilt' ? 'Quilt' : 'Forge'} version
                   </label>
                   <div style={{ position: 'relative' }}>
@@ -356,10 +357,10 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
               {/* Memory */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
                     {t.editInst.memory(String(memGB))}
                   </label>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'var(--ni-p-deep, var(--accent-hi))', fontWeight: 600 }}>{memGB} GB allocated</span>
+                  <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, color: 'var(--ni-p-deep, var(--accent-hi))', fontWeight: 600 }}>{memGB} GB allocated</span>
                 </div>
                 <input
                   className="ni-slider"
@@ -379,7 +380,7 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
 
               {/* Group */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label htmlFor={grpId} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                <label htmlFor={grpId} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
                   {t.editInst.group}
                 </label>
                 <input
@@ -395,7 +396,7 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
 
               {/* Java override */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label htmlFor={javaId} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                <label htmlFor={javaId} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
                   {t.editInst.javaOverride}
                 </label>
                 <div style={{ position: 'relative' }}>
@@ -420,7 +421,7 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
 
               {/* JVM args */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label htmlFor={argsId} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                <label htmlFor={argsId} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
                   {t.editInst.jvmArgs}
                 </label>
                 <input
@@ -434,19 +435,19 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
                   spellCheck={false}
                 />
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 10, color: 'var(--ink-4)', alignSelf: 'center', flexShrink: 0, letterSpacing: '.06em', fontFamily: "'JetBrains Mono', monospace" }}>PRESETS:</span>
+                  <span style={{ fontSize: 10, color: 'var(--ink-4)', alignSelf: 'center', flexShrink: 0, letterSpacing: '.10em', fontWeight: 600 }}>PRESETS:</span>
                   {[
                     { label: "Aikar's", args: '-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M -XX:+DisableExplicitGC -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1' },
                     { label: 'Low-end', args: '-XX:+UseSerialGC -XX:TieredStopAtLevel=1' },
                   ].map(p => (
-                    <button key={p.label} type="button" onClick={() => setJavaArgs(p.args)} style={{ fontSize: 10, padding: '2px 8px', background: 'var(--surface-3)', color: 'var(--ink-3)', border: '1px solid var(--border-r)', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>
+                    <Button key={p.label} variant="secondary" size="sm" type="button" onClick={() => setJavaArgs(p.args)} style={{ fontSize: 10, padding: '2px 8px', height: 'auto', borderRadius: 'var(--radius-sm)', fontWeight: 600 }}>
                       {p.label}
-                    </button>
+                    </Button>
                   ))}
                   {javaArgs && (
-                    <button type="button" onClick={() => setJavaArgs('')} style={{ fontSize: 10, padding: '2px 8px', background: 'none', color: 'var(--ink-4)', border: '1px solid var(--border-r)', borderRadius: 6, cursor: 'pointer' }}>
+                    <Button variant="outline" size="sm" type="button" onClick={() => setJavaArgs('')} style={{ fontSize: 10, padding: '2px 8px', height: 'auto', background: 'none', color: 'var(--ink-4)', borderRadius: 'var(--radius-sm)' }}>
                       Clear
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -469,23 +470,21 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 22px', borderTop: '1px solid var(--border-r)', background: 'var(--surface-2)', flexShrink: 0 }}>
             {/* Danger actions */}
             {onDelete && (
-              <button
+              <Button
+                variant="danger"
                 type="button"
                 onClick={handleDelete}
                 disabled={loading}
                 style={{
-                  height: 42, padding: '0 14px', borderRadius: 10,
+                  height: 42, padding: '0 14px', borderRadius: 'var(--radius-lg)',
                   background: confirmDelete ? 'rgba(217,59,59,.25)' : 'rgba(217,59,59,.15)',
                   color: 'var(--lava, #d93b3b)',
                   border: confirmDelete ? '1px solid rgba(217,59,59,.7)' : '1px solid rgba(217,59,59,.5)',
-                  cursor: loading ? 'not-allowed' : 'pointer',
                   fontSize: 13, fontWeight: 700, flexShrink: 0,
-                  transition: 'background .15s, border-color .15s',
-                  fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif",
                 }}
               >
                 {confirmDelete ? t.editInst.confirmDelete : t.editInst.delete}
-              </button>
+              </Button>
             )}
             {onRepair && instance?.isInstalled && (
               <button

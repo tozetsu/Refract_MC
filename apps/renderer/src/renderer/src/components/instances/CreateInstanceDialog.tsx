@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import type React from 'react'
 import type { ModLoader } from '@refract/core'
 import { McVersionSelect } from './McVersionSelect'
+import { Button } from '@/components/ui/Button'
 import { api } from '@/lib/api'
 import { useT } from '@/i18n'
 
@@ -162,7 +163,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
             <IrisLogo />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
               <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1, color: 'var(--ink)' }}>New Instance</h2>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, letterSpacing: '.08em', color: 'var(--ink-3)', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', color: 'var(--ink-3)', textTransform: 'uppercase' }}>
                 Set it up · launch in seconds
               </span>
             </div>
@@ -178,12 +179,12 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
 
             {/* Left: live preview */}
             <aside className="ni-preview" style={{ padding: '22px 20px', background: 'var(--surface-2)', borderRight: '1px solid var(--border-r)', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-4)' }}>
                 Live Preview
               </div>
 
               {/* Preview card */}
-              <div style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 10px 30px -18px rgba(0,0,0,.5)' }}>
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', boxShadow: 'var(--shadow-card)' }}>
                 {/* Thumbnail: pixel skyline */}
                 <div style={{ height: 128, position: 'relative', overflow: 'hidden', background: 'linear-gradient(var(--sky-1, #3a2a66), var(--sky-2, #5a3fa6))' }}>
                   {/* Stars */}
@@ -198,13 +199,13 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
                 {/* Card body */}
                 <div style={{ padding: '13px 14px 15px', display: 'flex', flexDirection: 'column', gap: 9 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, color: 'var(--ink-3)', letterSpacing: '.02em' }}>Minecraft {mcVersion}</div>
+                  <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11.5, color: 'var(--ink-3)', letterSpacing: '.02em' }}>Minecraft {mcVersion}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ni-p-deep, var(--accent-hi))', background: 'var(--ni-p-tint, var(--accent-tint))', border: '1px solid var(--ni-p-tint-2, var(--accent-tint))', borderRadius: 6, padding: '3px 8px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 10.5, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ni-p-deep, var(--accent-hi))', background: 'var(--ni-p-tint, var(--accent-tint))', border: '1px solid var(--ni-p-tint-2, var(--accent-tint))', borderRadius: 'var(--radius-sm)', padding: '3px 8px' }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
                       {loaderLabel}
                     </span>
-                    <span style={{ marginLeft: 'auto', fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--ink-3)', border: '1px solid var(--border-r)', borderRadius: 6, padding: '3px 8px', background: 'var(--bg)' }}>
+                    <span style={{ marginLeft: 'auto', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: 'var(--ink-3)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', padding: '3px 8px', background: 'var(--bg)' }}>
                       {memGB} GB
                     </span>
                   </div>
@@ -221,28 +222,29 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
 
               {/* Templates */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>Start from template</label>
+                <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>Start from template</label>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {TEMPLATES.map(tpl => (
-                    <button
+                    <Button
                       key={tpl.id}
+                      variant="outline"
+                      size="sm"
                       type="button"
                       title={tpl.desc}
                       onClick={() => applyTemplate(tpl)}
                       className="glow-hover"
                       style={{
                         display: 'flex', alignItems: 'center', gap: 5,
-                        padding: '5px 10px', borderRadius: 8, cursor: 'pointer',
+                        padding: '5px 10px', borderRadius: 'var(--radius-md)',
                         fontSize: 12, fontWeight: 600,
                         background: activeTemplate === tpl.id ? 'var(--ni-p-tint, var(--accent-tint))' : 'var(--bg)',
-                        border: `1px solid ${activeTemplate === tpl.id ? 'var(--accent)' : 'var(--border-r)'}`,
+                        borderColor: activeTemplate === tpl.id ? 'var(--accent)' : 'var(--border-r)',
                         color: activeTemplate === tpl.id ? 'var(--ni-p-deep, var(--accent))' : 'var(--ink-3)',
-                        transition: 'border-color 120ms, background 120ms',
                       }}
                     >
                       <span>{tpl.emoji}</span>
                       {tpl.label}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>
@@ -250,7 +252,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
               {/* Name */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <label htmlFor={nameId} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>Instance name</label>
+                  <label htmlFor={nameId} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>Instance name</label>
                 </div>
                 <input id={nameId} className="ni-input" type="text" value={name} onChange={e => setName(e.target.value)} placeholder="My Instance" autoFocus autoComplete="off" spellCheck={false} />
               </div>
@@ -258,7 +260,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
               {/* Version */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <label htmlFor={verId} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>Minecraft version</label>
+                  <label htmlFor={verId} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>Minecraft version</label>
                   <label className="ni-check">
                     <input className="ni-check-input" type="checkbox" checked={showSnapshots} onChange={e => setSnap(e.target.checked)} />
                     <span className="ni-checkmark-box">
@@ -284,7 +286,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
 
               {/* Mod loader */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>Mod loader</label>
+                <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>Mod loader</label>
                 <div className="ni-seg">
                   {LOADERS.map(l => (
                     <button
@@ -304,7 +306,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
               {/* Loader version picker — Fabric / Quilt / Forge / NeoForge */}
               {(modLoader === 'fabric' || modLoader === 'quilt' || modLoader === 'forge' || modLoader === 'neoforge') && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
                     {modLoader === 'neoforge' ? 'NeoForge' : modLoader === 'fabric' ? 'Fabric' : modLoader === 'quilt' ? 'Quilt' : 'Forge'} version
                   </label>
                   <div style={{ position: 'relative' }}>
@@ -331,8 +333,8 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
               {/* Memory */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                  <label style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>Memory</label>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: 'var(--ni-p-deep, var(--accent-hi))', fontWeight: 600 }}>{memGB} GB allocated</span>
+                  <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>Memory</label>
+                  <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, color: 'var(--ni-p-deep, var(--accent-hi))', fontWeight: 600 }}>{memGB} GB allocated</span>
                 </div>
                 <input
                   className="ni-slider"
@@ -352,8 +354,8 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
 
               {/* Group */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label htmlFor={grpId} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 500, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
-                  Group{' '}<span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink-4)', fontFamily: 'inherit' }}>(optional)</span>
+                <label htmlFor={grpId} style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                  Group{' '}<span style={{ textTransform: 'none', letterSpacing: 0, color: 'var(--ink-4)', fontWeight: 500 }}>(optional)</span>
                 </label>
                 <input id={grpId} className="ni-input" type="text" value={groupId} onChange={e => setGroupId(e.target.value)} placeholder="e.g. Modded, Vanilla, Survival…" autoComplete="off" />
               </div>

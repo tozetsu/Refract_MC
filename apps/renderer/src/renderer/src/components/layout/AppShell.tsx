@@ -22,26 +22,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <TitleBar />
       <Sidebar />
       <div style={{ gridRow:'2/3', gridColumn:'2/3', display:'flex', flexDirection:'column', minHeight:0, minWidth:0, overflow:'hidden', background:'var(--bg)', position:'relative' }}>
-        {/* Animated ambient background */}
-        <div aria-hidden style={{
-          position:'absolute', inset:0, zIndex:0, pointerEvents:'none', overflow:'hidden',
-        }}>
-          <div style={{
-            position:'absolute', width:'60%', height:'60%', borderRadius:'50%',
-            background:'radial-gradient(ellipse, color-mix(in srgb, var(--accent) 8%, transparent), transparent 70%)',
-            top:'-10%', right:'5%',
-            animation:'ambient-1 18s ease-in-out infinite alternate',
-          }} />
-          <div style={{
-            position:'absolute', width:'50%', height:'50%', borderRadius:'50%',
-            background:'radial-gradient(ellipse, color-mix(in srgb, var(--accent) 5%, transparent), transparent 70%)',
-            bottom:'0%', left:'10%',
-            animation:'ambient-2 24s ease-in-out infinite alternate',
-          }} />
-        </div>
         <div
           key={pathname}
-          style={{ flex:1, minHeight:0, overflowY:'auto', overflowX:'hidden', padding:'24px 28px 28px', position:'relative', zIndex:1, animation:'page-enter 240ms cubic-bezier(.22,1,.36,1) both' }}
+          style={{ flex:1, minHeight:0, overflowY:'auto', overflowX:'hidden', padding:'24px 28px 28px', position:'relative', zIndex:1, animation:'page-enter 160ms ease-out both' }}
         >
           {children}
         </div>

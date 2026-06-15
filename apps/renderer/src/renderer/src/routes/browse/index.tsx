@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import type React from 'react'
 import { SearchIcon } from '@/components/ui/BlockIcons'
+import { Button } from '@/components/ui/Button'
 import { api } from '@/lib/api'
 import { htmlToText } from '@/lib/sanitize'
 import type { ModrinthProject, ModrinthVersion, ModrinthSortIndex, Instance, CFProject, CFFile, CFProjectDetail } from '@refract/core'
@@ -116,46 +117,48 @@ function InstanceDropdown({ instances, value, onChange }: {
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <button onClick={() => setOpen(o => !o)} style={{
-        display: 'flex', alignItems: 'center', gap: 6,
-        fontSize: 12, fontWeight: 600,
+      <Button variant={value ? 'outline' : 'secondary'} onClick={() => setOpen(o => !o)} style={{
+        gap: 6,
+        fontSize: 12,
         color: value ? 'var(--ink)' : 'var(--ink-4)',
         background: value ? 'var(--accent-tint)' : 'var(--surface)',
         border: `1px solid ${value ? 'var(--accent)' : 'var(--border-r)'}`,
-        borderRadius: 3, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
+        borderRadius: 'var(--radius-sm)', padding: '4px 10px', whiteSpace: 'nowrap',
       }}>
         {value
           ? <><span style={{ color: 'var(--ink-4)', fontSize: 10, fontWeight: 400 }}>instance:</span> {value.name}</>
           : 'Check against instance…'}
         <span style={{ fontSize: 9, opacity: .7 }}>{open ? '▲' : '▼'}</span>
-      </button>
+      </Button>
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 40,
           background: 'var(--surface)', border: '1px solid var(--border-r)',
-          borderRadius: 'var(--radius)', boxShadow: '0 8px 24px rgba(0,0,0,.5)',
+          borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-raised)',
           minWidth: 220, maxHeight: 260, overflowY: 'auto', display: 'flex', flexDirection: 'column',
         }}>
-          <button onClick={() => { onChange(null); setOpen(false) }} style={{
-            padding: '8px 14px', textAlign: 'left', border: 'none', borderBottom: '1px solid var(--line)',
-            fontSize: 12, color: !value ? 'var(--accent)' : 'var(--ink-3)',
-            background: !value ? 'var(--accent-tint)' : 'transparent', cursor: 'pointer',
+          <Button variant="ghost" onClick={() => { onChange(null); setOpen(false) }} style={{
+            width: '100%', justifyContent: 'flex-start',
+            padding: '8px 14px', textAlign: 'left', borderRadius: 0, borderBottom: '1px solid var(--line)',
+            fontSize: 12, fontWeight: 500, color: !value ? 'var(--accent)' : 'var(--ink-3)',
+            background: !value ? 'var(--accent-tint)' : 'transparent',
           }}>
             None (show all)
-          </button>
+          </Button>
           {instances.map(inst => (
-            <button key={inst.id} onClick={() => { onChange(inst); setOpen(false) }} style={{
-              padding: '8px 14px', textAlign: 'left', border: 'none',
+            <Button variant="ghost" key={inst.id} onClick={() => { onChange(inst); setOpen(false) }} style={{
+              width: '100%', justifyContent: 'flex-start',
+              padding: '8px 14px', textAlign: 'left', borderRadius: 0,
               fontSize: 12, fontWeight: 500,
               color: value?.id === inst.id ? 'var(--accent)' : 'var(--ink-2)',
               background: value?.id === inst.id ? 'var(--accent-tint)' : 'transparent',
-              cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 2,
+              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2,
             }}>
               <span>{inst.name}</span>
-              <span style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: "'VT323',monospace", letterSpacing: '.06em' }}>
+              <span style={{ fontSize: 10, color: 'var(--ink-4)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', letterSpacing: '.04em' }}>
                 MC {inst.minecraftVersion} · {inst.modLoader?.toUpperCase() ?? 'VANILLA'}
               </span>
-            </button>
+            </Button>
           ))}
         </div>
       )}
@@ -179,30 +182,30 @@ function SortDropdown({ value, onChange }: { value: string; onChange: (v: string
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <button onClick={() => setOpen(o => !o)} style={{
-        display: 'flex', alignItems: 'center', gap: 6,
-        fontSize: 12, fontWeight: 600, color: 'var(--ink)',
+      <Button variant="secondary" onClick={() => setOpen(o => !o)} style={{
+        gap: 6,
+        fontSize: 12, color: 'var(--ink)',
         background: 'var(--surface)', border: '1px solid var(--border-r)',
-        borderRadius: 3, padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
+        borderRadius: 'var(--radius-sm)', padding: '4px 10px', whiteSpace: 'nowrap',
       }}>
         {current.label}
         <span style={{ fontSize: 9, opacity: .7 }}>{open ? '▲' : '▼'}</span>
-      </button>
+      </Button>
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 40,
           background: 'var(--surface)', border: '1px solid var(--border-r)',
-          borderRadius: 'var(--radius)', boxShadow: '0 8px 24px rgba(0,0,0,.5)',
+          borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-raised)',
           minWidth: 180, display: 'flex', flexDirection: 'column',
         }}>
           {SORT_OPTIONS.map(opt => (
-            <button key={opt.value} onClick={() => { onChange(opt.value); setOpen(false) }} style={{
-              padding: '8px 14px', textAlign: 'left', border: 'none',
+            <Button variant="ghost" key={opt.value} onClick={() => { onChange(opt.value); setOpen(false) }} style={{
+              width: '100%', justifyContent: 'flex-start',
+              padding: '8px 14px', textAlign: 'left', borderRadius: 0,
               fontSize: 12, fontWeight: 500,
               color: value === opt.value ? 'var(--accent)' : 'var(--ink-2)',
               background: value === opt.value ? 'var(--accent-tint)' : 'transparent',
-              cursor: 'pointer',
-            }}>{opt.label}</button>
+            }}>{opt.label}</Button>
           ))}
         </div>
       )}
@@ -239,58 +242,63 @@ function VersionDropdown({ value, onChange }: { value: string | null; onChange: 
   const active = value !== null
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <button
+      <Button
+        variant={active ? 'outline' : 'secondary'}
         onClick={toggle}
         style={{
-          display: 'flex', alignItems: 'center', gap: 5,
+          gap: 5,
           fontWeight: 500,
-          fontSize: active ? 13 : 11,
-          fontFamily: active ? "'VT323',monospace" : 'inherit',
+          fontSize: active ? 12 : 11,
+          fontFamily: active ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit',
           letterSpacing: active ? '.04em' : 'inherit',
           color: active ? 'var(--diamond)' : 'var(--ink-4)',
           background: active ? 'rgba(79,184,232,.12)' : 'var(--surface)',
           border: `1px solid ${active ? 'var(--diamond)' : 'var(--border-r)'}`,
-          borderRadius: 3, padding: '3px 10px', cursor: 'pointer',
+          borderRadius: 'var(--radius-sm)', padding: '3px 10px',
         } as React.CSSProperties}
       >
         {active ? `MC ${value}` : t.browse.allVersions}
         <span style={{ fontSize: 9, opacity: 0.7, marginLeft: 2 }}>{open ? '▲' : '▼'}</span>
-      </button>
+      </Button>
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 40,
           background: 'var(--surface)', border: '1px solid var(--border-r)',
-          borderRadius: 'var(--radius)', boxShadow: '0 8px 24px rgba(0,0,0,.5)',
+          borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-raised)',
           width: 140, maxHeight: 260, overflowY: 'auto', display: 'flex', flexDirection: 'column',
         }}>
-          <button
+          <Button
+            variant="ghost"
             onClick={() => { onChange(null); setOpen(false) }}
             style={{
-              padding: '7px 12px', textAlign: 'left', fontSize: 12,
+              width: '100%', justifyContent: 'flex-start',
+              padding: '7px 12px', textAlign: 'left', fontSize: 12, fontWeight: 500,
               color: value === null ? 'var(--accent)' : 'var(--ink-3)',
               background: value === null ? 'var(--accent-tint)' : 'transparent',
-              border: 'none', borderBottom: '1px solid var(--line)', cursor: 'pointer',
+              borderRadius: 0, borderBottom: '1px solid var(--line)',
             }}
           >
             {t.browse.allVersions}
-          </button>
+          </Button>
           {loading ? (
             <div style={{ padding: '12px', fontSize: 11, color: 'var(--ink-4)', textAlign: 'center' }}>{t.browse.loading}</div>
           ) : (
             versions.map(ver => (
-              <button
+              <Button
+                variant="ghost"
                 key={ver}
                 onClick={() => { onChange(ver); setOpen(false) }}
                 style={{
+                  width: '100%', justifyContent: 'flex-start',
                   padding: '6px 12px', textAlign: 'left',
-                  fontFamily: "'VT323',monospace", fontSize: 14, letterSpacing: '.04em',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, fontWeight: 500, letterSpacing: '.04em',
                   color: value === ver ? 'var(--diamond)' : 'var(--ink-2)',
                   background: value === ver ? 'rgba(79,184,232,.12)' : 'transparent',
-                  border: 'none', cursor: 'pointer',
+                  borderRadius: 0,
                 }}
               >
                 {ver}
-              </button>
+              </Button>
             ))
           )}
         </div>
@@ -330,16 +338,16 @@ function DepsModal({ target, onClose, onInstallAll, onSkipDeps }: {
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', width: 460, maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}
+        style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-lg)', width: 460, maxHeight: '70vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-floating)' }}
       >
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontFamily: "'VT323',monospace", fontSize: 17, color: 'var(--accent)', letterSpacing: '.1em' }}>REQUIRED DEPENDENCIES</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', letterSpacing: '.1em' }}>REQUIRED DEPENDENCIES</div>
             <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>
               Installing <strong style={{ color: 'var(--ink)' }}>{target.mainProjectName}</strong>
             </div>
           </div>
-          <button onClick={onClose} style={{ color: 'var(--ink-4)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>✕</button>
+          <Button variant="ghost" size="icon" onClick={onClose} style={{ color: 'var(--ink-4)', fontSize: 16 }}>✕</Button>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -349,7 +357,7 @@ function DepsModal({ target, onClose, onInstallAll, onSkipDeps }: {
                 Will be installed ({missing.length})
               </div>
               {missing.map(dep => (
-                <div key={dep.projectId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--accent-tint)', border: '1px solid var(--accent)', borderRadius: 3 }}>
+                <div key={dep.projectId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--accent-tint)', border: '1px solid var(--accent)', borderRadius: 'var(--radius-sm)' }}>
                   <div style={{ width: 6, height: 6, background: 'var(--accent)', flexShrink: 0 }} />
                   <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{dep.name}</span>
                 </div>
@@ -362,10 +370,10 @@ function DepsModal({ target, onClose, onInstallAll, onSkipDeps }: {
                 Already installed ({already.length})
               </div>
               {already.map(dep => (
-                <div key={dep.projectId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 3, opacity: 0.7 }}>
+                <div key={dep.projectId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', opacity: 0.7 }}>
                   <div style={{ width: 6, height: 6, background: 'var(--ink-4)', flexShrink: 0 }} />
                   <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{dep.name}</span>
-                  <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--grass)', border: '1px solid var(--grass)', borderRadius: 2, padding: '0 4px' }}>✓ installed</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--grass)', border: '1px solid var(--grass)', borderRadius: 'var(--radius-sm)', padding: '0 4px' }}>✓ installed</span>
                 </div>
               ))}
             </>
@@ -373,18 +381,20 @@ function DepsModal({ target, onClose, onInstallAll, onSkipDeps }: {
         </div>
 
         <div style={{ padding: '12px 18px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-          <button
+          <Button
+            variant="outline"
             onClick={onSkipDeps}
-            style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-3)', background: 'transparent', border: '1px solid var(--border-r)', borderRadius: 3, padding: '0 16px', height: 32, cursor: 'pointer' }}
+            style={{ fontSize: 12, color: 'var(--ink-3)', padding: '0 16px', height: 32 }}
           >
             Skip deps
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             onClick={onInstallAll}
-            style={{ fontFamily: "'VT323',monospace", fontSize: 18, letterSpacing: '.1em', color: '#fff', background: 'var(--accent)', border: 'none', cursor: 'pointer', padding: '0 24px', height: 36, boxShadow: 'inset 0 -3px 0 var(--accent-lo), inset 0 3px 0 var(--accent-hi)' }}
+            style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', padding: '0 24px', height: 36 }}
           >
             Install all {missing.length > 0 ? `(+${missing.length} dep${missing.length > 1 ? 's' : ''})` : ''}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -433,16 +443,16 @@ function InstallModal({ mod, instances, onClose, onInstall }: InstallModalProps)
       style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={onClose}
     >
-      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', width: 680, maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-lg)', width: 680, maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-floating)' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 12 }}>
           {mod.icon_url && (
             <img src={mod.icon_url} alt="" style={{ width: 32, height: 32, imageRendering: 'pixelated', border: '1px solid var(--border-r)' }} />
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: "'VT323',monospace", fontSize: 18, color: 'var(--accent)', letterSpacing: '.1em' }}>{t.browse.installMod}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)', letterSpacing: '.1em' }}>{t.browse.installMod}</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{mod.title}</div>
           </div>
-          <button onClick={onClose} style={{ color: 'var(--ink-4)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>✕</button>
+          <Button variant="ghost" size="icon" onClick={onClose} style={{ color: 'var(--ink-4)', fontSize: 16 }}>✕</Button>
         </div>
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -457,15 +467,15 @@ function InstallModal({ mod, instances, onClose, onInstall }: InstallModalProps)
                 const active = selectedInstance?.id === inst.id
                 const alreadyHas = inst.mods?.some(m => m.projectId === mod.project_id)
                 return (
-                  <button key={inst.id} onClick={() => setSelectedInstance(inst)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 4, background: active ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, cursor: 'pointer' }}>
+                  <Button variant="secondary" key={inst.id} onClick={() => setSelectedInstance(inst)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 4, background: active ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 'var(--radius-sm)' }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>{inst.name}</span>
-                      {alreadyHas && <span style={{ fontSize: 9, color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 2, padding: '0 3px', flexShrink: 0 }}>✓</span>}
+                      {alreadyHas && <span style={{ fontSize: 9, color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 'var(--radius-sm)', padding: '0 3px', flexShrink: 0 }}>✓</span>}
                     </div>
-                    <div style={{ fontFamily: "'VT323',monospace", fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>
+                    <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>
                       {inst.minecraftVersion} · {inst.modLoader?.toUpperCase() ?? 'VANILLA'}
                     </div>
-                  </button>
+                  </Button>
                 )
               })}
             </div>
@@ -475,7 +485,7 @@ function InstallModal({ mod, instances, onClose, onInstall }: InstallModalProps)
             <div style={{ padding: '10px 14px 6px', fontSize: 10, fontWeight: 600, letterSpacing: '.12em', color: 'var(--ink-4)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 6 }}>
               {t.browse.selectVersion}
               {selectedInstance && (
-                <span style={{ fontFamily: "'VT323',monospace", fontSize: 12, color: 'var(--ink-3)', letterSpacing: '.04em', textTransform: 'none', fontWeight: 400 }}>
+                <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: 'var(--ink-3)', letterSpacing: '.04em', textTransform: 'none', fontWeight: 400 }}>
                   {t.browse.forInstance(selectedInstance.minecraftVersion, selectedInstance.modLoader?.toUpperCase() ?? 'VANILLA')}
                 </span>
               )}
@@ -491,13 +501,13 @@ function InstallModal({ mod, instances, onClose, onInstall }: InstallModalProps)
                 const isSelected = selectedVersionId === v.id
                 const dimmed = compat === 'incompatible' && !isSelected
                 return (
-                  <button key={v.id} onClick={() => setSelectedVersionId(v.id)} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 4, background: isBest ? 'rgba(91,156,58,.12)' : isSelected ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${isBest ? 'var(--grass)' : isSelected ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, cursor: 'pointer', opacity: dimmed ? 0.45 : 1 }}>
+                  <Button variant="secondary" key={v.id} onClick={() => setSelectedVersionId(v.id)} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', textAlign: 'left', padding: '8px 10px', marginBottom: 4, background: isBest ? 'rgba(91,156,58,.12)' : isSelected ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${isBest ? 'var(--grass)' : isSelected ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 'var(--radius-sm)', opacity: dimmed ? 0.45 : 1 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{v.version_number}</span>
-                        {isBest && <span style={{ fontFamily: "'VT323',monospace", fontSize: 11, letterSpacing: '.06em', color: '#fff', background: 'var(--grass)', padding: '0 5px', borderRadius: 2 }}>{t.browse.recommended}</span>}
-                        {compat === 'partial' && !isBest && <span style={{ fontSize: 10, color: 'var(--gold)', border: '1px solid var(--gold)', borderRadius: 2, padding: '0 4px' }}>{t.browse.loaderMismatch}</span>}
-                        {compat === 'incompatible' && <span style={{ fontSize: 10, color: 'var(--redstone)', border: '1px solid var(--redstone)', borderRadius: 2, padding: '0 4px' }}>{t.browse.incompatible}</span>}
+                        {isBest && <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.06em', color: '#fff', background: 'var(--grass)', padding: '0 5px', borderRadius: 'var(--radius-sm)' }}>{t.browse.recommended}</span>}
+                        {compat === 'partial' && !isBest && <span style={{ fontSize: 10, color: 'var(--gold)', border: '1px solid var(--gold)', borderRadius: 'var(--radius-sm)', padding: '0 4px' }}>{t.browse.loaderMismatch}</span>}
+                        {compat === 'incompatible' && <span style={{ fontSize: 10, color: 'var(--redstone)', border: '1px solid var(--redstone)', borderRadius: 'var(--radius-sm)', padding: '0 4px' }}>{t.browse.incompatible}</span>}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 3, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <span>{v.game_versions.slice(0, 3).join(', ')}{v.game_versions.length > 3 ? '…' : ''}</span>
@@ -506,10 +516,10 @@ function InstallModal({ mod, instances, onClose, onInstall }: InstallModalProps)
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
-                      <div style={{ fontFamily: "'VT323',monospace", fontSize: 12, color: 'var(--ink-4)' }}>↓ {formatDownloads(v.downloads)}</div>
+                      <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: 'var(--ink-4)' }}>↓ {formatDownloads(v.downloads)}</div>
                       <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 2 }}>{formatDate(v.date_published)}</div>
                     </div>
-                  </button>
+                  </Button>
                 )
               })}
             </div>
@@ -522,17 +532,18 @@ function InstallModal({ mod, instances, onClose, onInstall }: InstallModalProps)
             {selectedInstance && !selectedVersionId && t.browse.selectVersionHint}
             {canInstall && t.browse.installingTo(selectedInstance!.name)}
           </div>
-          <button
+          <Button
+            variant="primary"
             disabled={!canInstall}
             onClick={() => {
               if (!canInstall) return
               const ver = versions.find(v => v.id === selectedVersionId)
               if (ver) onInstall(selectedInstance!.id, ver)
             }}
-            style={{ fontFamily: "'VT323',monospace", fontSize: 18, letterSpacing: '.1em', color: canInstall ? '#fff' : 'var(--ink-4)', background: canInstall ? 'var(--accent)' : 'var(--surface-3)', border: 'none', cursor: canInstall ? 'pointer' : 'not-allowed', padding: '0 28px', height: 36, boxShadow: canInstall ? 'inset 0 -3px 0 var(--accent-lo), inset 0 3px 0 var(--accent-hi)' : 'none' }}
+            style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', padding: '0 28px', height: 36 }}
           >
             {t.browse.install}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -582,14 +593,14 @@ function ModDetailModal({ mod, onClose, onInstall }: {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 75, background: 'rgba(0,0,0,.72)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: '86vw', maxWidth: 960, maxHeight: '90vh', background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '86vw', maxWidth: 960, maxHeight: '90vh', background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: 'var(--shadow-floating)' }}>
 
         {/* Header */}
         <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'flex-start', gap: 16, flexShrink: 0 }}>
           {mod.icon_url ? (
-            <img src={mod.icon_url} alt="" style={{ width: 72, height: 72, flexShrink: 0, imageRendering: 'pixelated', border: '1px solid var(--border-r)', borderRadius: 6 }} />
+            <img src={mod.icon_url} alt="" style={{ width: 72, height: 72, flexShrink: 0, imageRendering: 'pixelated', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-md)' }} />
           ) : (
-            <div style={{ width: 72, height: 72, flexShrink: 0, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, color: 'var(--ink-4)' }}>
+            <div style={{ width: 72, height: 72, flexShrink: 0, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, color: 'var(--ink-4)' }}>
               {mod.title[0]}
             </div>
           )}
@@ -613,13 +624,14 @@ function ModDetailModal({ mod, onClose, onInstall }: {
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'flex-start' }}>
-            <button
+            <Button
+              variant="outline"
               onClick={() => window.open(modrinthUrl)}
-              style={{ height: 32, padding: '0 14px', fontSize: 12, fontWeight: 600, background: 'transparent', color: 'var(--accent)', border: '1px solid var(--accent)', borderRadius: 3, cursor: 'pointer' }}
+              style={{ height: 32, padding: '0 14px', fontSize: 12, color: 'var(--accent)', border: '1px solid var(--accent)' }}
             >
               {t.browse.modrinth}
-            </button>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}>✕</button>
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onClose} style={{ color: 'var(--ink-4)', fontSize: 20, lineHeight: 1 }}>✕</Button>
           </div>
         </div>
 
@@ -630,7 +642,7 @@ function ModDetailModal({ mod, onClose, onInstall }: {
               <div
                 key={i}
                 onClick={() => setGalleryIndex(i)}
-                style={{ flexShrink: 0, cursor: 'pointer', borderRadius: 4, overflow: 'hidden', border: '1px solid var(--border-r)', height: 130 }}
+                style={{ flexShrink: 0, cursor: 'pointer', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-r)', height: 130 }}
               >
                 <img
                   src={img.url}
@@ -703,19 +715,19 @@ function ModDetailModal({ mod, onClose, onInstall }: {
                 <SideLabel>{t.browse.links}</SideLabel>
                 <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 5 }}>
                   {detail.issues_url && (
-                    <button onClick={() => window.open(detail.issues_url!)} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+                    <Button variant="ghost" onClick={() => window.open(detail.issues_url!)} style={{ fontSize: 11, color: 'var(--accent)', textAlign: 'left', padding: 0, justifyContent: 'flex-start' }}>
                       🐛 Issues ↗
-                    </button>
+                    </Button>
                   )}
                   {detail.source_url && (
-                    <button onClick={() => window.open(detail.source_url!)} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+                    <Button variant="ghost" onClick={() => window.open(detail.source_url!)} style={{ fontSize: 11, color: 'var(--accent)', textAlign: 'left', padding: 0, justifyContent: 'flex-start' }}>
                       {'</>'} Source ↗
-                    </button>
+                    </Button>
                   )}
                   {detail.discord_url && (
-                    <button onClick={() => window.open(detail.discord_url!)} style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+                    <Button variant="ghost" onClick={() => window.open(detail.discord_url!)} style={{ fontSize: 11, color: 'var(--accent)', textAlign: 'left', padding: 0, justifyContent: 'flex-start' }}>
                       💬 Discord ↗
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
@@ -723,12 +735,13 @@ function ModDetailModal({ mod, onClose, onInstall }: {
 
             {/* Install CTA */}
             <div style={{ marginTop: 'auto', paddingTop: 10 }}>
-              <button
+              <Button
+                variant="primary"
                 onClick={onInstall}
-                style={{ width: '100%', height: 36, fontFamily: "'VT323',monospace", fontSize: 18, letterSpacing: '.1em', color: '#fff', background: 'var(--accent)', border: 'none', cursor: 'pointer', boxShadow: 'inset 0 -3px 0 var(--accent-lo), inset 0 3px 0 var(--accent-hi)' }}
+                style={{ width: '100%', height: 36, fontSize: 13, fontWeight: 700, letterSpacing: '.04em' }}
               >
                 {t.browse.install}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -743,31 +756,35 @@ function ModDetailModal({ mod, onClose, onInstall }: {
           <img
             src={gallery[galleryIndex].url}
             alt=""
-            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 4, border: '1px solid var(--border-r)' }}
+            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-r)' }}
             onClick={e => e.stopPropagation()}
           />
           {gallery.length > 1 && (
             <>
-              <button
+              <Button
+                variant="ghost"
                 onClick={e => { e.stopPropagation(); setGalleryIndex(i => i !== null ? (i - 1 + gallery.length) % gallery.length : 0) }}
-                style={{ position: 'absolute', left: 24, fontSize: 28, color: '#fff', background: 'rgba(0,0,0,.5)', border: 'none', cursor: 'pointer', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ position: 'absolute', left: 24, fontSize: 28, color: '#fff', background: 'rgba(0,0,0,.5)', borderRadius: '50%', width: 44, height: 44 }}
               >
                 ‹
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={e => { e.stopPropagation(); setGalleryIndex(i => i !== null ? (i + 1) % gallery.length : 0) }}
-                style={{ position: 'absolute', right: 24, fontSize: 28, color: '#fff', background: 'rgba(0,0,0,.5)', border: 'none', cursor: 'pointer', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                style={{ position: 'absolute', right: 24, fontSize: 28, color: '#fff', background: 'rgba(0,0,0,.5)', borderRadius: '50%', width: 44, height: 44 }}
               >
                 ›
-              </button>
+              </Button>
             </>
           )}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setGalleryIndex(null)}
-            style={{ position: 'absolute', top: 16, right: 20, fontSize: 22, color: '#fff', background: 'none', border: 'none', cursor: 'pointer' }}
+            style={{ position: 'absolute', top: 16, right: 20, fontSize: 22, color: '#fff' }}
           >
             ✕
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -1054,30 +1071,29 @@ function Browse() {
           <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0 }}>{t.browse.subtitle}</p>
         </div>
         {/* Source toggle */}
-        <div style={{ display: 'flex', background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', padding: 3, gap: 3, flexShrink: 0 }}>
+        <div style={{ display: 'flex', background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-md)', padding: 3, gap: 3, flexShrink: 0 }}>
           {(['mr', 'cf'] as const).map(src => (
-            <button
+            <Button
+              variant="ghost"
               key={src}
               onClick={() => { setSource(src); setOffset(0); setResults([]); setCfResults([]) }}
               style={{
                 height: 26, padding: '0 12px', fontSize: 11, fontWeight: 600,
-                fontFamily: src === 'cf' ? 'inherit' : 'inherit',
                 color: source === src ? '#fff' : 'var(--ink-3)',
                 background: source === src ? (src === 'cf' ? 'var(--ender)' : 'var(--accent)') : 'transparent',
-                border: 'none', borderRadius: 3, cursor: 'pointer',
-                boxShadow: source === src ? 'inset 0 -2px 0 rgba(0,0,0,.25)' : 'none',
+                borderRadius: 'var(--radius-sm)',
               }}
             >
               {src === 'mr' ? t.browse.sourceMr : t.browse.sourceCf}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
 
       {/* No API key notice */}
       {source === 'cf' && !cfApiKey ? (
-        <div style={{ padding: '40px 24px', background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontFamily: "'VT323',monospace", fontSize: 22, letterSpacing: '.12em', color: 'var(--ender)' }}>
+        <div style={{ padding: '40px 24px', background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-lg)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: '.04em', color: 'var(--ender)' }}>
             {t.browse.noApiKey}
           </div>
           <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: 0, maxWidth: 400 }}>{t.browse.noApiKeyDesc}</p>
@@ -1092,7 +1108,7 @@ function Browse() {
       ) : (
         <>
           {/* Search */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', padding: '0 12px', height: 38 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-md)', padding: '0 12px', height: 38 }}>
             <div style={{ color: 'var(--ink-4)', display: 'flex', alignItems: 'center', flexShrink: 0 }}><SearchIcon /></div>
             <input
               value={query}
@@ -1100,7 +1116,7 @@ function Browse() {
               placeholder={t.browse.searchPlaceholder}
               style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 13, color: 'var(--ink)' }}
             />
-            {query && <button onClick={() => setQuery('')} style={{ color: 'var(--ink-4)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>✕</button>}
+            {query && <Button variant="ghost" size="icon" onClick={() => setQuery('')} style={{ color: 'var(--ink-4)', fontSize: 13 }}>✕</Button>}
           </div>
 
           {/* Instance selector */}
@@ -1195,7 +1211,7 @@ function Browse() {
             <div style={{ display: 'flex', gap: 6, justifyContent: 'center', alignItems: 'center', paddingTop: 4 }}>
               <PageBtn disabled={currentPage === 0} onClick={() => doSearch((currentPage - 1) * LIMIT)}>←</PageBtn>
               <PageJumper current={currentPage} total={totalPages} onGo={p => doSearch(p * LIMIT)} />
-              <span style={{ fontFamily: "'VT323',monospace", fontSize: 16, color: 'var(--ink-3)', letterSpacing: '.06em' }}>
+              <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13, color: 'var(--ink-3)', letterSpacing: '.04em' }}>
                 / {totalPages}
               </span>
               <PageBtn disabled={currentPage >= totalPages - 1} onClick={() => doSearch((currentPage + 1) * LIMIT)}>→</PageBtn>
@@ -1252,7 +1268,7 @@ function Browse() {
           position: 'fixed', bottom: 44, left: '50%', transform: 'translateX(-50%)',
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '10px 18px', background: 'var(--surface-2)', border: '1px solid var(--border-r)',
-          borderRadius: 'var(--radius)', boxShadow: '0 8px 24px rgba(0,0,0,.5)',
+          borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-floating)',
           fontSize: 13, color: 'var(--ink)', zIndex: 100,
         }}>
           <div style={{ width: 8, height: 8, background: toast.ok ? 'var(--grass)' : 'var(--lava)', flexShrink: 0 }} />
@@ -1285,7 +1301,7 @@ function ModTile({ mod, installing, installedInInstances, status, onInstall, onD
       style={{
         background: 'var(--surface)',
         border: `1px solid ${hovered ? 'var(--accent)' : 'var(--border-r)'}`,
-        borderRadius: 'var(--radius)',
+        borderRadius: 'var(--radius-md)',
         cursor: 'pointer',
         display: 'flex', flexDirection: 'column',
         transition: 'border-color .14s',
@@ -1297,10 +1313,10 @@ function ModTile({ mod, installing, installedInInstances, status, onInstall, onD
           <img
             src={mod.icon_url}
             alt=""
-            style={{ width: 64, height: 64, flexShrink: 0, imageRendering: 'pixelated', border: '1px solid var(--border-r)', borderRadius: 4 }}
+            style={{ width: 64, height: 64, flexShrink: 0, imageRendering: 'pixelated', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)' }}
           />
         ) : (
-          <div style={{ width: 64, height: 64, flexShrink: 0, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, color: 'var(--ink-4)' }}>
+          <div style={{ width: 64, height: 64, flexShrink: 0, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, color: 'var(--ink-4)' }}>
             {mod.title[0]}
           </div>
         )}
@@ -1317,7 +1333,7 @@ function ModTile({ mod, installing, installedInInstances, status, onInstall, onD
             {loaders.slice(0, 4).join(' · ')}
           </div>
           {installedInInstances > 0 && (
-            <div style={{ fontSize: 10, color: 'var(--grass)', border: '1px solid var(--grass)', borderRadius: 2, padding: '1px 5px', width: 'fit-content', opacity: 0.9 }}>
+            <div style={{ fontSize: 10, color: 'var(--grass)', border: '1px solid var(--grass)', borderRadius: 'var(--radius-sm)', padding: '1px 5px', width: 'fit-content', opacity: 0.9 }}>
               ✓ {installedInInstances} instance{installedInInstances > 1 ? 's' : ''}
             </div>
           )}
@@ -1335,50 +1351,49 @@ function ModTile({ mod, installing, installedInInstances, status, onInstall, onD
           {mod.categories.slice(0, 2).map(cat => <Tag key={cat} color="var(--ink-4)">{cat}</Tag>)}
         </div>
         {status === 'downloaded' ? (
-          <button
+          <Button
+            variant="outline"
             onClick={e => { e.stopPropagation(); onInstall() }}
             title="Already downloaded — click to reinstall"
             style={{
-              fontFamily: "'VT323',monospace", fontSize: 15, letterSpacing: '.06em',
-              color: 'var(--grass)', background: 'transparent',
-              border: '1px solid var(--grass)', cursor: 'pointer',
-              padding: '0 18px', height: 36, borderRadius: 3, flexShrink: 0,
+              fontSize: 12, fontWeight: 600, letterSpacing: '.04em',
+              color: 'var(--grass)',
+              border: '1px solid var(--grass)',
+              padding: '0 18px', height: 36, flexShrink: 0,
             }}
           >
             ✓ DOWNLOADED
-          </button>
+          </Button>
         ) : status === 'update' ? (
-          <button
+          <Button
+            variant="primary"
             onClick={e => { e.stopPropagation(); onInstall() }}
             title="Update available"
             style={{
-              fontFamily: "'VT323',monospace", fontSize: 16, letterSpacing: '.08em',
+              fontSize: 12, fontWeight: 700, letterSpacing: '.04em',
               color: '#fff', background: 'var(--gold)',
-              border: 'none', cursor: 'pointer',
-              padding: '0 20px', height: 36, borderRadius: 3, flexShrink: 0,
-              boxShadow: 'inset 0 -2px 0 rgba(0,0,0,.3)',
+              padding: '0 20px', height: 36, flexShrink: 0,
             }}
           >
             ↑ UPDATE
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
+            variant="primary"
             onClick={e => { e.stopPropagation(); onInstall() }}
             disabled={installing}
             title={status === 'incompatible' ? `Incompatible with ${mod.game_versions?.[0] ?? '?'} — click to install anyway` : undefined}
             style={{
-              fontFamily: "'VT323',monospace", fontSize: 18, letterSpacing: '.08em',
+              fontSize: 13, fontWeight: 700, letterSpacing: '.04em',
               color: installing ? 'var(--ink-4)' : status === 'incompatible' ? 'var(--ink-3)' : '#fff',
               background: installing ? 'var(--surface-3)' : status === 'incompatible' ? 'var(--surface-2)' : 'var(--ender)',
               border: status === 'incompatible' ? '1px solid var(--border-r)' : 'none',
-              cursor: installing ? 'not-allowed' : 'pointer',
-              padding: '0 32px', height: 36, borderRadius: 3, flexShrink: 0,
+              padding: '0 32px', height: 36, flexShrink: 0,
               opacity: status === 'incompatible' ? 0.55 : 1,
-              boxShadow: (installing || status === 'incompatible') ? 'none' : 'inset 0 -2px 0 rgba(0,0,0,.3), inset 0 2px 0 rgba(255,255,255,.1)',
             }}
           >
             {installing ? t.browse.installing : t.browse.install}
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -1404,16 +1419,16 @@ function CFModTile({ mod, installing, onDetail, onInstall }: { mod: CFProject; i
       style={{
         background: 'var(--surface)',
         border: `1px solid ${hovered ? 'var(--ender)' : 'var(--border-r)'}`,
-        borderRadius: 'var(--radius)',
+        borderRadius: 'var(--radius-md)',
         display: 'flex', flexDirection: 'column',
         transition: 'border-color .14s', cursor: 'pointer',
       }}
     >
       <div style={{ padding: '14px 14px 10px', display: 'flex', gap: 12 }}>
         {mod.logo?.thumbnailUrl ? (
-          <img src={mod.logo.thumbnailUrl} alt="" style={{ width: 64, height: 64, flexShrink: 0, imageRendering: 'pixelated', border: '1px solid var(--border-r)', borderRadius: 4 }} />
+          <img src={mod.logo.thumbnailUrl} alt="" style={{ width: 64, height: 64, flexShrink: 0, imageRendering: 'pixelated', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)' }} />
         ) : (
-          <div style={{ width: 64, height: 64, flexShrink: 0, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, color: 'var(--ink-4)' }}>
+          <div style={{ width: 64, height: 64, flexShrink: 0, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, color: 'var(--ink-4)' }}>
             {mod.name[0]}
           </div>
         )}
@@ -1435,20 +1450,19 @@ function CFModTile({ mod, installing, onDetail, onInstall }: { mod: CFProject; i
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {mod.categories.slice(0, 2).map(cat => <Tag key={cat.id} color="var(--ink-4)">{cat.name}</Tag>)}
         </div>
-        <button
+        <Button
+          variant="primary"
           onClick={e => { e.stopPropagation(); onInstall() }}
           disabled={installing}
           style={{
-            fontFamily: "'VT323',monospace", fontSize: 18, letterSpacing: '.08em',
+            fontSize: 13, fontWeight: 700, letterSpacing: '.04em',
             color: installing ? 'var(--ink-4)' : '#fff',
             background: installing ? 'var(--surface-3)' : 'var(--ender)',
-            border: 'none', cursor: installing ? 'not-allowed' : 'pointer',
-            padding: '0 32px', height: 36, borderRadius: 3, flexShrink: 0,
-            boxShadow: installing ? 'none' : 'inset 0 -2px 0 rgba(0,0,0,.3), inset 0 2px 0 rgba(255,255,255,.1)',
+            padding: '0 32px', height: 36, flexShrink: 0,
           }}
         >
           {installing ? t.browse.cfInstalling : t.browse.cfInstall}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -1491,14 +1505,14 @@ function CFInstallModal({ mod, instances, onClose, onInstall }: {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', width: 660, maxHeight: '78vh', display: 'flex', flexDirection: 'column' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-lg)', width: 660, maxHeight: '78vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-floating)' }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 10 }}>
           {mod.logo?.thumbnailUrl && <img src={mod.logo.thumbnailUrl} alt="" style={{ width: 28, height: 28, imageRendering: 'pixelated', border: '1px solid var(--border-r)' }} />}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: "'VT323',monospace", fontSize: 16, color: 'var(--ender)', letterSpacing: '.1em' }}>{t.browse.cfInstallMod}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ender)', letterSpacing: '.1em' }}>{t.browse.cfInstallMod}</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{mod.name}</div>
           </div>
-          <button onClick={onClose} style={{ color: 'var(--ink-4)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>✕</button>
+          <Button variant="ghost" size="icon" onClick={onClose} style={{ color: 'var(--ink-4)', fontSize: 16 }}>✕</Button>
         </div>
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -1510,10 +1524,10 @@ function CFInstallModal({ mod, instances, onClose, onInstall }: {
                 : instances.map(inst => {
                     const active = selectedInst?.id === inst.id
                     return (
-                      <button key={inst.id} onClick={() => { setSelInst(inst); setSelFile(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 8px', marginBottom: 3, background: active ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, cursor: 'pointer' }}>
+                      <Button variant="secondary" key={inst.id} onClick={() => { setSelInst(inst); setSelFile(null) }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 8px', marginBottom: 3, background: active ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 'var(--radius-sm)' }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inst.name}</div>
-                        <div style={{ fontFamily: "'VT323',monospace", fontSize: 11, color: 'var(--ink-4)', marginTop: 1 }}>{inst.minecraftVersion} · {inst.modLoader?.toUpperCase() ?? 'VANILLA'}</div>
-                      </button>
+                        <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: 'var(--ink-4)', marginTop: 1 }}>{inst.minecraftVersion} · {inst.modLoader?.toUpperCase() ?? 'VANILLA'}</div>
+                      </Button>
                     )
                   })
               }
@@ -1531,13 +1545,13 @@ function CFInstallModal({ mod, instances, onClose, onInstall }: {
                       const isSel = selectedFile?.id === f.id
                       const mcVers = f.gameVersions.filter(v => /^\d+\.\d+/.test(v))
                       return (
-                        <button key={f.id} onClick={() => setSelFile(f)} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', textAlign: 'left', padding: '7px 8px', marginBottom: 3, background: isSel ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${isSel ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 3, cursor: 'pointer' }}>
+                        <Button variant="secondary" key={f.id} onClick={() => setSelFile(f)} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', textAlign: 'left', padding: '7px 8px', marginBottom: 3, background: isSel ? 'var(--accent-tint)' : 'var(--surface-2)', border: `1px solid ${isSel ? 'var(--accent)' : 'var(--border-r)'}`, borderRadius: 'var(--radius-sm)' }}>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{f.displayName}</div>
                             <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{mcVers.slice(0, 3).join(', ')}</div>
                           </div>
                           <div style={{ fontSize: 10, color: 'var(--ink-4)', flexShrink: 0, marginLeft: 8 }}>↓ {fmtNum(f.downloadCount)}</div>
-                        </button>
+                        </Button>
                       )
                     })
               }
@@ -1549,9 +1563,9 @@ function CFInstallModal({ mod, instances, onClose, onInstall }: {
           <div style={{ fontSize: 12, color: 'var(--ink-4)' }}>
             {!selectedInst ? t.browse.selectInstanceHint : !selectedFile ? t.browse.selectVersionHint : t.browse.installingTo(selectedInst.name)}
           </div>
-          <button disabled={!canInstall} onClick={() => canInstall && onInstall(selectedInst!.id, mod.id, selectedFile!.id, selectedFile!.displayName)} style={{ fontFamily: "'VT323',monospace", fontSize: 18, letterSpacing: '.1em', color: canInstall ? '#fff' : 'var(--ink-4)', background: canInstall ? 'var(--ender)' : 'var(--surface-3)', border: 'none', cursor: canInstall ? 'pointer' : 'not-allowed', padding: '0 24px', height: 34, boxShadow: canInstall ? 'inset 0 -3px 0 rgba(0,0,0,.3)' : 'none' }}>
+          <Button variant="primary" disabled={!canInstall} onClick={() => canInstall && onInstall(selectedInst!.id, mod.id, selectedFile!.id, selectedFile!.displayName)} style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', color: canInstall ? '#fff' : 'var(--ink-4)', background: canInstall ? 'var(--ender)' : 'var(--surface-3)', padding: '0 24px', height: 34 }}>
             {t.browse.cfInstallBtn}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1563,15 +1577,15 @@ function CFInstallModal({ mod, instances, onClose, onInstall }: {
 function FilterChip({ active, onClick, children, color }: { active: boolean; onClick: () => void; children: React.ReactNode; color?: string }) {
   const c = color ?? 'var(--accent)'
   return (
-    <button onClick={onClick} style={{ fontSize: 11, fontWeight: 500, color: active ? c : 'var(--ink-4)', background: active ? 'var(--accent-tint)' : 'var(--surface)', border: `1px solid ${active ? c : 'var(--border-r)'}`, borderRadius: 3, padding: '3px 10px', cursor: 'pointer' }}>
+    <Button variant="ghost" onClick={onClick} style={{ fontSize: 11, fontWeight: 500, color: active ? c : 'var(--ink-4)', background: active ? 'var(--accent-tint)' : 'var(--surface)', border: `1px solid ${active ? c : 'var(--border-r)'}`, borderRadius: 'var(--radius-sm)', padding: '3px 10px' }}>
       {children}
-    </button>
+    </Button>
   )
 }
 
 function Tag({ color, children }: { color: string; children: React.ReactNode }) {
   return (
-    <span style={{ fontSize: 10, fontWeight: 500, color, border: `1px solid ${color}`, borderRadius: 2, padding: '1px 5px', opacity: 0.85 }}>
+    <span style={{ fontSize: 10, fontWeight: 500, color, border: `1px solid ${color}`, borderRadius: 'var(--radius-sm)', padding: '1px 5px', opacity: 0.85 }}>
       {children}
     </span>
   )
@@ -1579,9 +1593,9 @@ function Tag({ color, children }: { color: string; children: React.ReactNode }) 
 
 function PageBtn({ disabled, onClick, children }: { disabled: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button disabled={disabled} onClick={onClick} style={{ width: 32, height: 28, fontFamily: "'VT323',monospace", fontSize: 18, color: disabled ? 'var(--ink-4)' : 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 3, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1 }}>
+    <Button variant="secondary" disabled={disabled} onClick={onClick} style={{ width: 32, height: 28, padding: 0, fontSize: 14, fontWeight: 600, color: disabled ? 'var(--ink-4)' : 'var(--ink)', background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', opacity: disabled ? 0.4 : 1 }}>
       {children}
-    </button>
+    </Button>
   )
 }
 
@@ -1602,9 +1616,9 @@ function PageJumper({ current, total, onGo }: { current: number; total: number; 
       style={{
         width: Math.max(String(total).length, 2) * 11 + 16,
         height: 28, textAlign: 'center',
-        fontFamily: "'VT323',monospace", fontSize: 16,
+        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13,
         background: 'var(--bg)', border: '1px solid var(--border-r)',
-        color: 'var(--ink)', borderRadius: 3, outline: 'none',
+        color: 'var(--ink)', borderRadius: 'var(--radius-md)', outline: 'none',
       }}
     />
   )
@@ -1650,11 +1664,11 @@ function CFModDetailModal({ mod, onClose, onInstall }: { mod: CFProject; onClose
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ width: '86vw', maxWidth: 960, maxHeight: '90vh', background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+        style={{ width: '86vw', maxWidth: 960, maxHeight: '90vh', background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-lg)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: 'var(--shadow-floating)' }}
       >
         {/* Header */}
         <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'flex-start', gap: 16, flexShrink: 0 }}>
-          <div style={{ width: 72, height: 72, flexShrink: 0, border: '1px solid var(--border-r)', borderRadius: 6, overflow: 'hidden', background: 'var(--surface-2)' }}>
+          <div style={{ width: 72, height: 72, flexShrink: 0, border: '1px solid var(--border-r)', borderRadius: 'var(--radius-md)', overflow: 'hidden', background: 'var(--surface-2)' }}>
             {mod.logo?.thumbnailUrl ? <img src={mod.logo.thumbnailUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 700, color: 'var(--ink-4)' }}>{mod.name[0]}</div>}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -1670,8 +1684,8 @@ function CFModDetailModal({ mod, onClose, onInstall }: { mod: CFProject; onClose
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexShrink: 0, alignItems: 'flex-start' }}>
-            <button onClick={() => window.open(cfUrl)} style={{ height: 32, padding: '0 14px', fontSize: 12, fontWeight: 600, background: 'transparent', color: 'var(--ender)', border: '1px solid var(--ender)', borderRadius: 3, cursor: 'pointer' }}>CurseForge ↗</button>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 20, lineHeight: 1, padding: 4 }}>&#x2715;</button>
+            <Button variant="outline" onClick={() => window.open(cfUrl)} style={{ height: 32, padding: '0 14px', fontSize: 12, color: 'var(--ender)', border: '1px solid var(--ender)' }}>CurseForge ↗</Button>
+            <Button variant="ghost" size="icon" onClick={onClose} style={{ color: 'var(--ink-4)', fontSize: 20, lineHeight: 1 }}>&#x2715;</Button>
           </div>
         </div>
 
@@ -1679,7 +1693,7 @@ function CFModDetailModal({ mod, onClose, onInstall }: { mod: CFProject; onClose
         {screenshots.length > 0 && (
           <div style={{ borderBottom: '1px solid var(--line)', padding: '10px 22px', overflowX: 'auto', display: 'flex', gap: 8, flexShrink: 0 }}>
             {screenshots.map((s, i) => (
-              <div key={s.id} onClick={() => setGalleryIndex(i)} style={{ flexShrink: 0, cursor: 'pointer', borderRadius: 4, overflow: 'hidden', border: '1px solid var(--border-r)', height: 130 }}>
+              <div key={s.id} onClick={() => setGalleryIndex(i)} style={{ flexShrink: 0, cursor: 'pointer', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-r)', height: 130 }}>
                 <img src={s.thumbnailUrl} alt={s.title} style={{ height: '100%', width: 'auto', display: 'block', objectFit: 'cover' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
               </div>
             ))}
@@ -1705,9 +1719,9 @@ function CFModDetailModal({ mod, onClose, onInstall }: { mod: CFProject; onClose
               <div>
                 <SideLabel>{t.browse.links}</SideLabel>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
-                  {mod.links.websiteUrl && <button onClick={() => window.open(mod.links.websiteUrl!)} style={{ fontSize: 11, color: 'var(--ender)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>CurseForge ↗</button>}
-                  {mod.links.issuesUrl  && <button onClick={() => window.open(mod.links.issuesUrl!)}  style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>Issues ↗</button>}
-                  {mod.links.sourceUrl  && <button onClick={() => window.open(mod.links.sourceUrl!)}  style={{ fontSize: 11, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>Source ↗</button>}
+                  {mod.links.websiteUrl && <Button variant="ghost" onClick={() => window.open(mod.links.websiteUrl!)} style={{ fontSize: 11, color: 'var(--ender)', textAlign: 'left', padding: 0, justifyContent: 'flex-start' }}>CurseForge ↗</Button>}
+                  {mod.links.issuesUrl  && <Button variant="ghost" onClick={() => window.open(mod.links.issuesUrl!)}  style={{ fontSize: 11, color: 'var(--accent)', textAlign: 'left', padding: 0, justifyContent: 'flex-start' }}>Issues ↗</Button>}
+                  {mod.links.sourceUrl  && <Button variant="ghost" onClick={() => window.open(mod.links.sourceUrl!)}  style={{ fontSize: 11, color: 'var(--accent)', textAlign: 'left', padding: 0, justifyContent: 'flex-start' }}>Source ↗</Button>}
                 </div>
               </div>
             )}
@@ -1716,9 +1730,9 @@ function CFModDetailModal({ mod, onClose, onInstall }: { mod: CFProject; onClose
               <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 4 }}>{new Date(mod.dateCreated).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}</div>
             </div>
             <div style={{ marginTop: 'auto', paddingTop: 10 }}>
-              <button onClick={onInstall} style={{ width: '100%', height: 36, fontFamily: "'VT323',monospace", fontSize: 18, letterSpacing: '.1em', color: '#fff', background: 'var(--ender)', border: 'none', cursor: 'pointer', borderRadius: 4, boxShadow: 'inset 0 -3px 0 rgba(0,0,0,.3)' }}>
+              <Button variant="primary" onClick={onInstall} style={{ width: '100%', height: 36, fontSize: 13, fontWeight: 700, letterSpacing: '.04em', color: '#fff', background: 'var(--ender)' }}>
                 {t.browse.cfInstallMod}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1727,14 +1741,14 @@ function CFModDetailModal({ mod, onClose, onInstall }: { mod: CFProject; onClose
       {/* Lightbox */}
       {galleryIndex !== null && screenshots[galleryIndex] && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,.9)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setGalleryIndex(null) }}>
-          <img src={screenshots[galleryIndex].url} alt="" style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 4 }} onClick={e => e.stopPropagation()} />
+          <img src={screenshots[galleryIndex].url} alt="" style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 'var(--radius-sm)' }} onClick={e => e.stopPropagation()} />
           {screenshots.length > 1 && (
             <>
-              <button onClick={e => { e.stopPropagation(); setGalleryIndex(i => i !== null ? (i - 1 + screenshots.length) % screenshots.length : 0) }} style={{ position: 'absolute', left: 24, fontSize: 28, color: '#fff', background: 'rgba(0,0,0,.5)', border: 'none', cursor: 'pointer', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&#x2039;</button>
-              <button onClick={e => { e.stopPropagation(); setGalleryIndex(i => i !== null ? (i + 1) % screenshots.length : 0) }} style={{ position: 'absolute', right: 24, fontSize: 28, color: '#fff', background: 'rgba(0,0,0,.5)', border: 'none', cursor: 'pointer', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&#x203A;</button>
+              <Button variant="ghost" onClick={e => { e.stopPropagation(); setGalleryIndex(i => i !== null ? (i - 1 + screenshots.length) % screenshots.length : 0) }} style={{ position: 'absolute', left: 24, fontSize: 28, color: '#fff', background: 'rgba(0,0,0,.5)', borderRadius: '50%', width: 44, height: 44 }}>&#x2039;</Button>
+              <Button variant="ghost" onClick={e => { e.stopPropagation(); setGalleryIndex(i => i !== null ? (i + 1) % screenshots.length : 0) }} style={{ position: 'absolute', right: 24, fontSize: 28, color: '#fff', background: 'rgba(0,0,0,.5)', borderRadius: '50%', width: 44, height: 44 }}>&#x203A;</Button>
             </>
           )}
-          <button onClick={e => { e.stopPropagation(); setGalleryIndex(null) }} style={{ position: 'absolute', top: 16, right: 20, fontSize: 22, color: '#fff', background: 'none', border: 'none', cursor: 'pointer' }}>&#x2715;</button>
+          <Button variant="ghost" size="icon" onClick={e => { e.stopPropagation(); setGalleryIndex(null) }} style={{ position: 'absolute', top: 16, right: 20, fontSize: 22, color: '#fff' }}>&#x2715;</Button>
         </div>
       )}
     </div>

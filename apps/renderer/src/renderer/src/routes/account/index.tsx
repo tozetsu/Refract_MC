@@ -6,6 +6,7 @@ import { SkinViewer3DLazy as SkinViewer3D } from '@/components/ui/SkinViewer3DLa
 import { useAvatarStore } from '@/stores/avatar'
 import { compressImage } from '@/lib/image'
 import { useT, type T } from '@/i18n'
+import { Button } from '@/components/ui/Button'
 
 function SkinFace({ uuid, size }: { uuid: string; size: number }) {
   const id = uuid.replace(/-/g, '')
@@ -302,50 +303,44 @@ function Account() {
   return (
     <div style={{ display:'grid', gridTemplateColumns:'minmax(0, 1.05fr) 360px', gap:18, minHeight:'100%' }}>
       <input ref={avatarInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleAvatarPick} />
-      <section style={{ background:'var(--surface)', border:'1px solid var(--border-r)', borderRadius:'var(--radius)', overflow:'hidden' }}>
+      <section style={{ background:'var(--surface)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
         <div style={{ padding:'18px 20px', borderBottom:'1px solid var(--line)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:16 }}>
           <div>
-            <h1 style={{ margin:0, color:'var(--ink)', fontSize:24, lineHeight:1.1 }}>{t.account.title}</h1>
+            <h1 style={{ margin:0, color:'var(--ink)', fontSize:24, lineHeight:1.1, fontWeight:700 }}>{t.account.title}</h1>
             <p style={{ margin:'6px 0 0', color:'var(--ink-3)', fontSize:13 }}>
               {t.account.subtitle}
             </p>
           </div>
           {active && (
-            <div style={{ fontFamily:"'VT323',monospace", color:'var(--accent)', fontSize:18, letterSpacing:'.08em' }}>
+            <div style={{ color:'var(--accent)', fontSize:14, fontWeight:600, letterSpacing:'.02em' }}>
               {t.account.activeHeader(active.username)}
             </div>
           )}
         </div>
 
         <div style={{ padding:20, display:'grid', gap:14 }}>
-          <div style={{ background:'var(--surface-2)', border:'1px solid var(--border-r)', borderRadius:4, padding:16 }}>
-            <h2 style={{ margin:'0 0 8px', color:'var(--ink)', fontSize:16 }}>{t.account.microsoftSection}</h2>
+          <div style={{ background:'var(--surface-2)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)', padding:16 }}>
+            <h2 style={{ margin:'0 0 8px', color:'var(--ink)', fontSize:16, fontWeight:600 }}>{t.account.microsoftSection}</h2>
             <p style={{ margin:'0 0 14px', color:'var(--ink-3)', fontSize:13, lineHeight:1.5 }}>
               {t.account.microsoftDesc}
             </p>
-            <button
+            <Button
+              variant="primary"
               type="button"
               onClick={startMicrosoft}
               disabled={!!busy}
-              style={{
-                height:42, padding:'0 18px',
-                background:'var(--accent)', color:'#fff',
-                border:'none', cursor:busy ? 'not-allowed' : 'pointer',
-                fontWeight:700, letterSpacing:'.08em',
-                boxShadow:'inset 0 3px 0 var(--accent-hi), inset 0 -4px 0 var(--accent-lo), 0 3px 0 #000',
-                opacity: busy ? .6 : 1,
-              }}
+              style={{ height:42 }}
             >
               {t.account.signInMicrosoft}
-            </button>
+            </Button>
 
             {device && (
-              <div style={{ marginTop:16, padding:14, background:'var(--bg)', border:'1px solid var(--accent)', borderRadius:4 }}>
+              <div style={{ marginTop:16, padding:14, background:'var(--bg)', border:'1px solid var(--accent)', borderRadius:'var(--radius-md)' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'center', color:'var(--ink-3)', fontSize:12, marginBottom:8 }}>
                   <span>{t.account.enterCodeAt}</span>
-                  <span style={{ color:'var(--gold)' }}>{secondsRemaining > 0 ? `${secondsRemaining}s left` : t.account.codeExpired}</span>
+                  <span style={{ color:'var(--gold)', fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{secondsRemaining > 0 ? `${secondsRemaining}s left` : t.account.codeExpired}</span>
                 </div>
-                <div style={{ fontFamily:"'VT323',monospace", color:'var(--ink)', fontSize:34, letterSpacing:'.18em', lineHeight:1 }}>
+                <div style={{ fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', color:'var(--ink)', fontSize:26, letterSpacing:'.12em', lineHeight:1, fontWeight:600 }}>
                   {device.userCode}
                 </div>
                 <a href={device.verificationUri} style={{ display:'inline-block', marginTop:10, color:'var(--diamond)', fontSize:13 }}>
@@ -357,30 +352,33 @@ function Account() {
                   </div>
                 )}
                 <div style={{ marginTop:12, display:'flex', gap:8, flexWrap:'wrap' }}>
-                  <button
+                  <Button
+                    variant="outline"
                     type="button"
                     onClick={copyUserCode}
                     disabled={!!busy}
-                    style={{ height:34, padding:'0 14px', background:'var(--surface-2)', color:'var(--ink)', border:'1px solid var(--border-r)', cursor:'pointer' }}
+                    style={{ height:34 }}
                   >
                     {t.account.copyCode}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="secondary"
                     type="button"
                     onClick={completeMicrosoft}
                     disabled={!!busy}
-                    style={{ height:34, padding:'0 14px', background:'var(--surface-3)', color:'var(--ink)', border:'1px solid var(--border-r)', cursor:'pointer' }}
+                    style={{ height:34 }}
                   >
                     {t.account.iFinishedLogin}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="danger"
                     type="button"
                     onClick={cancelMicrosoft}
                     disabled={!!busy}
-                    style={{ height:34, padding:'0 14px', background:'transparent', color:'var(--redstone)', border:'1px solid rgba(217,59,59,.45)', cursor:'pointer' }}
+                    style={{ height:34 }}
                   >
                     {t.account.cancel}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -391,8 +389,8 @@ function Account() {
             )}
           </div>
 
-          <div style={{ background:'var(--surface-2)', border:'1px solid var(--border-r)', borderRadius:4, padding:16 }}>
-            <h2 style={{ margin:'0 0 8px', color:'var(--ink)', fontSize:16 }}>{t.account.offlineSection}</h2>
+          <div style={{ background:'var(--surface-2)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)', padding:16 }}>
+            <h2 style={{ margin:'0 0 8px', color:'var(--ink)', fontSize:16, fontWeight:600 }}>{t.account.offlineSection}</h2>
             <p style={{ margin:'0 0 12px', color:'var(--ink-3)', fontSize:13, lineHeight:1.5 }}>
               {t.account.offlineDesc}
             </p>
@@ -400,22 +398,23 @@ function Account() {
               <input
                 value={offlineName}
                 onChange={(event) => setOfflineName(event.target.value)}
-                style={{ flex:1, minWidth:0, height:36, background:'var(--bg)', border:'1px solid var(--border-r)', color:'var(--ink)', padding:'0 10px', outline:'none' }}
+                style={{ flex:1, minWidth:0, height:36, background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)', color:'var(--ink)', padding:'0 10px', outline:'none' }}
               />
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={createOffline}
                 disabled={!!busy || !offlineName.trim()}
-                style={{ height:36, padding:'0 12px', background:'var(--surface-3)', color:'var(--ink)', border:'1px solid var(--border-r)', cursor:'pointer', opacity:busy ? .6 : 1 }}
+                style={{ height:36 }}
               >
                 {t.account.add}
-              </button>
+              </Button>
             </div>
           </div>
 
-          <div style={{ background:'var(--surface-2)', border:'1px solid var(--border-r)', borderRadius:4, padding:16 }}>
-            <h2 style={{ margin:'0 0 4px', color:'var(--ink)', fontSize:16 }}>{t.account.yggdrasilSection}</h2>
-            <div style={{ color:'var(--ender)', fontFamily:"'VT323',monospace", fontSize:14, letterSpacing:'.08em', marginBottom:8 }}>YGGDRASIL</div>
+          <div style={{ background:'var(--surface-2)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)', padding:16 }}>
+            <h2 style={{ margin:'0 0 4px', color:'var(--ink)', fontSize:16, fontWeight:600 }}>{t.account.yggdrasilSection}</h2>
+            <div style={{ color:'var(--ender)', fontSize:11, fontWeight:600, letterSpacing:'.08em', marginBottom:8 }}>YGGDRASIL</div>
             <p style={{ margin:'0 0 12px', color:'var(--ink-3)', fontSize:13, lineHeight:1.5 }}>
               {t.account.yggdrasilDesc}
             </p>
@@ -424,14 +423,14 @@ function Account() {
                 value={yggServer}
                 onChange={e => setYggServer(e.target.value)}
                 placeholder={t.account.yggdrasilUrlPlaceholder}
-                style={{ height:36, background:'var(--bg)', border:'1px solid var(--border-r)', color:'var(--ink)', padding:'0 10px', outline:'none', fontSize:12 }}
+                style={{ height:36, background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)', color:'var(--ink)', padding:'0 10px', outline:'none', fontSize:12 }}
               />
               <div style={{ display:'flex', gap:8 }}>
                 <input
                   value={yggUsername}
                   onChange={e => setYggUsername(e.target.value)}
                   placeholder={t.account.yggdrasilUserPlaceholder}
-                  style={{ flex:1, minWidth:0, height:36, background:'var(--bg)', border:'1px solid var(--border-r)', color:'var(--ink)', padding:'0 10px', outline:'none', fontSize:12 }}
+                  style={{ flex:1, minWidth:0, height:36, background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)', color:'var(--ink)', padding:'0 10px', outline:'none', fontSize:12 }}
                 />
                 <input
                   type="password"
@@ -439,33 +438,30 @@ function Account() {
                   onChange={e => setYggPassword(e.target.value)}
                   placeholder={t.account.yggdrasilPassPlaceholder}
                   onKeyDown={e => { if (e.key === 'Enter') void loginYggdrasil() }}
-                  style={{ flex:1, minWidth:0, height:36, background:'var(--bg)', border:'1px solid var(--border-r)', color:'var(--ink)', padding:'0 10px', outline:'none', fontSize:12 }}
+                  style={{ flex:1, minWidth:0, height:36, background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)', color:'var(--ink)', padding:'0 10px', outline:'none', fontSize:12 }}
                 />
               </div>
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={loginYggdrasil}
                 disabled={!!busy || !yggServer.trim() || !yggUsername.trim() || !yggPassword}
-                style={{
-                  height:36, padding:'0 14px', background:'var(--ender)', color:'#fff',
-                  border:'none', cursor:'pointer', fontWeight:700, letterSpacing:'.06em',
-                  opacity: (!!busy || !yggServer.trim() || !yggUsername.trim() || !yggPassword) ? .5 : 1,
-                }}
+                style={{ height:36, background:'var(--ender)', color:'#fff' }}
               >
                 {busy === 'yggdrasil-login' ? t.account.yggdrasilSigningIn : t.account.yggdrasilSignIn}
-              </button>
+              </Button>
             </div>
           </div>
 
           {error && (
-            <div style={{ padding:12, color:'#fff', background:'rgba(217,59,59,.18)', border:'1px solid var(--redstone)', borderRadius:4, fontSize:13 }}>
+            <div style={{ padding:12, color:'#fff', background:'rgba(217,59,59,.18)', border:'1px solid var(--redstone)', borderRadius:'var(--radius-md)', fontSize:13 }}>
               {error}
             </div>
           )}
         </div>
       </section>
 
-      <aside style={{ background:'var(--surface)', border:'1px solid var(--border-r)', borderRadius:'var(--radius)', overflow:'hidden' }}>
+      <aside style={{ background:'var(--surface)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
         <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--line)', color:'var(--ink)', fontWeight:700 }}>{t.account.savedProfiles}</div>
         <div style={{ padding:12, display:'grid', gap:8 }}>
           {accounts.length === 0 ? (
@@ -480,7 +476,7 @@ function Account() {
                   padding:12,
                   background:isActive ? 'var(--accent-tint)' : 'var(--surface-2)',
                   border:`1px solid ${isActive ? 'var(--accent)' : 'var(--border-r)'}`,
-                  borderRadius:4,
+                  borderRadius:'var(--radius-md)',
                   display:'grid',
                   gap:10,
                 }}
@@ -491,7 +487,7 @@ function Account() {
                       title="Click to change avatar"
                       onClick={() => { setPickingFor(account.uuid); avatarInputRef.current?.click() }}
                       style={{
-                        width:42, height:42, borderRadius:3, overflow:'hidden', flexShrink:0,
+                        width:42, height:42, borderRadius:'var(--radius-sm)', overflow:'hidden', flexShrink:0,
                         border:'1px solid var(--border-r)', background:'var(--surface-3)',
                         cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
                         imageRendering: 'pixelated',
@@ -501,7 +497,7 @@ function Account() {
                         ? <img src={avatars[account.uuid]} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                         : account.type !== 'offline'
                           ? <SkinFace uuid={account.uuid} size={42} />
-                          : <span style={{ fontFamily:"'VT323',monospace", fontSize:22, color:'var(--ink-3)' }}>
+                          : <span style={{ fontSize:18, fontWeight:700, color:'var(--ink-3)' }}>
                               {account.username[0]?.toUpperCase()}
                             </span>
                       }
@@ -514,49 +510,53 @@ function Account() {
                             value={renameValue}
                             onChange={e => setRenameValue(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') void commitRename(account.uuid); if (e.key === 'Escape') cancelRename() }}
-                            style={{ flex:1, minWidth:0, height:28, background:'var(--bg)', border:'1px solid var(--accent)', color:'var(--ink)', padding:'0 8px', outline:'none', fontSize:13, borderRadius:3 }}
+                            style={{ flex:1, minWidth:0, height:28, background:'var(--bg)', border:'1px solid var(--accent)', color:'var(--ink)', padding:'0 8px', outline:'none', fontSize:13, borderRadius:'var(--radius-md)' }}
                           />
-                          <button type="button" onClick={() => void commitRename(account.uuid)} disabled={!renameValue.trim() || !!busy} style={{ height:28, padding:'0 10px', background:'var(--accent)', color:'#fff', border:'none', cursor:'pointer', fontSize:12, fontWeight:700, borderRadius:3 }}>{t.account.save}</button>
-                          <button type="button" onClick={cancelRename} style={{ height:28, padding:'0 8px', background:'transparent', color:'var(--ink-3)', border:'1px solid var(--border-r)', cursor:'pointer', fontSize:12, borderRadius:3 }}>✕</button>
+                          <Button variant="primary" size="sm" type="button" onClick={() => void commitRename(account.uuid)} disabled={!renameValue.trim() || !!busy} style={{ height:28, fontSize:12 }}>{t.account.save}</Button>
+                          <Button variant="ghost" size="icon" type="button" onClick={cancelRename} style={{ height:28, width:28, fontSize:12 }}>✕</Button>
                         </div>
                       ) : (
                         <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                           <div style={{ color:'var(--ink)', fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{account.username}</div>
                           {account.type === 'offline' && (
-                            <button type="button" title="Rename" onClick={() => startRename(account)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-4)', fontSize:13, padding:'0 2px', lineHeight:1 }}>✎</button>
+                            <Button variant="ghost" size="icon" type="button" title="Rename" onClick={() => startRename(account)} style={{ width:20, height:20, color:'var(--ink-4)', fontSize:13 }}>✎</Button>
                           )}
                         </div>
                       )}
-                      <div style={{ color:badge.color, fontFamily:"'VT323',monospace", fontSize:15, letterSpacing:'.08em', marginTop:2 }}>{badge.label}</div>
+                      <div style={{ color:badge.color, fontSize:11, fontWeight:600, letterSpacing:'.08em', marginTop:2 }}>{badge.label}</div>
                       <div style={{ color:'var(--ink-4)', fontSize:11, lineHeight:1.35, marginTop:4 }}>{accessText(account, t)}</div>
                       {account.needsReauth && (
                         account.type === 'microsoft' ? (
-                          <button
+                          <Button
+                            variant="danger"
+                            size="sm"
                             type="button"
                             onClick={() => { void startMicrosoft() }}
                             disabled={!!busy}
-                            style={{ marginTop:6, fontSize:11, fontWeight:600, color:'#fff', background:'var(--lava)', border:'none', borderRadius:3, padding:'4px 9px', cursor: busy ? 'default' : 'pointer', opacity: busy ? .6 : 1 }}
+                            style={{ marginTop:6, fontSize:11, height:'auto', padding:'4px 9px' }}
                           >
                             ⚠ {t.account.signInAgain}
-                          </button>
+                          </Button>
                         ) : (
                           <div style={{ marginTop:6, fontSize:11, color:'var(--lava)', fontWeight:600 }}>⚠ {t.account.sessionExpired}</div>
                         )
                       )}
                     </div>
                   </div>
-                  {isActive && <div style={{ color:'var(--accent)', fontFamily:"'VT323',monospace", fontSize:15, flexShrink:0 }}>{t.account.activeLabel}</div>}
+                  {isActive && <div style={{ color:'var(--accent)', fontSize:12, fontWeight:600, flexShrink:0 }}>{t.account.activeLabel}</div>}
                 </div>
                 <div style={{ display:'flex', gap:8 }}>
-                  <button
+                  <Button
+                    variant="secondary"
                     type="button"
                     onClick={() => selectAccount(account.uuid)}
                     disabled={isActive || !!busy}
-                    style={{ flex:1, height:30, background:'var(--bg)', color:'var(--ink-2)', border:'1px solid var(--border-r)', cursor:'pointer', opacity:isActive ? .5 : 1 }}
+                    style={{ flex:1, height:30 }}
                   >
                     {t.account.use}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="outline"
                     type="button"
                     onClick={async () => {
                       if (skinTarget === account.uuid) { setSkinTarget(null); return }
@@ -567,12 +567,13 @@ function Account() {
                         setSkinTexUrl(url)
                       }
                     }}
-                    style={{ height:30, padding:'0 10px', background:'transparent', color:'var(--ink-3)', border:'1px solid var(--border-r)', cursor:'pointer', fontSize:12 }}
+                    style={{ height:30, fontSize:12 }}
                   >
                     Skin
-                  </button>
+                  </Button>
                   {account.type === 'microsoft' && (
-                    <button
+                    <Button
+                      variant="outline"
                       type="button"
                       onClick={async () => {
                         if (capeTarget === account.uuid) { setCapeTarget(null); return }
@@ -586,25 +587,26 @@ function Account() {
                         } catch { setCapes([]) }
                         finally { setCapesLoading(false) }
                       }}
-                      style={{ height:30, padding:'0 10px', background:'transparent', color:'var(--ink-3)', border:'1px solid var(--border-r)', cursor:'pointer', fontSize:12 }}
+                      style={{ height:30, fontSize:12 }}
                     >
                       Cape
-                    </button>
+                    </Button>
                   )}
-                  <button
+                  <Button
+                    variant="danger"
                     type="button"
                     onClick={() => logout(account.uuid)}
                     disabled={!!busy}
-                    style={{ height:30, padding:'0 10px', background:'transparent', color:'var(--redstone)', border:'1px solid rgba(217,59,59,.45)', cursor:'pointer' }}
+                    style={{ height:30 }}
                   >
                     {t.account.signOut}
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Cape panel */}
                 {capeTarget === account.uuid && (
-                  <div style={{ marginTop:8, padding:12, background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:4, display:'flex', flexDirection:'column', gap:10 }}>
-                    <div style={{ fontSize:12, fontWeight:600, color:'var(--ink-3)', letterSpacing:'.06em' }}>CAPES</div>
+                  <div style={{ marginTop:8, padding:12, background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)', display:'flex', flexDirection:'column', gap:10 }}>
+                    <div style={{ fontSize:11, fontWeight:600, color:'var(--ink-3)', letterSpacing:'.10em' }}>CAPES</div>
                     {capesLoading ? (
                       <div style={{ color:'var(--ink-4)', fontSize:12 }}>Loading capes…</div>
                     ) : capes.length === 0 ? (
@@ -623,13 +625,13 @@ function Account() {
                             flexShrink:0, display:'flex', flexDirection:'column', alignItems:'center', gap:4,
                             padding:'6px 8px', background:'var(--surface-2)',
                             border:`1px solid ${capes.every(c => c.state !== 'ACTIVE') ? 'var(--accent)' : 'var(--border-r)'}`,
-                            borderRadius:4, cursor: capeUpdating ? 'not-allowed' : 'pointer',
+                            borderRadius:'var(--radius-md)', cursor: capeUpdating ? 'not-allowed' : 'pointer',
                             opacity: capeUpdating ? .6 : 1,
                           }}
                         >
                           <div style={{
                             width:50, height:80, background:'var(--surface-3)',
-                            border:'1px solid var(--border-r)', borderRadius:2,
+                            border:'1px solid var(--border-r)', borderRadius:'var(--radius-sm)',
                             display:'flex', alignItems:'center', justifyContent:'center',
                             color:'var(--ink-4)', fontSize:18,
                           }}>—</div>
@@ -647,7 +649,7 @@ function Account() {
                               flexShrink:0, display:'flex', flexDirection:'column', alignItems:'center', gap:4,
                               padding:'6px 8px', background:'var(--surface-2)',
                               border:`1px solid ${cape.state === 'ACTIVE' ? 'var(--accent)' : 'var(--border-r)'}`,
-                              borderRadius:4, cursor: capeUpdating ? 'not-allowed' : 'pointer',
+                              borderRadius:'var(--radius-md)', cursor: capeUpdating ? 'not-allowed' : 'pointer',
                               opacity: capeUpdating ? .6 : 1,
                             }}
                           >
@@ -673,23 +675,25 @@ function Account() {
 
                 {/* Skin change panel */}
                 {skinTarget === account.uuid && (
-                  <div style={{ marginTop:8, padding:12, background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:4, display:'flex', flexDirection:'column', gap:10 }}>
+                  <div style={{ marginTop:8, padding:12, background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)', display:'flex', flexDirection:'column', gap:10 }}>
                     <div style={{ fontSize:12, fontWeight:600, color:'var(--ink-3)' }}>
                       {account.type === 'microsoft' ? t.skins.uploadTitle : account.type === 'yggdrasil' ? t.skins.yggdrasilTitle : t.skins.offlineTitle}
                     </div>
 
                     {account.type === 'yggdrasil' ? (
-                      <button
+                      <Button
+                        variant="primary"
                         type="button"
                         onClick={() => api.auth.uploadSkin(account.uuid, '', 'classic').catch(() => {})}
-                        style={{ height:32, padding:'0 14px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:3, cursor:'pointer', fontSize:12, fontWeight:600 }}
+                        style={{ height:32, fontSize:12 }}
                       >
                         {t.skins.openSkinPage}
-                      </button>
+                      </Button>
                     ) : (
                       <>
                         <div style={{ display:'flex', gap:8 }}>
-                          <button
+                          <Button
+                            variant="secondary"
                             type="button"
                             onClick={async () => {
                               const p = await api.auth.browseSkin()
@@ -699,15 +703,15 @@ function Account() {
                                 setSkinTexUrl(dataUrl ?? null)
                               }
                             }}
-                            style={{ flex:1, height:32, background:'var(--surface-2)', color:'var(--ink-2)', border:'1px solid var(--border-r)', borderRadius:3, cursor:'pointer', fontSize:12 }}
+                            style={{ flex:1, height:32, fontSize:12 }}
                           >
                             {skinPath ? '✓ ' + skinPath.split(/[/\\]/).pop() : 'Browse PNG…'}
-                          </button>
+                          </Button>
                           {account.type === 'microsoft' && (
                             <select
                               value={skinVariant}
                               onChange={e => setSkinVariant(e.target.value as 'classic' | 'slim')}
-                              style={{ height:32, background:'var(--bg)', border:'1px solid var(--border-r)', color:'var(--ink)', padding:'0 8px', borderRadius:3, cursor:'pointer', fontSize:12 }}
+                              style={{ height:32, background:'var(--bg)', border:'1px solid var(--border-r)', color:'var(--ink)', padding:'0 8px', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:12 }}
                             >
                               <option value="classic">Classic (Steve)</option>
                               <option value="slim">Slim (Alex)</option>
@@ -716,18 +720,19 @@ function Account() {
                         </div>
                         {/* 3D skin viewer — shows current skin or newly selected one */}
                         {(skinTextureUrl || skinPath) && (
-                          <div style={{ display:'flex', justifyContent:'center', background:'var(--surface-2)', borderRadius:8, padding:8, border:'1px solid var(--border-r)' }}>
+                          <div style={{ display:'flex', justifyContent:'center', background:'var(--surface-2)', borderRadius:'var(--radius-md)', padding:8, border:'1px solid var(--border-r)' }}>
                             <SkinViewer3D skinUrl={skinTextureUrl} width={160} height={240} walk rotate />
                           </div>
                         )}
-                        <button
+                        <Button
+                          variant="primary"
                           type="button"
                           onClick={() => void handleSkinUpload(account.uuid)}
                           disabled={!skinPath || skinUploading}
-                          style={{ height:32, padding:'0 14px', background: skinPath && !skinUploading ? 'var(--accent)' : 'var(--surface-3)', color: skinPath && !skinUploading ? '#fff' : 'var(--ink-4)', border:'none', borderRadius:3, cursor: skinPath && !skinUploading ? 'pointer' : 'not-allowed', fontSize:12, fontWeight:600 }}
+                          style={{ height:32, fontSize:12 }}
                         >
                           {skinUploading ? t.skins.uploading : account.type === 'microsoft' ? t.skins.uploadSkin : t.skins.saveAsAvatar}
-                        </button>
+                        </Button>
                       </>
                     )}
 

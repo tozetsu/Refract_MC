@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 import type { Instance } from '@refract/core'
+import { Button } from '@/components/ui/Button'
 
 type Server = { name: string; ip: string; icon?: string }
 
@@ -45,10 +46,10 @@ export function ServersDialog({ instance, open, onOpenChange }: Props) {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border-r)', flexShrink: 0 }}>
           <div>
-            <div style={{ fontFamily: "'VT323',monospace", fontSize: 17, color: 'var(--ink)', letterSpacing: '.08em' }}>SERVERS — {instance.name}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', letterSpacing: '.04em' }}>SERVERS — {instance.name}</div>
             <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>Saved in servers.dat · click to copy address</div>
           </div>
-          <button onClick={() => onOpenChange(false)} style={{ background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', fontSize: 18, lineHeight: 1 }}>✕</button>
+          <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} style={{ color: 'var(--ink-4)', fontSize: 18, lineHeight: 1 }}>✕</Button>
         </div>
 
         {/* Body */}
@@ -57,7 +58,7 @@ export function ServersDialog({ instance, open, onOpenChange }: Props) {
             <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>Loading…</div>
           ) : servers.length === 0 ? (
             <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'VT323',monospace", fontSize: 17, color: 'var(--ink-4)', letterSpacing: '.08em', marginBottom: 8 }}>NO SAVED SERVERS</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-4)', letterSpacing: '.10em', marginBottom: 8 }}>NO SAVED SERVERS</div>
               <div style={{ fontSize: 12, color: 'var(--ink-4)', lineHeight: 1.5 }}>
                 Servers you add inside Minecraft appear here.<br />
                 Launch the instance and add servers in the multiplayer menu.
@@ -83,7 +84,7 @@ function ServerRow({ server, copied, onCopy }: { server: Server; copied: boolean
       onMouseLeave={() => setHover(false)}
     >
       {/* Server icon */}
-      <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 4, overflow: 'hidden', background: 'var(--surface-3)', border: '1px solid var(--border-r)', imageRendering: 'pixelated' }}>
+      <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 'var(--radius-sm)', overflow: 'hidden', background: 'var(--surface-3)', border: '1px solid var(--border-r)', imageRendering: 'pixelated' }}>
         {server.icon ? (
           <img
             src={server.icon.startsWith('data:') ? server.icon : `data:image/png;base64,${server.icon}`}
@@ -98,7 +99,7 @@ function ServerRow({ server, copied, onCopy }: { server: Server; copied: boolean
       {/* Name + IP */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{server.name}</div>
-        <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{server.ip}</div>
+        <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{server.ip}</div>
       </div>
 
       {/* Copy button */}
@@ -107,7 +108,7 @@ function ServerRow({ server, copied, onCopy }: { server: Server; copied: boolean
         background: copied ? 'var(--grass)' : hover ? 'var(--surface-3)' : 'transparent',
         color: copied ? '#fff' : 'var(--ink-3)',
         border: `1px solid ${copied ? 'var(--grass)' : hover ? 'var(--border-r)' : 'transparent'}`,
-        borderRadius: 3, flexShrink: 0, transition: 'all 120ms',
+        borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'all 120ms',
       }}>
         {copied ? 'Copied!' : 'Copy IP'}
       </div>

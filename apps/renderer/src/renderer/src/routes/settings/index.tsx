@@ -2,6 +2,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { api, type AppConfig, type SafeAccount } from '@/lib/api'
+import { Button } from '@/components/ui/Button'
 import { useThemeStore } from '@/stores/theme'
 import { useAvatarStore } from '@/stores/avatar'
 import { compressImage } from '@/lib/image'
@@ -277,15 +278,16 @@ function Settings() {
                     value={accentColor ?? '#5b9c3a'}
                     onChange={e => setAccentColor(e.target.value)}
                     title={t.settings.customColour}
-                    style={{ width:30, height:22, padding:0, border:'1px solid var(--border-r)', borderRadius:3, cursor:'pointer', background:'none' }}
+                    style={{ width:30, height:22, padding:0, border:'1px solid var(--border-r)', borderRadius:'var(--radius-sm)', cursor:'pointer', background:'none' }}
                   />
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => { if (accentColor) { setAccentColor(null); showToast(t.settings.accentColorReset) } }}
                     disabled={!accentColor}
-                    style={{ fontSize:11, color:'var(--ink-4)', background:'none', border:'1px solid var(--border-r)', borderRadius:3, padding:'2px 8px', cursor: accentColor ? 'pointer' : 'not-allowed', opacity: accentColor ? 1 : 0.4 }}
                   >
                     Reset
-                  </button>
+                  </Button>
                 </div>
               </Field>
 
@@ -309,7 +311,7 @@ function Settings() {
                     onChange={(e) => handleMemoryChange(Number(e.target.value))}
                     style={{ flex: 1, accentColor: 'var(--accent)', cursor: 'pointer' }}
                   />
-                  <span style={{ fontFamily: "'VT323',monospace", fontSize: 18, color: 'var(--ink)', minWidth: 56, textAlign: 'right', lineHeight: 1 }}>
+                  <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 14, fontWeight: 600, color: 'var(--ink)', minWidth: 56, textAlign: 'right', lineHeight: 1 }}>
                     {memoryMb >= 1024 ? `${memoryMb / 1024}GB` : `${memoryMb}MB`}
                   </span>
                 </div>
@@ -351,22 +353,19 @@ function Settings() {
                     style={{
                       flex: 1, height: 32, padding: '0 10px',
                       background: 'var(--bg)', border: '1px solid var(--border-r)',
-                      borderRadius: 3, color: 'var(--ink)', fontSize: 12, outline: 'none',
+                      borderRadius: 'var(--radius-md)', color: 'var(--ink)', fontSize: 12, outline: 'none',
                     }}
                   />
-                  <button
+                  <Button
+                    variant="primary"
                     onClick={async () => {
                       await api.config.set('curseforgeApiKey', cfKeyDraft.trim() || undefined)
                       showToast(t.settings.curseforgeKeySaved)
                     }}
-                    style={{
-                      height: 32, padding: '0 14px', fontSize: 12, fontWeight: 600,
-                      background: 'var(--accent)', color: '#fff', border: 'none',
-                      borderRadius: 3, cursor: 'pointer',
-                    }}
+                    style={{ height: 32 }}
                   >
                     {t.account.save}
-                  </button>
+                  </Button>
                 </div>
               </Field>
             </div>
@@ -417,7 +416,7 @@ function Settings() {
             <div style={{ display:'grid', gap:14 }}>
 
               {/* Active profile hero row */}
-              <div style={{ display:'flex', alignItems:'center', gap:14, padding:14, background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:4 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:14, padding:14, background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)' }}>
                 <AvatarPicker
                   avatar={activeAccount ? avatars[activeAccount.uuid] : undefined}
                   initial={activeAccount?.username[0]?.toUpperCase() ?? '?'}
@@ -440,16 +439,11 @@ function Settings() {
                     <div style={{ fontSize:11, color:'var(--ink-4)', marginTop:4 }}>{t.settings.clickAvatarChange}</div>
                   )}
                 </div>
-                <Link
-                  to="/account"
-                  style={{
-                    height:34, padding:'0 14px', display:'inline-flex', alignItems:'center',
-                    background:'var(--surface-3)', color:'var(--ink)', border:'1px solid var(--border-r)',
-                    borderRadius:4, textDecoration:'none', fontSize:12, fontWeight:700, flexShrink:0,
-                  }}
-                >
-                  {t.settings.manage}
-                </Link>
+                <Button asChild variant="secondary" style={{ height:34, flexShrink:0 }}>
+                  <Link to="/account" style={{ textDecoration:'none' }}>
+                    {t.settings.manage}
+                  </Link>
+                </Button>
               </div>
 
               {/* Account list */}
@@ -464,7 +458,7 @@ function Settings() {
                       style={{
                         padding:'10px 12px', background:isActive ? 'var(--accent-tint)' : 'var(--bg)',
                         border:`1px solid ${isActive ? 'var(--accent)' : 'var(--border-r)'}`,
-                        borderRadius:4, display:'flex', alignItems:'center', gap:10,
+                        borderRadius:'var(--radius-md)', display:'flex', alignItems:'center', gap:10,
                       }}
                     >
                       <AvatarPicker
@@ -482,26 +476,26 @@ function Settings() {
                         </div>
                       </div>
                       {isActive && (
-                        <div style={{ fontSize:11, fontFamily:"'VT323',monospace", letterSpacing:'.06em', color:'var(--accent)', flexShrink:0 }}>{t.settings.activeLabel}</div>
+                        <div style={{ fontSize:11, fontWeight:700, letterSpacing:'.10em', textTransform:'uppercase', color:'var(--accent)', flexShrink:0 }}>{t.settings.activeLabel}</div>
                       )}
                       {!isActive && (
-                        <button
-                          type="button"
+                        <Button
+                          variant="secondary"
+                          size="sm"
                           onClick={() => setActive(account.uuid)}
                           disabled={!!busy}
-                          style={smallButtonStyle(!!busy)}
                         >
                           {t.settings.use}
-                        </button>
+                        </Button>
                       )}
-                      <button
-                        type="button"
+                      <Button
+                        variant="danger"
+                        size="sm"
                         onClick={() => removeAccount(account.uuid)}
                         disabled={!!busy}
-                        style={{ ...smallButtonStyle(!!busy), color:'var(--redstone)', background:'transparent', border:'1px solid rgba(217,59,59,.4)' }}
                       >
                         {t.settings.signOut}
-                      </button>
+                      </Button>
                     </div>
                   )
                 })}
@@ -515,14 +509,14 @@ function Settings() {
                 <div style={{ color:'var(--ink-3)', fontSize:12 }}>
                   {javaLoading ? t.settings.scanning : javas.length === 0 ? t.settings.noJava : t.settings.javaDetected(javas.length)}
                 </div>
-                <button
-                  type="button"
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={scanJava}
                   disabled={javaLoading}
-                  style={{ ...smallButtonStyle(javaLoading), fontSize:11 }}
                 >
                   {javaLoading ? t.settings.scanning : t.settings.rescan}
-                </button>
+                </Button>
               </div>
 
               {/* Download needed Java versions */}
@@ -531,27 +525,27 @@ function Settings() {
                 const downloading = javaDownloading.get(major)
                 if (available || (!downloading && javas.some(j => j.version === major))) return null
                 return (
-                  <div key={major} style={{ padding:'10px 12px', background:'rgba(255,255,255,.03)', border:'1px solid var(--border-r)', borderRadius:4 }}>
+                  <div key={major} style={{ padding:'10px 12px', background:'rgba(255,255,255,.03)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)' }}>
                     <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
                       <div>
-                        <div style={{ fontFamily:"'VT323',monospace", fontSize:14, color:'var(--ink)', letterSpacing:'.04em' }}>Java {major}</div>
+                        <div style={{ fontSize:13, fontWeight:700, color:'var(--ink)' }}>Java {major}</div>
                         <div style={{ fontSize:11, color:'var(--ink-4)', marginTop:2 }}>{t.settings.javaVersionLabel(major)}</div>
                       </div>
                       {downloading ? (
-                        <div style={{ fontSize:11, color:'var(--ink-3)', textAlign:'right', minWidth:100 }}>{downloading.step}</div>
+                        <div style={{ fontSize:11, color:'var(--ink-3)', textAlign:'right', minWidth:100, fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{downloading.step}</div>
                       ) : (
-                        <button
-                          type="button"
+                        <Button
+                          variant="primary"
+                          size="sm"
                           onClick={() => downloadJava(major)}
-                          style={{ ...smallButtonStyle(false), background:'var(--accent)', color:'#fff', border:'none', fontSize:11 }}
                         >
                           {t.settings.download}
-                        </button>
+                        </Button>
                       )}
                     </div>
                     {downloading && (
-                      <div style={{ marginTop:8, height:4, background:'var(--surface-3)', borderRadius:2, overflow:'hidden' }}>
-                        <div style={{ height:'100%', width:`${downloading.percent}%`, background:'var(--accent)', transition:'width 200ms linear', borderRadius:2 }} />
+                      <div style={{ marginTop:8, height:4, background:'var(--surface-3)', borderRadius:'var(--radius-sm)', overflow:'hidden' }}>
+                        <div style={{ height:'100%', width:`${downloading.percent}%`, background:'var(--accent)', transition:'width 200ms linear', borderRadius:'var(--radius-sm)' }} />
                       </div>
                     )}
                   </div>
@@ -571,53 +565,55 @@ function Settings() {
                       padding:'10px 12px',
                       background: isTop ? 'rgba(79,184,232,.07)' : 'var(--bg)',
                       border:`1px solid ${isTop ? 'var(--diamond)' : 'var(--border-r)'}`,
-                      borderRadius:4,
+                      borderRadius:'var(--radius-md)',
                       display:'grid', gap:3,
                     }}
                   >
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <span style={{ fontFamily:"'VT323',monospace", fontSize:16, color: isTop ? 'var(--diamond)' : 'var(--ink)', letterSpacing:'.04em' }}>
+                      <span style={{ fontSize:13, fontWeight:700, color: isTop ? 'var(--diamond)' : 'var(--ink)' }}>
                         Java {j.version}
                       </span>
                       <span style={{ fontSize:11, color:'var(--ink-4)' }}>{j.vendor}</span>
                       {isManaged && (
-                        <span style={{ fontSize:10, color:'var(--accent)', background:'rgba(83,22,212,.15)', border:'1px solid rgba(83,22,212,.3)', borderRadius:3, padding:'1px 5px' }}>
+                        <span style={{ fontSize:10, color:'var(--accent)', background:'rgba(83,22,212,.15)', border:'1px solid rgba(83,22,212,.3)', borderRadius:'var(--radius-sm)', padding:'1px 5px' }}>
                           managed
                         </span>
                       )}
                       {isCustom && (
-                        <span style={{ fontSize:10, color:'var(--gold)', background:'rgba(228,179,59,.12)', border:'1px solid rgba(228,179,59,.35)', borderRadius:3, padding:'1px 5px' }}>
+                        <span style={{ fontSize:10, color:'var(--gold)', background:'rgba(228,179,59,.12)', border:'1px solid rgba(228,179,59,.35)', borderRadius:'var(--radius-sm)', padding:'1px 5px' }}>
                           custom
                         </span>
                       )}
                       <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:6 }}>
                         {isTop && (
-                          <span style={{ fontFamily:"'VT323',monospace", fontSize:12, letterSpacing:'.06em', color:'var(--diamond)' }}>
+                          <span style={{ fontSize:11, fontWeight:700, letterSpacing:'.10em', textTransform:'uppercase', color:'var(--diamond)' }}>
                             {t.settings.bestMatch}
                           </span>
                         )}
                         {isManaged && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="danger"
+                            size="sm"
                             onClick={() => deleteJava(j.version)}
-                            style={{ fontSize:10, padding:'2px 7px', background:'transparent', border:'1px solid var(--border-r)', borderRadius:3, color:'var(--ink-4)', cursor:'pointer' }}
+                            style={{ fontSize:10, padding:'2px 7px' }}
                           >
                             Remove
-                          </button>
+                          </Button>
                         )}
                         {isCustom && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="danger"
+                            size="sm"
                             onClick={() => removeCustomJava(j.path)}
-                            style={{ fontSize:10, padding:'2px 7px', background:'transparent', border:'1px solid var(--border-r)', borderRadius:3, color:'var(--ink-4)', cursor:'pointer' }}
+                            style={{ fontSize:10, padding:'2px 7px' }}
                           >
                             Remove
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </div>
                     <div style={{ fontSize:11, color:'var(--ink-4)', lineHeight:1.3 }}>{label}</div>
-                    <div style={{ fontSize:10, color:'var(--ink-4)', fontFamily:'monospace', opacity:.7, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                    <div style={{ fontSize:10, color:'var(--ink-4)', fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', opacity:.7, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                       {j.path}
                     </div>
                   </div>
@@ -625,10 +621,10 @@ function Settings() {
               })}
 
               {/* Custom Java path */}
-              <div style={{ marginTop:4, padding:'12px', background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:4, display:'grid', gap:8 }}>
+              <div style={{ marginTop:4, padding:'12px', background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)', display:'grid', gap:8 }}>
                 <div style={{ fontSize:12, fontWeight:600, color:'var(--ink-3)' }}>Add custom Java installation</div>
                 <div style={{ fontSize:11, color:'var(--ink-4)', lineHeight:1.4 }}>
-                  Point to a <code style={{ fontFamily:'monospace', color:'var(--ink-3)' }}>java</code> or <code style={{ fontFamily:'monospace', color:'var(--ink-3)' }}>java.exe</code> executable on your system.
+                  Point to a <code style={{ fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', color:'var(--ink-3)' }}>java</code> or <code style={{ fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', color:'var(--ink-3)' }}>java.exe</code> executable on your system.
                 </div>
                 <div style={{ display:'flex', gap:6 }}>
                   <input
@@ -638,25 +634,27 @@ function Settings() {
                     placeholder="/usr/lib/jvm/java-17/bin/java"
                     style={{
                       flex:1, height:32, padding:'0 10px', fontSize:12,
+                      fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace',
                       background:'var(--surface-2)', border:`1px solid ${customError ? 'var(--lava)' : 'var(--border-r)'}`,
-                      color:'var(--ink)', borderRadius:3, outline:'none',
+                      color:'var(--ink)', borderRadius:'var(--radius-md)', outline:'none',
                     }}
                   />
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={browseAndAddCustomJava}
-                    style={{ ...smallButtonStyle(false), fontSize:11, whiteSpace:'nowrap' }}
+                    style={{ whiteSpace:'nowrap' }}
                   >
                     Browse…
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
                     onClick={addCustomJava}
                     disabled={!customPathInput.trim() || addingCustom}
-                    style={{ ...smallButtonStyle(!customPathInput.trim() || addingCustom), background:'var(--accent)', color:'#fff', border:'none', fontSize:11 }}
                   >
                     {addingCustom ? 'Adding…' : 'Add'}
-                  </button>
+                  </Button>
                 </div>
                 {customError && (
                   <div style={{ fontSize:11, color:'var(--lava)', lineHeight:1.4 }}>{customError}</div>
@@ -688,20 +686,17 @@ function Settings() {
             {logs.length === 0 ? t.settings.noEntries : t.settings.recentEntries(logs.length)}
           </span>
           <div style={{ display:'flex', gap:8 }}>
-            <button onClick={loadLogs} style={smallButtonStyle(logsLoading)}>
+            <Button variant="secondary" size="sm" onClick={loadLogs} style={{ opacity: logsLoading ? .55 : 1 }}>
               {logsLoading ? t.settings.loading : t.settings.refresh}
-            </button>
-            <button
-              onClick={clearLogs}
-              style={{ ...smallButtonStyle(false), color:'var(--lava)', borderColor:'rgba(217,59,59,.4)' }}
-            >
+            </Button>
+            <Button variant="danger" size="sm" onClick={clearLogs}>
               {t.settings.clearLogs}
-            </button>
+            </Button>
           </div>
         </div>
         <div style={{
-          background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:3,
-          height:300, overflowY:'auto', fontFamily:'monospace', fontSize:11,
+          background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-sm)',
+          height:300, overflowY:'auto', fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize:11,
         }}>
           {logs.length === 0 ? (
             <div style={{ padding:'20px 12px', color:'var(--ink-4)', textAlign:'center' }}>
@@ -750,8 +745,8 @@ function Settings() {
           </svg>
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
-              <span style={{ fontFamily:"'VT323',monospace", fontSize:22, letterSpacing:'.1em', color:'var(--ink)' }}>REFRACT</span>
-              <span style={{ fontFamily:"'VT323',monospace", fontSize:14, letterSpacing:'.06em', color:'var(--accent)', background:'var(--accent-tint)', border:'1px solid var(--accent)', borderRadius:3, padding:'1px 8px' }}>
+              <span style={{ fontSize:17, fontWeight:700, letterSpacing:'.10em', color:'var(--ink)' }}>REFRACT</span>
+              <span style={{ fontSize:11, fontWeight:600, letterSpacing:'.04em', color:'var(--accent)', background:'var(--accent-tint)', border:'1px solid var(--accent)', borderRadius:'var(--radius-sm)', padding:'2px 8px' }}>
                 v{__APP_VERSION__} · {t.settings.earlyAccess}
               </span>
             </div>
@@ -759,24 +754,26 @@ function Settings() {
               {t.settings.aboutDesc}
             </p>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              <button
+              <Button
                 onClick={() => window.open('https://discord.gg/SUPuuTjMGU')}
-                style={{ height:30, padding:'0 14px', fontSize:12, fontWeight:600, background:'#5865F2', color:'#fff', border:'none', borderRadius:4, cursor:'pointer' }}
+                style={{ height:30, background:'#5865F2', color:'#fff' }}
               >
                 {t.settings.joinDiscord}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={() => window.open('https://github.com/RefractMC/Refract_MC/issues')}
-                style={{ height:30, padding:'0 14px', fontSize:12, fontWeight:600, background:'var(--surface-3)', color:'var(--ink)', border:'1px solid var(--border-r)', borderRadius:4, cursor:'pointer' }}
+                style={{ height:30 }}
               >
                 {t.settings.reportBug}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={() => window.open('https://github.com/RefractMC/Refract_MC')}
-                style={{ height:30, padding:'0 14px', fontSize:12, fontWeight:600, background:'var(--surface-3)', color:'var(--ink)', border:'1px solid var(--border-r)', borderRadius:4, cursor:'pointer' }}
+                style={{ height:30 }}
               >
                 {t.settings.github}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -799,49 +796,35 @@ function Settings() {
             </div>
           </div>
           {!confirmDelete ? (
-            <button
+            <Button
+              variant="danger"
               onClick={() => setConfirmDelete(true)}
-              style={{
-                height: 34, padding: '0 16px', flexShrink: 0,
-                background: 'transparent', color: 'var(--lava)',
-                border: '1px solid rgba(217,59,59,.5)', borderRadius: 4,
-                cursor: 'pointer', fontSize: 12, fontWeight: 700,
-              }}
+              style={{ height: 34, flexShrink: 0 }}
             >
               Delete All Data
-            </button>
+            </Button>
           ) : (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
               <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>Are you sure?</span>
-              <button
+              <Button
+                variant="danger"
                 onClick={async () => {
                   setDeleting(true)
                   try { await api.launcher.deleteAll() } catch { setDeleting(false); setConfirmDelete(false) }
                 }}
                 disabled={deleting}
-                style={{
-                  height: 34, padding: '0 16px',
-                  background: 'var(--lava)', color: '#fff',
-                  border: 'none', borderRadius: 4,
-                  cursor: deleting ? 'not-allowed' : 'pointer',
-                  fontSize: 12, fontWeight: 700,
-                  opacity: deleting ? 0.6 : 1,
-                }}
+                style={{ height: 34 }}
               >
                 {deleting ? 'Deleting…' : 'Yes, delete everything'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={() => setConfirmDelete(false)}
                 disabled={deleting}
-                style={{
-                  height: 34, padding: '0 14px',
-                  background: 'var(--surface-3)', color: 'var(--ink)',
-                  border: '1px solid var(--border-r)', borderRadius: 4,
-                  cursor: 'pointer', fontSize: 12, fontWeight: 700,
-                }}
+                style={{ height: 34 }}
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -875,7 +858,7 @@ function AvatarPicker({ avatar, initial, size, onClick, disabled }: { avatar?: s
       onMouseEnter={() => { if (!disabled) setHover(true) }}
       onMouseLeave={() => setHover(false)}
       style={{
-        width:size, height:size, borderRadius:3, overflow:'hidden', flexShrink:0,
+        width:size, height:size, borderRadius:'var(--radius-sm)', overflow:'hidden', flexShrink:0,
         border:`1px solid ${hover ? 'var(--accent)' : 'var(--border-r)'}`,
         background:'var(--surface-3)',
         cursor: disabled ? 'default' : 'pointer',
@@ -885,13 +868,13 @@ function AvatarPicker({ avatar, initial, size, onClick, disabled }: { avatar?: s
     >
       {avatar
         ? <img src={avatar} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-        : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'VT323',monospace", fontSize:size * 0.45, color:'var(--ink-3)' }}>{initial}</div>
+        : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:size * 0.4, color:'var(--ink-3)' }}>{initial}</div>
       }
       {hover && !disabled && (
         <div style={{
           position:'absolute', inset:0, background:'rgba(0,0,0,.55)',
           display:'flex', alignItems:'center', justifyContent:'center',
-          fontFamily:"'VT323',monospace", fontSize:Math.max(10, size * 0.22), letterSpacing:'.06em', color:'#fff',
+          fontWeight:700, fontSize:Math.max(9, size * 0.18), letterSpacing:'.10em', color:'#fff',
         }}>
           {size >= 48 ? 'CHANGE' : '✎'}
         </div>
@@ -923,7 +906,7 @@ function Field({ label, note, children }: { label: string; note: string; childre
 
 function Segmented({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display:'inline-flex', width:'fit-content', background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:4, padding:3, gap:3 }}>
+    <div style={{ display:'inline-flex', width:'fit-content', background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)', padding:3, gap:3 }}>
       {children}
     </div>
   )
@@ -931,22 +914,22 @@ function Segmented({ children }: { children: React.ReactNode }) {
 
 function SegmentButton({ active, disabled, onClick, children }: { active: boolean; disabled: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      type="button"
-      disabled={disabled}
+    <Button
+      variant="outline"
       onClick={onClick}
+      disabled={disabled}
       style={{
         height:30, padding:'0 16px', whiteSpace:'nowrap',
-        background:active ? 'var(--accent)' : 'transparent',
-        color:active ? '#fff' : 'var(--ink-2)',
-        border:'none', borderRadius:3,
-        cursor:disabled ? 'not-allowed' : 'pointer',
-        opacity:disabled ? .65 : 1,
-        fontSize:12, fontWeight:700,
+        border:'1px solid transparent',
+        borderRadius:'var(--radius-sm)',
+        fontSize:12, fontWeight:600,
+        ...(active
+          ? { background:'var(--accent)', color:'var(--accent-fg)', borderColor:'var(--accent)' }
+          : { background:'transparent', color:'var(--ink-2)' }),
       }}
     >
       {children}
-    </button>
+    </Button>
   )
 }
 
@@ -957,15 +940,4 @@ function Stat({ label, value }: { label: string; value: string }) {
       <span style={{ color:'var(--ink)', fontSize:12, fontWeight:700, textTransform:'capitalize' }}>{value}</span>
     </div>
   )
-}
-
-function smallButtonStyle(disabled: boolean): React.CSSProperties {
-  return {
-    height:30, padding:'0 12px',
-    background:'var(--surface-3)', color:'var(--ink)',
-    border:'1px solid var(--border-r)', borderRadius:4,
-    cursor:disabled ? 'not-allowed' : 'pointer',
-    opacity:disabled ? .55 : 1,
-    fontSize:12, fontWeight:700,
-  }
 }

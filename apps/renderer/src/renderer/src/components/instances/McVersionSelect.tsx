@@ -102,7 +102,7 @@ export function McVersionSelect({ value, onChange, selectStyle, selectClassName,
             onChange={e => setShowSnapshots(e.target.checked)}
             style={{ cursor: 'pointer', accentColor: 'var(--accent)' }}
           />
-          <span style={{ fontFamily: "'VT323',monospace", fontSize: 12, letterSpacing: '.08em', color: 'var(--ink-4)' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', color: 'var(--ink-4)' }}>
             SHOW SNAPSHOTS
           </span>
         </label>

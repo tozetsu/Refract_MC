@@ -125,7 +125,7 @@ function AvatarBlock({ compact }: { compact: boolean }) {
           onError={() => { if (!skinFallback) setSkinFallback(true); else setSkinFailed(true) }}
         />
       ) : (
-        <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:"'VT323',monospace", fontSize:20, color:'var(--ink-3)' }}>
+        <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:600, color:'var(--ink-3)' }}>
           {initial}
         </div>
       )}
@@ -144,10 +144,10 @@ function AvatarBlock({ compact }: { compact: boolean }) {
     <div style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 6px 12px', borderBottom:'1px solid var(--sb-line)' }}>
       {avatar}
       <div style={{ minWidth:0, flex:1 }}>
-        <div style={{ fontFamily:"'VT323',monospace", fontSize:18, letterSpacing:'.10em', color:'var(--ink)', lineHeight:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-          {account ? account.username.toUpperCase() : 'GUEST'}
+        <div style={{ fontSize:14, fontWeight:600, color:'var(--ink)', lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+          {account ? account.username : 'Guest'}
         </div>
-        <div style={{ fontFamily:"'VT323',monospace", fontSize:12, color: account?.canPlayMinecraft ? 'var(--grass)' : 'var(--gold)', letterSpacing:'.04em', lineHeight:1.4 }}>
+        <div style={{ fontSize:11, color: account?.canPlayMinecraft ? 'var(--grass)' : 'var(--gold)', lineHeight:1.4 }}>
           <AvatarStatus account={account} />
         </div>
       </div>
@@ -193,8 +193,8 @@ function SkinPopup({ friend, onClose }: { friend: Friend; onClose: () => void })
           style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-4)', fontSize: 16, lineHeight: 1, padding: 4 }}
         >✕</button>
         <SkinViewer3DLazy skinUrl={skinUrl} width={160} height={240} walk rotate />
-        <div style={{ fontFamily:"'VT323',monospace", fontSize: 18, letterSpacing: '.10em', color: 'var(--ink)' }}>
-          {friend.username.toUpperCase()}
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>
+          {friend.username}
         </div>
       </div>
     </div>
@@ -430,7 +430,7 @@ function FriendRow({ friend, onRemove, onNoteChange, onSkinClick }: {
                 else setImgFailed(true)
               }} />
           ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'VT323',monospace", fontSize: 13, color: 'var(--ink-3)' }}>
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: 'var(--ink-3)' }}>
               {friend.username[0]?.toUpperCase()}
             </div>
           )}
@@ -581,7 +581,7 @@ export function Sidebar() {
       ) : (
         <div style={{ display:'flex', alignItems:'center', gap:10, padding:'0 6px 10px', borderBottom:'1px solid var(--sb-line)', marginBottom:6 }}>
           <RefractLogo size={32} />
-          <span style={{ fontFamily:"'VT323',monospace", fontSize:20, letterSpacing:'.12em', color:'var(--ink)', lineHeight:1 }}>REFRACT</span>
+          <span style={{ fontSize:16, fontWeight:700, letterSpacing:'.14em', color:'var(--ink)', lineHeight:1 }}>REFRACT</span>
           <div style={{ flex:1 }} />
           <CollapseToggle compact={false} onClick={toggleCollapsed} label={t.sidebar.collapse} />
         </div>
