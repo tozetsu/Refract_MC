@@ -4,7 +4,7 @@
 //! every `interval` seconds until the user authorizes. (The XBL→XSTS→Minecraft
 //! token chain is intentionally out of scope for this POC.)
 
-use crate::paths;
+use crate::secrets;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -45,15 +45,13 @@ pub async fn auth_device_start() -> Result<DeviceStart, String> {
     })
 }
 
+// Tokens are NEVER returned to the frontend — on success they're written to the
+// Stronghold vault here in Rust, and the command reports only signed-in status.
 #[derive(Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum PollResult {
     Pending,
-    Success {
-        access_token: String,
-        refresh_token: Option<String>,
-        expires_in: u64,
-    },
+    Success,
 }
 
 #[tauri::command]
@@ -71,11 +69,12 @@ pub async fn auth_device_poll(device_code: String) -> Result<PollResult, String>
     let ok = res.status().is_success();
     let v: Value = res.json().await.map_err(|e| e.to_string())?;
     if ok {
-        return Ok(PollResult::Success {
-            access_token: v["access_token"].as_str().unwrap_or_default().to_string(),
-            refresh_token: v["refresh_token"].as_str().map(str::to_string),
-            expires_in: v["expires_in"].as_u64().unwrap_or(3600),
-        });
+        let access = v["access_token"].as_str().unwrap_or_default();
+        secrets::store_secret("msa_access_token", access)?;
+        if let Some(refresh) = v["refresh_token"].as_str() {
+            secrets::store_secret("msa_refresh_token", refresh)?;
+        }
+        return Ok(PollResult::Success);
     }
     match v["error"].as_str().unwrap_or("") {
         "authorization_pending" | "slow_down" => Ok(PollResult::Pending),
@@ -83,12 +82,8 @@ pub async fn auth_device_poll(device_code: String) -> Result<PollResult, String>
     }
 }
 
-/// Path the frontend opens its Stronghold vault at (keeps the path off the JS
-/// path API, so no extra capability is needed).
+/// Whether a signed-in MSA token is present in the vault (no token is exposed).
 #[tauri::command]
-pub fn vault_path() -> String {
-    paths::data_dir()
-        .join("refract-vault.hold")
-        .to_string_lossy()
-        .to_string()
+pub fn auth_status() -> bool {
+    secrets::has_secret("msa_access_token")
 }

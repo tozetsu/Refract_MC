@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Default capability for the POC window.",
   "windows": ["main"],
-  "permissions": ["core:default", "stronghold:default"]
+  "permissions": ["core:default"]
 }
