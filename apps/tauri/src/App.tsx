@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { RefreshCw, Check, MemoryStick, Palette, Boxes, Download } from 'lucide-react'
+import { RefreshCw, Check, MemoryStick, Palette, Boxes, Download, Terminal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { configApi, instancesApi, downloadApi, type AppConfig, type InstanceSummary, type DownloadProgress } from './tauri-api'
+import { configApi, instancesApi, downloadApi, processApi, type AppConfig, type InstanceSummary, type DownloadProgress } from './tauri-api'
 
 const DEMO_URL = 'https://libraries.minecraft.net/com/google/guava/guava/31.1-jre/guava-31.1-jre.jar'
+// A universal, time-spread command so streamed log lines are visible (Windows).
+const DEMO_PROGRAM = 'ping'
+const DEMO_ARGS = ['-n', '4', '127.0.0.1']
 
 // POC harness: exercises the Rust `config_get` / `config_set` commands end-to-end
 // through shadcn/ui + Tailwind, proving the full Tauri + frontend stack.
@@ -20,11 +23,28 @@ export function App() {
   const [downloading, setDownloading] = useState(false)
   const unlistenRef = useRef<(() => void) | null>(null)
 
+  const [logs, setLogs] = useState<string[]>([])
+  const [exitCode, setExitCode] = useState<number | null>(null)
+  const [running, setRunning] = useState(false)
+  const procUnlisten = useRef<Array<() => void>>([])
+
   // Subscribe to the Rust progress events for the lifetime of the component.
   useEffect(() => {
     downloadApi.onProgress(setProgress).then(un => { unlistenRef.current = un })
-    return () => { unlistenRef.current?.() }
+    Promise.all([
+      processApi.onLog(line => setLogs(prev => [...prev, line])),
+      processApi.onExit(code => { setExitCode(code); setRunning(false) }),
+    ]).then(uns => { procUnlisten.current = uns })
+    return () => { unlistenRef.current?.(); procUnlisten.current.forEach(u => u()) }
   }, [])
+
+  async function runProcess() {
+    setLogs([])
+    setExitCode(null)
+    setRunning(true)
+    try { await processApi.run(DEMO_PROGRAM, DEMO_ARGS) }
+    catch (e) { setError(String(e)); setRunning(false) }
+  }
 
   async function startDownload() {
     setDownloading(true)
@@ -156,6 +176,30 @@ export function App() {
               <div className="bg-primary h-full transition-all" style={{ width: `${progress?.percent ?? 0}%` }} />
             </div>
             {savedPath && <p className="text-muted-foreground text-xs">Saved to <code className="text-foreground">{savedPath}</code></p>}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Terminal className="size-4" /> Process &amp; log streaming</CardTitle>
+            <CardDescription>
+              Rust spawns <code className="text-foreground">{DEMO_PROGRAM} {DEMO_ARGS.join(' ')}</code> and streams stdout/stderr as <code className="text-foreground">process://log</code> events — the Minecraft launch primitive.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <Button size="sm" onClick={runProcess} disabled={running}>
+                <Terminal /> {running ? 'Running…' : 'Run'}
+              </Button>
+              {exitCode != null && (
+                <span className={`font-mono text-xs ${exitCode === 0 ? 'text-primary' : 'text-destructive'}`}>
+                  exited with code {exitCode}
+                </span>
+              )}
+            </div>
+            <pre className="bg-muted text-muted-foreground h-40 overflow-auto rounded-lg p-4 font-mono text-xs leading-relaxed">
+              {logs.length ? logs.join('\n') : 'No output yet — hit Run.'}
+            </pre>
           </CardContent>
         </Card>
       </div>

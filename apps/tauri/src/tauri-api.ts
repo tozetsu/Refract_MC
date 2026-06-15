@@ -44,3 +44,11 @@ export const downloadApi = {
   onProgress: (cb: (p: DownloadProgress) => void): Promise<UnlistenFn> =>
     listen<DownloadProgress>('download://progress', e => cb(e.payload)),
 }
+
+export const processApi = {
+  run: (program: string, args: string[]): Promise<number> => invoke<number>('process_run', { program, args }),
+  onLog: (cb: (line: string) => void): Promise<UnlistenFn> =>
+    listen<string>('process://log', e => cb(e.payload)),
+  onExit: (cb: (code: number) => void): Promise<UnlistenFn> =>
+    listen<number>('process://exit', e => cb(e.payload)),
+}
