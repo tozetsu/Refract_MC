@@ -384,6 +384,10 @@ function createTauriApi(): RefractAPI {
     instance: {
       ...base.instance,
       list: (() => invoke('instances_list')) as RefractAPI['instance']['list'],
+      getById: ((id: string) => invoke('get_instance_by_id', { id })) as RefractAPI['instance']['getById'],
+      create: ((input: CreateInstanceInput) => invoke('create_instance', { input })) as RefractAPI['instance']['create'],
+      update: ((id: string, patch: Partial<Instance>) => invoke('update_instance', { id, patch })) as RefractAPI['instance']['update'],
+      delete: ((id: string) => invoke('delete_instance', { id })) as RefractAPI['instance']['delete'],
     },
   }
 }
