@@ -197,6 +197,16 @@ pub struct DeviceLogin {
     pub message: String,
 }
 
+/// Open a URL in the user's default browser (Electron used shell.openExternal).
+fn open_url(url: &str) {
+    #[cfg(windows)]
+    let _ = std::process::Command::new("cmd").args(["/C", "start", "", url]).spawn();
+    #[cfg(target_os = "macos")]
+    let _ = std::process::Command::new("open").arg(url).spawn();
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+}
+
 #[tauri::command]
 pub async fn auth_microsoft_begin() -> Result<DeviceLogin, String> {
     let res = reqwest::Client::new()
@@ -209,10 +219,12 @@ pub async fn auth_microsoft_begin() -> Result<DeviceLogin, String> {
         return Err(format!("device code request failed: HTTP {}", res.status()));
     }
     let v: Value = res.json().await.map_err(|e| e.to_string())?;
+    let verification_uri = v["verification_uri"].as_str().unwrap_or_default().to_string();
+    open_url(&verification_uri);
     Ok(DeviceLogin {
         device_code: v["device_code"].as_str().unwrap_or_default().to_string(),
         user_code: v["user_code"].as_str().unwrap_or_default().to_string(),
-        verification_uri: v["verification_uri"].as_str().unwrap_or_default().to_string(),
+        verification_uri,
         interval: v["interval"].as_u64().unwrap_or(5),
         expires_in: v["expires_in"].as_u64().unwrap_or(900),
         message: v["message"].as_str().unwrap_or_default().to_string(),
