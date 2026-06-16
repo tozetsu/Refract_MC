@@ -3484,6 +3484,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-updater",
  "uuid",
+ "windows-sys 0.61.2",
  "zeroize",
  "zip 2.4.2",
 ]

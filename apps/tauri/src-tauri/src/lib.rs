@@ -2,11 +2,13 @@ mod auth;
 mod config;
 mod content;
 mod download;
+mod external;
 mod forge;
 mod gamedata;
 mod instances;
 mod java;
 mod launch;
+mod log;
 mod mc_install;
 mod modpack;
 mod mods;
@@ -15,6 +17,7 @@ mod process;
 mod secrets;
 mod servers;
 mod skins;
+mod system;
 
 /// Tauri entry point. Each former Electron IPC handler becomes a `#[tauri::command]`
 /// registered here; the renderer calls them via `invoke(...)`.
@@ -26,6 +29,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             config::config_get,
             config::config_set,
+            system::system_ram_gb,
+            log::log_write,
+            log::logs_read,
+            log::logs_clear,
             instances::instances_list,
             instances::get_instance_by_id,
             instances::create_instance,
@@ -34,6 +41,10 @@ pub fn run() {
             instances::open_instance_folder,
             instances::duplicate_instance,
             instances::export_instance,
+            external::scan_external_instances,
+            external::link_external_instance,
+            external::import_external_instance,
+            external::import_multimc_instance,
             download::download_demo,
             process::process_run,
             auth::auth_microsoft_begin,
@@ -44,6 +55,13 @@ pub fn run() {
             auth::auth_rename_offline,
             auth::auth_set_active,
             auth::auth_logout,
+            skins::skins_list,
+            skins::skins_add,
+            skins::skins_delete,
+            skins::skins_get_path,
+            skins::skins_get_data_url,
+            skins::skins_file_to_data_url,
+            skins::skins_apply,
             skins::fetch_skin_texture_url,
             skins::upload_skin,
             skins::fetch_capes,

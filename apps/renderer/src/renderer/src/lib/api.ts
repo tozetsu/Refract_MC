@@ -539,6 +539,31 @@ function createTauriApi(): RefractAPI {
       get: (() => tinvoke('config_get')) as RefractAPI['config']['get'],
       set: ((key: string, value: unknown) => tinvoke('config_set', { key, value })) as RefractAPI['config']['set'],
     },
+    system: {
+      ...base.system,
+      ramGb: (() => tinvoke('system_ram_gb')) as RefractAPI['system']['ramGb'],
+    },
+    log: {
+      ...base.log,
+      write: (entry) => { void tinvoke('log_write', { entry }).catch(() => {}) },
+      read: ((limit?: number) => tinvoke('logs_read', { limit })) as RefractAPI['log']['read'],
+      clear: (() => tinvoke('logs_clear')) as RefractAPI['log']['clear'],
+    },
+    skins: {
+      ...base.skins,
+      list: (() => tinvoke('skins_list')) as RefractAPI['skins']['list'],
+      browse: (async () => {
+        const p = await dialogOpen({ multiple: false, filters: [{ name: 'PNG Image', extensions: ['png'] }] })
+        return typeof p === 'string' ? p : null
+      }) as RefractAPI['skins']['browse'],
+      add: ((name: string, sourcePath: string, variant: string) =>
+        tinvoke('skins_add', { name, sourcePath, variant })) as RefractAPI['skins']['add'],
+      delete: ((id: string) => tinvoke('skins_delete', { id })) as RefractAPI['skins']['delete'],
+      getPath: ((filename: string) => tinvoke('skins_get_path', { filename })) as RefractAPI['skins']['getPath'],
+      getDataUrl: ((filename: string) => tinvoke('skins_get_data_url', { filename })) as RefractAPI['skins']['getDataUrl'],
+      fileToDataUrl: ((fullPath: string) => tinvoke('skins_file_to_data_url', { fullPath })) as RefractAPI['skins']['fileToDataUrl'],
+      apply: ((skinId: string, accountUuid: string) => tinvoke('skins_apply', { skinId, accountUuid })) as RefractAPI['skins']['apply'],
+    },
     launcher: {
       ...base.launcher,
       deleteAll: (() => tinvoke('launcher_delete_all')) as RefractAPI['launcher']['deleteAll'],
@@ -556,6 +581,13 @@ function createTauriApi(): RefractAPI {
         const p = await dialogOpen({ directory: true, multiple: false })
         return typeof p === 'string' ? p : null
       }) as RefractAPI['instance']['browseFolder'],
+      importMultiMc: (async () => {
+        const p = await dialogOpen({ directory: true, multiple: false, title: 'Select MultiMC / Prism Instance Folder' })
+        return typeof p === 'string' ? await tinvoke('import_multimc_instance', { instanceFolder: p }) : null
+      }) as RefractAPI['instance']['importMultiMc'],
+      scanExternal: (() => tinvoke('scan_external_instances')) as RefractAPI['instance']['scanExternal'],
+      linkExternal: ((ext) => tinvoke('link_external_instance', { ext })) as RefractAPI['instance']['linkExternal'],
+      importExternal: ((ext) => tinvoke('import_external_instance', { ext })) as RefractAPI['instance']['importExternal'],
       export: (async (id: string) => {
         const dest = await dialogSave({ defaultPath: 'instance.zip', filters: [{ name: 'ZIP Archive', extensions: ['zip'] }] })
         if (!dest) return null

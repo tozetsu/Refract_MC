@@ -5,7 +5,7 @@
 //! `%APPDATA%\Refract\config.json` — identical to Electron's
 //! `app.getPath('userData')`. (macOS: ~/Library/Application Support; Linux: ~/.config.)
 
-use crate::paths;
+use crate::{paths, system};
 use serde_json::{json, Map, Value};
 use std::fs;
 use std::path::PathBuf;
@@ -57,16 +57,22 @@ fn save(cfg: &Value) -> Result<(), String> {
 /// Equivalent of the renderer's `api.config.get()`.
 #[tauri::command]
 pub fn config_get() -> Result<Value, String> {
-    let cfg = load();
+    let mut cfg = load();
     if !config_path().exists() {
         save(&cfg)?; // config.ts writes defaults out on first load
+    }
+    if let Some(map) = cfg.as_object_mut() {
+        map.insert("systemRamGb".into(), json!(system::ram_gb_value()));
     }
     Ok(cfg)
 }
 
 /// The stored CurseForge API key, if configured (read by the content commands).
 pub fn curseforge_api_key() -> Option<String> {
-    load().get("curseforgeApiKey").and_then(Value::as_str).map(str::to_string)
+    load()
+        .get("curseforgeApiKey")
+        .and_then(Value::as_str)
+        .map(str::to_string)
 }
 
 /// Read the merged config (accounts, defaultMemoryMb, …) for non-command callers

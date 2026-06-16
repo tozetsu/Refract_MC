@@ -36,3 +36,4 @@ zip = "2"
 base64 = "0.22"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 fastnbt = "2"
+windows-sys = { version = "0.61", features = ["Win32_System_SystemInformation"] }
