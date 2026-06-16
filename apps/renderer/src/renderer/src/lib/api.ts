@@ -385,6 +385,84 @@ function tinvoke(cmd: string, args?: Record<string, unknown>): Promise<unknown> 
   })
 }
 
+// ── dependency planning (Tauri) ──────────────────────────────────────────────
+// Mirrors the Electron mod-deps service: transitive required + direct optional
+// deps. Modrinth metadata is fetched in the WebView (CORS-open); CurseForge goes
+// through the Rust proxy commands.
+
+type ResolvedDep = {
+  source: 'modrinth' | 'curseforge'; key: string; name: string
+  type: 'required' | 'optional'; alreadyInstalled: boolean
+  projectId?: string; versionId?: string; modId?: number; fileId?: number
+}
+
+async function modrinthNames(ids: string[]): Promise<Record<string, string>> {
+  if (!ids.length) return {}
+  try {
+    const res = await fetch(`https://api.modrinth.com/v2/projects?ids=${encodeURIComponent(JSON.stringify(ids))}`, { headers: { Accept: 'application/json' } })
+    if (!res.ok) return {}
+    const arr = (await res.json()) as Array<{ id: string; title: string }>
+    return Object.fromEntries(arr.map(p => [p.id, p.title]))
+  } catch { return {} }
+}
+
+async function planModrinthDeps(version: { dependencies?: Array<Record<string, unknown>> }, mc?: string, loader?: string, installed = new Set<string>()): Promise<ResolvedDep[]> {
+  const { getProjectVersions } = await import('@refract/core')
+  const out = new Map<string, ResolvedDep>()
+  const visited = new Set<string>()
+  async function walk(deps: Array<Record<string, unknown>> = []): Promise<void> {
+    const req: string[] = [], opt: string[] = []
+    for (const d of deps) {
+      const pid = d.project_id as string | undefined
+      if (!pid || pid.startsWith('cf:')) continue
+      if (d.dependency_type === 'required') req.push(pid)
+      else if (d.dependency_type === 'optional') opt.push(pid)
+    }
+    const names = await modrinthNames([...new Set([...req, ...opt])])
+    for (const id of opt) if (!out.has(id)) out.set(id, { source: 'modrinth', key: id, name: names[id] ?? id, type: 'optional', alreadyInstalled: installed.has(id), projectId: id })
+    for (const id of req) {
+      if (visited.has(id)) continue
+      visited.add(id)
+      let versionId: string | undefined; let childDeps: Array<Record<string, unknown>> = []
+      try { const vs = await getProjectVersions(id, mc, loader); versionId = vs[0]?.id; childDeps = (vs[0]?.dependencies ?? []) as Array<Record<string, unknown>> } catch { /* surface unresolved */ }
+      out.set(id, { source: 'modrinth', key: id, name: names[id] ?? out.get(id)?.name ?? id, type: 'required', alreadyInstalled: installed.has(id), projectId: id, versionId })
+      await walk(childDeps)
+    }
+  }
+  await walk(version.dependencies)
+  return [...out.values()]
+}
+
+async function planCurseforgeDeps(file: { dependencies?: Array<Record<string, unknown>> }, mc?: string, loader?: string, installed = new Set<string>()): Promise<ResolvedDep[]> {
+  const out = new Map<string, ResolvedDep>()
+  const visited = new Set<number>()
+  const cfName = async (modId: number) => {
+    try { return ((await tinvoke('curseforge_project_detail', { modId })) as { name?: string })?.name ?? `Mod ${modId}` } catch { return `Mod ${modId}` }
+  }
+  const cfBest = async (modId: number) => {
+    try { return ((await tinvoke('curseforge_files', { modId, gameVersion: mc, loader })) as Array<Record<string, unknown>>)?.[0] } catch { return undefined }
+  }
+  async function walk(deps: Array<Record<string, unknown>> = []): Promise<void> {
+    for (const d of deps) {
+      const modId = d.modId as number
+      const key = `cf:${modId}`
+      if (d.relationType === 3) {
+        if (visited.has(modId)) continue
+        visited.add(modId)
+        const best = await cfBest(modId)
+        out.set(key, { source: 'curseforge', key, name: await cfName(modId), type: 'required', alreadyInstalled: installed.has(key), modId, fileId: best?.id as number | undefined })
+        await walk((best?.dependencies ?? []) as Array<Record<string, unknown>>)
+      } else if (d.relationType === 2) {
+        if (out.has(key)) continue
+        const best = await cfBest(modId)
+        out.set(key, { source: 'curseforge', key, name: await cfName(modId), type: 'optional', alreadyInstalled: installed.has(key), modId, fileId: best?.id as number | undefined })
+      }
+    }
+  }
+  await walk(file.dependencies)
+  return [...out.values()]
+}
+
 function createTauriApi(): RefractAPI {
   const base = createBrowserApi()
   return {
@@ -504,6 +582,21 @@ function createTauriApi(): RefractAPI {
       toggle: ((instanceId: string, filename: string, type: string) => tinvoke('mods_toggle', { instanceId, filename, type })) as RefractAPI['mods']['toggle'],
       delete: ((instanceId: string, filename: string, type: string) => tinvoke('mods_delete', { instanceId, filename, type })) as RefractAPI['mods']['delete'],
       installLocal: ((instanceId: string, srcPath: string) => tinvoke('mods_install_local', { instanceId, srcPath })) as RefractAPI['mods']['installLocal'],
+      planDeps: (async (payload: unknown) => {
+        const p = payload as { source: 'modrinth' | 'curseforge'; instanceId: string; version?: { dependencies?: Array<Record<string, unknown>> }; file?: { dependencies?: Array<Record<string, unknown>> } }
+        const instance = (await tinvoke('get_instance_by_id', { id: p.instanceId })) as Instance | null
+        const mc = instance?.minecraftVersion
+        const loader = instance?.modLoader
+        const installed = new Set((instance?.mods ?? []).map(m => m.projectId))
+        return p.source === 'modrinth'
+          ? planModrinthDeps(p.version ?? {}, mc, loader, installed)
+          : planCurseforgeDeps(p.file ?? {}, mc, loader, installed)
+      }) as RefractAPI['mods']['planDeps'],
+      profilesList: ((instanceId: string) => tinvoke('mods_profiles_list', { instanceId })) as RefractAPI['mods']['profilesList'],
+      profilesSave: ((instanceId: string, name: string, enabledFiles: string[]) => tinvoke('mods_profiles_save', { instanceId, name, enabledFiles })) as RefractAPI['mods']['profilesSave'],
+      profilesApply: ((instanceId: string, profileId: string) => tinvoke('mods_profiles_apply', { instanceId, profileId })) as RefractAPI['mods']['profilesApply'],
+      profilesDelete: ((instanceId: string, profileId: string) => tinvoke('mods_profiles_delete', { instanceId, profileId })) as RefractAPI['mods']['profilesDelete'],
+      profilesRename: ((instanceId: string, profileId: string, newName: string) => tinvoke('mods_profiles_rename', { instanceId, profileId, newName })) as RefractAPI['mods']['profilesRename'],
     },
     // Accounts live in the same config.json the launcher reads; Microsoft tokens
     // are handled entirely in Rust (never returned to JS) — these commands return

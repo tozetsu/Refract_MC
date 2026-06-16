@@ -230,6 +230,98 @@ pub async fn install_mod_file(instance_id: String, url: String, file_name: Strin
     Ok(r#mod)
 }
 
+// ── mod profiles (saved enabled-mod sets) ────────────────────────────────────
+
+fn profiles_path(instance_id: &str) -> PathBuf {
+    instances::resolve_instance_dir(instance_id).join("mod-profiles.json")
+}
+
+fn read_profiles(instance_id: &str) -> Vec<Value> {
+    fs::read_to_string(profiles_path(instance_id))
+        .ok()
+        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .and_then(|v| v.get("profiles").and_then(Value::as_array).cloned())
+        .unwrap_or_default()
+}
+
+fn write_profiles(instance_id: &str, profiles: &[Value]) -> Result<(), String> {
+    let path = profiles_path(instance_id);
+    if let Some(p) = path.parent() {
+        fs::create_dir_all(p).ok();
+    }
+    fs::write(path, serde_json::to_vec_pretty(&json!({ "profiles": profiles })).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn mods_profiles_list(instance_id: String) -> Vec<Value> {
+    read_profiles(&instance_id)
+}
+
+#[tauri::command]
+pub fn mods_profiles_save(instance_id: String, name: String, enabled_files: Vec<String>) -> Result<Value, String> {
+    let profile = json!({ "id": uuid::Uuid::new_v4().to_string(), "name": name, "enabledFiles": enabled_files });
+    let mut profiles = read_profiles(&instance_id);
+    profiles.push(profile.clone());
+    write_profiles(&instance_id, &profiles)?;
+    Ok(profile)
+}
+
+/// Enable/disable each .jar in the mods dir to match the profile's enabled set.
+#[tauri::command]
+pub fn mods_profiles_apply(instance_id: String, profile_id: String) -> Result<(), String> {
+    let profiles = read_profiles(&instance_id);
+    let profile = profiles.iter().find(|p| p["id"].as_str() == Some(profile_id.as_str())).ok_or(format!("Profile not found: {profile_id}"))?;
+    let enabled: std::collections::HashSet<String> = profile["enabledFiles"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .unwrap_or_default();
+
+    let mods_dir = game_dir(&instance_id).join("mods");
+    if !mods_dir.exists() {
+        return Ok(());
+    }
+    for entry in fs::read_dir(&mods_dir).map_err(|e| e.to_string())?.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            continue;
+        }
+        let fname = entry.file_name().to_string_lossy().to_string();
+        let is_disabled = fname.ends_with(".disabled");
+        let base = fname.strip_suffix(".disabled").unwrap_or(&fname).to_string();
+        if !base.ends_with(".jar") {
+            continue;
+        }
+        let should_enable = enabled.contains(&base);
+        if should_enable && is_disabled {
+            let _ = fs::rename(&path, mods_dir.join(&base));
+        } else if !should_enable && !is_disabled {
+            let _ = fs::rename(&path, mods_dir.join(format!("{base}.disabled")));
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn mods_profiles_delete(instance_id: String, profile_id: String) -> Result<(), String> {
+    let profiles: Vec<Value> = read_profiles(&instance_id).into_iter().filter(|p| p["id"].as_str() != Some(profile_id.as_str())).collect();
+    write_profiles(&instance_id, &profiles)
+}
+
+#[tauri::command]
+pub fn mods_profiles_rename(instance_id: String, profile_id: String, new_name: String) -> Result<Value, String> {
+    let mut profiles = read_profiles(&instance_id);
+    let mut updated = None;
+    for p in profiles.iter_mut() {
+        if p["id"].as_str() == Some(profile_id.as_str()) {
+            p["name"] = json!(new_name);
+            updated = Some(p.clone());
+        }
+    }
+    let u = updated.ok_or(format!("Profile not found: {profile_id}"))?;
+    write_profiles(&instance_id, &profiles)?;
+    Ok(u)
+}
+
 #[tauri::command]
 pub fn uninstall_mod(instance_id: String, project_id: String) -> Result<(), String> {
     let inst = instances::get_instance_by_id(instance_id.clone()).ok_or("instance not found")?;
