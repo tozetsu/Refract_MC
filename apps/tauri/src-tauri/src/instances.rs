@@ -324,25 +324,29 @@ pub fn duplicate_instance(id: String) -> Result<Value, String> {
     get_instance_by_id(copy_id).ok_or_else(|| "duplicate failed".to_string())
 }
 
-fn zip_dir(zip: &mut zip::ZipWriter<std::fs::File>, root: &Path, dir: &Path, opts: zip::write::SimpleFileOptions) -> Result<(), String> {
+/// Write every file under `dir` into the zip with a forward-slash relative path.
+/// No explicit directory entries (readers reconstruct folders from file paths —
+/// directory records combined with files trip some unzippers). Returns the count.
+fn zip_dir(zip: &mut zip::ZipWriter<std::fs::File>, root: &Path, dir: &Path, opts: zip::write::SimpleFileOptions) -> Result<u64, String> {
     use std::io::Write;
+    let mut written = 0u64;
     for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
         let path = entry.path();
-        let rel = path.strip_prefix(root).map_err(|e| e.to_string())?.to_string_lossy().replace('\\', "/");
         if path.is_dir() {
-            let _ = zip.add_directory(format!("{rel}/"), opts);
-            zip_dir(zip, root, &path, opts)?;
+            written += zip_dir(zip, root, &path, opts)?;
         } else {
+            let rel = path.strip_prefix(root).map_err(|e| e.to_string())?.to_string_lossy().replace('\\', "/");
             // Skip files we can't read (e.g. a log locked by a running game)
             // rather than aborting the whole export.
             if let Ok(bytes) = fs::read(&path) {
                 zip.start_file(rel, opts).map_err(|e| e.to_string())?;
                 zip.write_all(&bytes).map_err(|e| e.to_string())?;
+                written += 1;
             }
         }
     }
-    Ok(())
+    Ok(written)
 }
 
 /// Zip the whole instance directory to `dest_path` (chosen via a save dialog in
@@ -357,9 +361,17 @@ pub async fn export_instance(id: String, dest_path: String) -> Result<String, St
     tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
         let file = fs::File::create(&dest_path).map_err(|e| format!("Couldn't write to {dest_path}: {e}. Pick a different folder (e.g. Downloads) or close the file if it's open."))?;
         let mut zip = zip::ZipWriter::new(file);
-        let opts = zip::write::SimpleFileOptions::default();
-        zip_dir(&mut zip, &dir, &dir, opts)?;
+        // Deflated + ZIP64 so a large instance (big saves/mods) still produces a
+        // valid archive Windows can open.
+        let opts = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated)
+            .large_file(true);
+        let written = zip_dir(&mut zip, &dir, &dir, opts)?;
         zip.finish().map_err(|e| e.to_string())?;
+        if written == 0 {
+            let _ = fs::remove_file(&dest_path);
+            return Err("Nothing to export — the instance folder is empty.".into());
+        }
         Ok(dest_path)
     })
     .await
