@@ -1,0 +1,11 @@
+{
+  "version": "1.1.4",
+  "notes": "Describe what changed in this release.",
+  "pub_date": "2026-06-16T00:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "PASTE_THE_FULL_CONTENTS_OF_Refract_1.1.4_x64-setup.exe.sig_HERE",
+      "url": "https://github.com/RefractMC/Refract_MC/releases/download/v1.1.4/Refract_1.1.4_x64-setup.exe"
+    }
+  }
+}
