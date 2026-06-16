@@ -2,6 +2,7 @@ mod auth;
 mod config;
 mod content;
 mod download;
+mod forge;
 mod instances;
 mod java;
 mod launch;

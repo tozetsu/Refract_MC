@@ -270,7 +270,13 @@ pub async fn install_minecraft(
         Some("fabric") => resolved_loader = Some(install_loader(&app, iid, &version_id, "fabric", mod_loader_version.as_deref()).await?),
         Some("quilt") => resolved_loader = Some(install_loader(&app, iid, &version_id, "quilt", mod_loader_version.as_deref()).await?),
         Some("forge") | Some("neoforge") => {
-            return Err("Forge/NeoForge install isn't wired in Tauri yet (#25.2b — it needs the installer's processor runner). Vanilla, Fabric and Quilt work.".into());
+            let is_neo = mod_loader.as_deref() == Some("neoforge");
+            let ver = match mod_loader_version.clone().filter(|v| !v.is_empty()) {
+                Some(v) => v,
+                None => crate::forge::fetch_latest(&version_id, is_neo).await?,
+            };
+            crate::forge::install_forge(&app, iid, &version_id, &ver, is_neo).await?;
+            resolved_loader = Some(ver);
         }
         _ => {}
     }

@@ -446,7 +446,21 @@ pub async fn launch_minecraft(app: AppHandle, instance_id: String) -> Result<(),
             j
         }
         "forge" | "neoforge" => {
-            return Err("Forge/NeoForge launch isn't wired in Tauri yet (#25.2b). Vanilla, Fabric and Quilt launch.".into());
+            // Loader JSON is keyed by loader+version; fall back to loader-only and
+            // the legacy "<mc>-forge" path (mirrors Electron's readForgeJson).
+            let lv = instance.get("modLoaderVersion").and_then(Value::as_str);
+            let mut candidates: Vec<PathBuf> = Vec::new();
+            if let Some(v) = lv {
+                let tag = format!("{loader}-{v}");
+                candidates.push(paths::versions_dir().join(format!("{mc_version}-{tag}")).join(format!("{mc_version}-{tag}.json")));
+            }
+            candidates.push(paths::versions_dir().join(format!("{mc_version}-{loader}")).join(format!("{mc_version}-{loader}.json")));
+            candidates.push(paths::versions_dir().join(format!("{mc_version}-forge")).join(format!("{mc_version}-forge.json")));
+            let found = candidates.iter().find_map(|p| std::fs::read_to_string(p).ok().and_then(|s| serde_json::from_str::<Value>(&s).ok()));
+            if found.is_none() {
+                return Err(format!("{loader} is not fully installed for this instance. Please reinstall."));
+            }
+            found
         }
         _ => None,
     };
