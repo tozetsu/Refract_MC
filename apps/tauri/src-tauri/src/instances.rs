@@ -254,6 +254,26 @@ pub fn update_instance(id: String, patch: Value) -> Result<Value, String> {
     Ok(existing)
 }
 
+/// Open the instance's game directory in the OS file manager (Electron used
+/// shell.openPath). Creates it first if missing.
+#[tauri::command]
+pub fn open_instance_folder(id: String) -> Result<(), String> {
+    let dir = get_instance_by_id(id.clone())
+        .as_ref()
+        .and_then(|i| i.get("externalGameDir").and_then(Value::as_str))
+        .filter(|s| !s.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| resolve_instance_dir(&id).join("minecraft"));
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "windows")]
+    let _ = std::process::Command::new("explorer").arg(&dir).spawn();
+    #[cfg(target_os = "macos")]
+    let _ = std::process::Command::new("open").arg(&dir).spawn();
+    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
+    let _ = std::process::Command::new("xdg-open").arg(&dir).spawn();
+    Ok(())
+}
+
 #[tauri::command]
 pub fn delete_instance(id: String) -> Result<(), String> {
     let dir = resolve_instance_dir(&id);

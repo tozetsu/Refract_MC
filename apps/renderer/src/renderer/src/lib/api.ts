@@ -399,6 +399,7 @@ function createTauriApi(): RefractAPI {
       create: ((input: CreateInstanceInput) => tinvoke('create_instance', { input })) as RefractAPI['instance']['create'],
       update: ((id: string, patch: Partial<Instance>) => tinvoke('update_instance', { id, patch })) as RefractAPI['instance']['update'],
       delete: ((id: string) => tinvoke('delete_instance', { id })) as RefractAPI['instance']['delete'],
+      openFolder: ((id: string) => tinvoke('open_instance_folder', { id })) as RefractAPI['instance']['openFolder'],
     },
     // Modrinth stays on the fallback — its API is CORS-open, so the WebView
     // reaches it directly. CurseForge (key + no CORS) and FTB go through Rust.

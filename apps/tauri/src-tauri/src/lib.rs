@@ -25,6 +25,7 @@ pub fn run() {
             instances::create_instance,
             instances::update_instance,
             instances::delete_instance,
+            instances::open_instance_folder,
             download::download_demo,
             process::process_run,
             auth::auth_microsoft_begin,
