@@ -1,0 +1,62 @@
+name: Release (Tauri)
+
+# Separate from the Electron release.yml. Push a Tauri tag (e.g. tauri-v1.1.4)
+# to build, sign, and publish a Tauri release with the auto-updater manifest.
+on:
+  push:
+    tags:
+      - "tauri-v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. tauri-v1.1.4)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/tauri/src-tauri
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build, sign & publish
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Repo secrets — Settings → Secrets and variables → Actions:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/tauri
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: "Refract (Tauri) ${{ github.event.inputs.tag || github.ref_name }}"
+          releaseBody: "Download the installer below. Installed apps auto-update from this release once it's published."
+          # Draft so you review before it goes live. Auto-update only serves a
+          # PUBLISHED release marked "latest" — publish the draft to roll it out.
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
