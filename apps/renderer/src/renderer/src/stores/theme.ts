@@ -43,6 +43,7 @@ interface ThemeStore {
   applyTheme: (theme: ThemeDefinition) => void
   applyBuiltin: (id: 'dark' | 'light') => void
   addCustomTheme: (theme: ThemeDefinition) => void
+  removeCustomTheme: (id: string) => void
   setLayoutOverride: (override: Partial<LayoutConfig>) => void
   setSidebarCollapsed: (collapsed: boolean) => void
   setAccentColor: (color: string | null) => void
@@ -75,6 +76,12 @@ export const useThemeStore = create<ThemeStore>()(
           customThemes: [...s.customThemes.filter((t) => t.id !== theme.id), theme],
         }))
         get().applyTheme(theme)
+      },
+
+      removeCustomTheme: (id) => {
+        set((s) => ({ customThemes: s.customThemes.filter((t) => t.id !== id) }))
+        // If the deleted theme was active, fall back to the dark built-in.
+        if (get().activeThemeId === id) get().applyBuiltin('dark')
       },
 
       setLayoutOverride: (override) => {

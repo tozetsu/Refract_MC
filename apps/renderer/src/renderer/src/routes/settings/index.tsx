@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { api, type AppConfig, type SafeAccount } from '@/lib/api'
 import { Button } from '@/components/ui/Button'
+import { ThemesDialog } from '@/components/settings/ThemesDialog'
 import { useThemeStore } from '@/stores/theme'
 import { useAvatarStore } from '@/stores/avatar'
 import { compressImage } from '@/lib/image'
@@ -35,6 +36,7 @@ function Settings() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [themesOpen, setThemesOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [memoryMb, setMemoryMb] = useState<number>(2048)
   const [memoryMaxMb, setMemoryMaxMb] = useState<number>(16384)
@@ -292,14 +294,17 @@ function Settings() {
               </Field>
 
               <Field label={t.settings.theme} note={t.settings.themeNote}>
-                <Segmented>
-                  <SegmentButton active={activeThemeId === 'dark'} disabled={!!busy} onClick={() => chooseTheme('dark')}>
-                    {t.settings.dark}
-                  </SegmentButton>
-                  <SegmentButton active={activeThemeId === 'light'} disabled={!!busy} onClick={() => chooseTheme('light')}>
-                    {t.settings.light}
-                  </SegmentButton>
-                </Segmented>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <Segmented>
+                    <SegmentButton active={activeThemeId === 'dark'} disabled={!!busy} onClick={() => chooseTheme('dark')}>
+                      {t.settings.dark}
+                    </SegmentButton>
+                    <SegmentButton active={activeThemeId === 'light'} disabled={!!busy} onClick={() => chooseTheme('light')}>
+                      {t.settings.light}
+                    </SegmentButton>
+                  </Segmented>
+                  <Button variant="outline" size="sm" onClick={() => setThemesOpen(true)}>Manage themes…</Button>
+                </div>
               </Field>
 
               <Field label={t.settings.memory} note={t.settings.memoryNote}>
@@ -846,6 +851,8 @@ function Settings() {
           {toast}
         </div>
       )}
+
+      <ThemesDialog open={themesOpen} onOpenChange={setThemesOpen} />
     </div>
   )
 }
