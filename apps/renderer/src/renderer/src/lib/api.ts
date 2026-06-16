@@ -542,6 +542,47 @@ function createTauriApi(): RefractAPI {
       }) as RefractAPI['modpack']['openFileDialog'],
       installFromFile: ((filePath: string, name?: string, importId?: string) =>
         tinvoke('modpack_install_from_file', { filePath, name, importId })) as RefractAPI['modpack']['installFromFile'],
+      checkUpdate: (async (instanceId: string) => {
+        const inst = (await tinvoke('get_instance_by_id', { id: instanceId })) as (Instance & { modpackSource?: string; modpackProjectId?: string; modpackVersionId?: string }) | null
+        if (!inst?.modpackSource || !inst.modpackProjectId) return null
+        const current = inst.modpackVersionId
+        try {
+          if (inst.modpackSource === 'modrinth') {
+            const { getProjectVersions } = await import('@refract/core')
+            const latest = (await getProjectVersions(inst.modpackProjectId, inst.minecraftVersion, inst.modLoader))[0]
+            if (!latest) return null
+            return { hasUpdate: latest.id !== current, latestVersionId: latest.id, latestName: latest.version_number }
+          }
+          if (inst.modpackSource === 'ftb') {
+            const pack = (await tinvoke('ftb_modpack', { id: Number(inst.modpackProjectId) })) as { versions?: Array<{ id: number; name: string; type: string }> }
+            const versions = pack.versions ?? []
+            const pool = versions.filter(v => v.type === 'release')
+            const latest = (pool.length ? pool : versions).reduce<{ id: number; name: string } | null>((a, b) => (!a || b.id > a.id ? b : a), null)
+            if (!latest) return null
+            return { hasUpdate: String(latest.id) !== current, latestVersionId: String(latest.id), latestName: latest.name }
+          }
+          if (inst.modpackSource === 'curseforge') {
+            const files = (await tinvoke('curseforge_files', { modId: Number(inst.modpackProjectId), gameVersion: inst.minecraftVersion, loader: inst.modLoader })) as Array<{ id: number; displayName: string }>
+            const latest = files?.[0]
+            if (!latest) return null
+            return { hasUpdate: String(latest.id) !== current, latestVersionId: String(latest.id), latestName: latest.displayName }
+          }
+        } catch { return null }
+        return null
+      }) as RefractAPI['modpack']['checkUpdate'],
+      update: (async (instanceId: string) => {
+        const inst = (await tinvoke('get_instance_by_id', { id: instanceId })) as (Instance & { modpackSource?: string; modpackProjectId?: string }) | null
+        if (!inst?.modpackSource || !inst.modpackProjectId) throw new Error('This instance is not linked to a modpack.')
+        const info = await api.modpack.checkUpdate(instanceId)
+        if (!info) throw new Error('Could not determine the latest version.')
+        if (inst.modpackSource === 'modrinth') {
+          await tinvoke('modpack_install', { name: inst.name, projectId: inst.modpackProjectId, versionId: info.latestVersionId, existingInstanceId: instanceId })
+        } else if (inst.modpackSource === 'ftb') {
+          await tinvoke('ftb_install_modpack', { name: inst.name, packId: Number(inst.modpackProjectId), versionId: Number(info.latestVersionId), existingInstanceId: instanceId })
+        } else if (inst.modpackSource === 'curseforge') {
+          await tinvoke('curseforge_install_modpack', { name: inst.name, modId: Number(inst.modpackProjectId), fileId: Number(info.latestVersionId), existingInstanceId: instanceId })
+        }
+      }) as RefractAPI['modpack']['update'],
       onProgress: ((cb: (data: { projectId: string; step: string; percent: number }) => void) => {
         let off: (() => void) | undefined
         void listen<{ projectId: string; step: string; percent: number }>('modpack://progress', e => cb(e.payload)).then(u => { off = u })

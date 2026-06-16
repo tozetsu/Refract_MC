@@ -213,7 +213,40 @@ fn loader_from_deps(deps: &Value) -> (Option<String>, Option<String>) {
     (None, None)
 }
 
-async fn install_modrinth(app: &AppHandle, name: String, project_id: String, version_id: Option<String>) -> Result<String, String> {
+/// For an update, reuse the existing instance (refresh metadata, wipe its mods so
+/// the old mod set is replaced); otherwise create a fresh instance. Worlds,
+/// options and screenshots are left untouched.
+fn resolve_instance(existing: Option<&str>, name: &str, mc: &str, loader: Option<&str>, loader_version: Option<&str>, source: &str, project_id: &str, version_id: &str) -> Result<String, String> {
+    match existing {
+        Some(id) => {
+            let mut patch = json!({ "minecraftVersion": mc });
+            if let Some(l) = loader {
+                patch["modLoader"] = json!(l);
+            }
+            if let Some(v) = loader_version {
+                patch["modLoaderVersion"] = json!(v);
+            }
+            if !source.is_empty() {
+                patch["modpackSource"] = json!(source);
+                patch["modpackProjectId"] = json!(project_id);
+                patch["modpackVersionId"] = json!(version_id);
+            }
+            instances::update_instance(id.to_string(), patch)?;
+            let mods = instances::resolve_instance_dir(id).join("minecraft").join("mods");
+            if mods.exists() {
+                let _ = fs::remove_dir_all(&mods);
+            }
+            fs::create_dir_all(&mods).ok();
+            Ok(id.to_string())
+        }
+        None => {
+            let inst = create_instance(name, mc, loader, loader_version, source, project_id, version_id)?;
+            inst["id"].as_str().map(String::from).ok_or_else(|| "instance has no id".to_string())
+        }
+    }
+}
+
+async fn install_modrinth(app: &AppHandle, name: String, project_id: String, version_id: Option<String>, existing: Option<String>) -> Result<String, String> {
     progress(app, &project_id, "Fetching version info", 2.0);
     let versions: Vec<Value> = get_json(&format!("https://api.modrinth.com/v2/project/{project_id}/version")).await?.as_array().cloned().unwrap_or_default();
     let version = match &version_id {
@@ -231,8 +264,7 @@ async fn install_modrinth(app: &AppHandle, name: String, project_id: String, ver
     let loader0 = version["loaders"].as_array().and_then(|a| a.iter().filter_map(Value::as_str).find(|l| *l != "mrpack")).map(String::from);
 
     progress(app, &project_id, "Creating instance", 4.0);
-    let instance = create_instance(&name, &mc0, loader0.as_deref(), None, "modrinth", &project_id, version["id"].as_str().unwrap_or(""))?;
-    let id = instance["id"].as_str().ok_or("instance has no id")?.to_string();
+    let id = resolve_instance(existing.as_deref(), &name, &mc0, loader0.as_deref(), None, "modrinth", &project_id, version["id"].as_str().unwrap_or(""))?;
 
     if let Some(icon) = get_json(&format!("https://api.modrinth.com/v2/project/{project_id}")).await.ok().and_then(|p| p["icon_url"].as_str().map(String::from)) {
         let _ = instances::update_instance(id.clone(), json!({ "iconPath": icon }));
@@ -307,7 +339,7 @@ fn parse_cf_loader(manifest: &Value) -> (Option<String>, Option<String>) {
     (loader, ver)
 }
 
-async fn install_curseforge(app: &AppHandle, name: String, mod_id: i64, file_id: i64) -> Result<String, String> {
+async fn install_curseforge(app: &AppHandle, name: String, mod_id: i64, file_id: i64, existing: Option<String>) -> Result<String, String> {
     let project_id = format!("cf:{mod_id}");
     progress(app, &project_id, "Fetching modpack file", 2.0);
     // Resolve the modpack zip URL (downloadUrl, else the authenticated endpoint).
@@ -321,14 +353,15 @@ async fn install_curseforge(app: &AppHandle, name: String, mod_id: i64, file_id:
     let zip_path = cache.join(format!("cf-{mod_id}-{file_id}.zip"));
     let temp = cache.join(format!("cf-{mod_id}-{file_id}"));
 
-    let res = install_curseforge_inner(app, &project_id, &name, mod_id, file_id, &archive_url, &zip_path, &temp).await;
+    let res = install_curseforge_inner(app, &project_id, &name, mod_id, file_id, &archive_url, &zip_path, &temp, existing).await;
     let _ = fs::remove_file(&zip_path);
     let _ = fs::remove_dir_all(&temp);
     res
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn install_curseforge_inner(app: &AppHandle, project_id: &str, name: &str, mod_id: i64, file_id: i64, archive_url: &str, zip_path: &Path, temp: &Path) -> Result<String, String> {
+#[allow(clippy::too_many_arguments)]
+async fn install_curseforge_inner(app: &AppHandle, project_id: &str, name: &str, mod_id: i64, file_id: i64, archive_url: &str, zip_path: &Path, temp: &Path, existing: Option<String>) -> Result<String, String> {
     progress(app, project_id, "Downloading modpack archive", 8.0);
     download_to(archive_url, zip_path).await?;
     progress(app, project_id, "Extracting archive", 20.0);
@@ -339,8 +372,7 @@ async fn install_curseforge_inner(app: &AppHandle, project_id: &str, name: &str,
     let (loader, loader_version) = parse_cf_loader(&manifest);
 
     progress(app, project_id, "Creating instance", 24.0);
-    let instance = create_instance(name, &mc, loader.as_deref(), loader_version.as_deref(), "curseforge", &mod_id.to_string(), &file_id.to_string())?;
-    let id = instance["id"].as_str().ok_or("instance has no id")?.to_string();
+    let id = resolve_instance(existing.as_deref(), name, &mc, loader.as_deref(), loader_version.as_deref(), "curseforge", &mod_id.to_string(), &file_id.to_string())?;
     let game_dir = instances::resolve_instance_dir(&id).join("minecraft");
     let mods_dir = game_dir.join("mods");
     fs::create_dir_all(&mods_dir).ok();
@@ -386,7 +418,7 @@ fn ftb_targets(version: &Value) -> (Option<String>, Option<String>, Option<Strin
     (mc, loader, loader_ver)
 }
 
-async fn install_ftb(app: &AppHandle, name: String, pack_id: i64, version_id: i64) -> Result<String, String> {
+async fn install_ftb(app: &AppHandle, name: String, pack_id: i64, version_id: i64, existing: Option<String>) -> Result<String, String> {
     let project_id = format!("ftb:{pack_id}");
     progress(app, &project_id, "Fetching version info", 2.0);
     let version = get_json(&format!("{FTB}/modpack/{pack_id}/{version_id}")).await?;
@@ -394,8 +426,7 @@ async fn install_ftb(app: &AppHandle, name: String, pack_id: i64, version_id: i6
     let mc = mc.ok_or("This FTB version has no Minecraft target.")?;
 
     progress(app, &project_id, "Creating instance", 4.0);
-    let instance = create_instance(&name, &mc, loader.as_deref(), loader_version.as_deref(), "ftb", &pack_id.to_string(), &version_id.to_string())?;
-    let id = instance["id"].as_str().ok_or("instance has no id")?.to_string();
+    let id = resolve_instance(existing.as_deref(), &name, &mc, loader.as_deref(), loader_version.as_deref(), "ftb", &pack_id.to_string(), &version_id.to_string())?;
     let game_dir = instances::resolve_instance_dir(&id).join("minecraft");
     fs::create_dir_all(&game_dir).ok();
 
@@ -432,8 +463,8 @@ async fn install_ftb(app: &AppHandle, name: String, pack_id: i64, version_id: i6
 // ── commands ─────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-pub async fn modpack_install(app: AppHandle, name: String, project_id: String, version_id: Option<String>) -> Result<Value, String> {
-    match install_modrinth(&app, name, project_id.clone(), version_id).await {
+pub async fn modpack_install(app: AppHandle, name: String, project_id: String, version_id: Option<String>, existing_instance_id: Option<String>) -> Result<Value, String> {
+    match install_modrinth(&app, name, project_id.clone(), version_id, existing_instance_id).await {
         Ok(id) => Ok(json!({ "id": id })),
         Err(e) => {
             done_err(&app, &project_id, &e);
@@ -443,8 +474,8 @@ pub async fn modpack_install(app: AppHandle, name: String, project_id: String, v
 }
 
 #[tauri::command]
-pub async fn curseforge_install_modpack(app: AppHandle, name: String, mod_id: i64, file_id: i64) -> Result<Value, String> {
-    match install_curseforge(&app, name, mod_id, file_id).await {
+pub async fn curseforge_install_modpack(app: AppHandle, name: String, mod_id: i64, file_id: i64, existing_instance_id: Option<String>) -> Result<Value, String> {
+    match install_curseforge(&app, name, mod_id, file_id, existing_instance_id).await {
         Ok(id) => Ok(json!({ "id": id })),
         Err(e) => {
             done_err(&app, &format!("cf:{mod_id}"), &e);
@@ -568,8 +599,8 @@ pub async fn modpack_install_from_file(app: AppHandle, file_path: String, name: 
 }
 
 #[tauri::command]
-pub async fn ftb_install_modpack(app: AppHandle, name: String, pack_id: i64, version_id: i64) -> Result<Value, String> {
-    match install_ftb(&app, name, pack_id, version_id).await {
+pub async fn ftb_install_modpack(app: AppHandle, name: String, pack_id: i64, version_id: i64, existing_instance_id: Option<String>) -> Result<Value, String> {
+    match install_ftb(&app, name, pack_id, version_id, existing_instance_id).await {
         Ok(id) => Ok(json!({ "id": id })),
         Err(e) => {
             done_err(&app, &format!("ftb:{pack_id}"), &e);
