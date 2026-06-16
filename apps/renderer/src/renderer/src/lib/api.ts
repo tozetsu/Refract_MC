@@ -472,24 +472,39 @@ const updAvailable: Array<(v: { version: string }) => void> = []
 const updProgress: Array<(v: { percent: number }) => void> = []
 const updDownloaded: Array<() => void> = []
 let pendingUpdate: UpdateHandle | null = null
-let updateChecked = false
-let updateDownloaded = false   // set once a manual Download completes
+let updaterStarted = false
+let lastNotified: string | null = null   // avoid re-banners for the same version
+let updateDownloaded = false              // set once a manual Download completes
 let installingOnQuit = false
 
-async function checkForUpdate(): Promise<void> {
-  if (updateChecked) return
-  updateChecked = true
-  void registerQuitInstaller()
+const UPDATE_CHECK_INTERVAL_MS = 30 * 60_000 // re-check every 30 min while open
+
+async function runUpdateCheck(): Promise<void> {
+  if (updateDownloaded || installingOnQuit) return // already have one / quitting
   try {
     const { check } = await import('@tauri-apps/plugin-updater')
     const update = (await check()) as unknown as (UpdateHandle & { available?: boolean }) | null
     if (update && update.available !== false) {
       pendingUpdate = update
-      updAvailable.forEach(cb => cb({ version: update.version }))
+      if (lastNotified !== update.version) {
+        lastNotified = update.version
+        updAvailable.forEach(cb => cb({ version: update.version }))
+      }
     }
   } catch (e) {
     logger.warn('updater:check', String(e))
   }
+}
+
+// Start the updater once a listener is attached: register the quit-installer,
+// check immediately, then re-check periodically so a release pushed while the
+// app is open is noticed without a restart.
+function startUpdater(): void {
+  if (updaterStarted) return
+  updaterStarted = true
+  void registerQuitInstaller()
+  void runUpdateCheck()
+  setInterval(() => void runUpdateCheck(), UPDATE_CHECK_INTERVAL_MS)
 }
 
 // "Auto-install on quit": if the user downloaded an update but didn't click
@@ -781,7 +796,7 @@ function createTauriApi(): RefractAPI {
       ...base.updater,
       onAvailable: ((cb: (v: { version: string }) => void) => {
         updAvailable.push(cb)
-        void checkForUpdate() // kick the (one-time) check once someone's listening
+        startUpdater() // check now + start the periodic re-check (once)
         return () => { const i = updAvailable.indexOf(cb); if (i >= 0) updAvailable.splice(i, 1) }
       }) as RefractAPI['updater']['onAvailable'],
       onProgress: ((cb: (v: { percent: number }) => void) => {
