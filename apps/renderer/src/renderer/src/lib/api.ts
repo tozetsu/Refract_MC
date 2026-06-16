@@ -740,6 +740,14 @@ function createTauriApi(): RefractAPI {
       launch: ((instanceId: string) => tinvoke('launch_minecraft', { instanceId })) as RefractAPI['mc']['launch'],
       stop: ((instanceId: string) => tinvoke('stop_minecraft', { instanceId })) as RefractAPI['mc']['stop'],
       isRunning: ((instanceId: string) => tinvoke('is_running', { instanceId })) as RefractAPI['mc']['isRunning'],
+      worlds: ((instanceId: string) => tinvoke('mc_worlds', { instanceId })) as RefractAPI['mc']['worlds'],
+      deleteWorld: ((instanceId: string, worldName: string) => tinvoke('mc_delete_world', { instanceId, worldName })) as RefractAPI['mc']['deleteWorld'],
+      crashReport: ((instanceId: string) => tinvoke('mc_crash_report', { instanceId })) as RefractAPI['mc']['crashReport'],
+      backupWorld: (async (instanceId: string, worldName: string) => {
+        const dest = await dialogSave({ defaultPath: `${worldName}-backup.zip`, filters: [{ name: 'ZIP Archive', extensions: ['zip'] }] })
+        if (!dest) return null
+        return tinvoke('mc_backup_world', { instanceId, worldName, destPath: dest })
+      }) as RefractAPI['mc']['backupWorld'],
       // Renderer expects a synchronous unsubscribe; listen() resolves async, so
       // each wrapper detaches once its listener is actually attached.
       onProgress: ((cb: (data: { instanceId: string; step: string; current: number; total: number; percent: number }) => void) => {

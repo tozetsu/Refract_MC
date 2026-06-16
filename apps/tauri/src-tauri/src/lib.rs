@@ -3,6 +3,7 @@ mod config;
 mod content;
 mod download;
 mod forge;
+mod gamedata;
 mod instances;
 mod java;
 mod launch;
@@ -83,6 +84,10 @@ pub fn run() {
             launch::launch_minecraft,
             launch::stop_minecraft,
             launch::is_running,
+            gamedata::mc_worlds,
+            gamedata::mc_delete_world,
+            gamedata::mc_crash_report,
+            gamedata::mc_backup_world,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

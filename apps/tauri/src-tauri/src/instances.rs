@@ -116,6 +116,19 @@ fn unique_folder_name(desired: &str, current: Option<&str>) -> String {
 
 // ── Resolve / save ──────────────────────────────────────────────────────────
 
+/// The game directory for an instance: its external dir if set, else
+/// `<instance>/minecraft`. Shared by the mods/worlds/screenshots commands.
+pub fn game_dir(id: &str) -> PathBuf {
+    if let Some(inst) = get_instance_by_id(id.to_string()) {
+        if let Some(ext) = inst.get("externalGameDir").and_then(Value::as_str) {
+            if !ext.is_empty() {
+                return PathBuf::from(ext);
+            }
+        }
+    }
+    resolve_instance_dir(id).join("minecraft")
+}
+
 pub fn resolve_instance_dir(id: &str) -> PathBuf {
     if let Some(entry) = read_registry().into_iter().find(|r| r.id == id) {
         let p = PathBuf::from(&entry.path);
