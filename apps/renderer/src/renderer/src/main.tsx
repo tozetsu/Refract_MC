@@ -11,7 +11,18 @@ import './styles/globals.css'
 installRendererErrorLogging()
 useThemeStore.getState().initialize()
 
-const queryClient = new QueryClient()
+// Cache query results across navigations so switching pages serves instantly
+// from cache instead of refetching every mount (the default staleTime is 0).
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
 
 const router = createRouter({ routeTree, history: createHashHistory() })
 

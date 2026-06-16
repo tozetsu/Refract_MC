@@ -13,6 +13,8 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 #[cfg(windows)]
@@ -113,7 +115,31 @@ fn scan_dir<F: FnMut(Option<Install>)>(dir: &Path, add: &mut F) {
     }
 }
 
+/// detect() spawns several processes (where/reg + `java -version` per candidate),
+/// which is slow to repeat on every page/StatusBar mount. Cache the system scan
+/// for a short TTL; managed/custom runtimes are read fresh elsewhere, so newly
+/// added/downloaded JDKs still appear immediately.
+fn detect_cache() -> &'static Mutex<Option<(Instant, Vec<Install>)>> {
+    static C: OnceLock<Mutex<Option<(Instant, Vec<Install>)>>> = OnceLock::new();
+    C.get_or_init(|| Mutex::new(None))
+}
+
 pub fn detect() -> Vec<Install> {
+    if let Ok(guard) = detect_cache().lock() {
+        if let Some((t, v)) = guard.as_ref() {
+            if t.elapsed() < Duration::from_secs(60) {
+                return v.clone();
+            }
+        }
+    }
+    let result = detect_uncached();
+    if let Ok(mut guard) = detect_cache().lock() {
+        *guard = Some((Instant::now(), result.clone()));
+    }
+    result
+}
+
+fn detect_uncached() -> Vec<Install> {
     let mut found: Vec<Install> = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
     let mut add = |j: Option<Install>| {
