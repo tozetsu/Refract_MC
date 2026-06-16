@@ -334,28 +334,36 @@ fn zip_dir(zip: &mut zip::ZipWriter<std::fs::File>, root: &Path, dir: &Path, opt
             let _ = zip.add_directory(format!("{rel}/"), opts);
             zip_dir(zip, root, &path, opts)?;
         } else {
-            zip.start_file(rel, opts).map_err(|e| e.to_string())?;
-            let bytes = fs::read(&path).map_err(|e| e.to_string())?;
-            zip.write_all(&bytes).map_err(|e| e.to_string())?;
+            // Skip files we can't read (e.g. a log locked by a running game)
+            // rather than aborting the whole export.
+            if let Ok(bytes) = fs::read(&path) {
+                zip.start_file(rel, opts).map_err(|e| e.to_string())?;
+                zip.write_all(&bytes).map_err(|e| e.to_string())?;
+            }
         }
     }
     Ok(())
 }
 
 /// Zip the whole instance directory to `dest_path` (chosen via a save dialog in
-/// the renderer). Returns the path written.
+/// the renderer). Runs off the main thread so a large instance doesn't freeze
+/// the UI (and the file handle is properly closed before the renderer returns).
 #[tauri::command]
-pub fn export_instance(id: String, dest_path: String) -> Result<String, String> {
+pub async fn export_instance(id: String, dest_path: String) -> Result<String, String> {
     let dir = resolve_instance_dir(&id);
     if !dir.exists() {
         return Err("Instance folder not found.".into());
     }
-    let file = fs::File::create(&dest_path).map_err(|e| e.to_string())?;
-    let mut zip = zip::ZipWriter::new(file);
-    let opts = zip::write::SimpleFileOptions::default();
-    zip_dir(&mut zip, &dir, &dir, opts)?;
-    zip.finish().map_err(|e| e.to_string())?;
-    Ok(dest_path)
+    tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
+        let file = fs::File::create(&dest_path).map_err(|e| e.to_string())?;
+        let mut zip = zip::ZipWriter::new(file);
+        let opts = zip::write::SimpleFileOptions::default();
+        zip_dir(&mut zip, &dir, &dir, opts)?;
+        zip.finish().map_err(|e| e.to_string())?;
+        Ok(dest_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// On Windows `remove_dir_all` fails on read-only files (some mod jars ship
