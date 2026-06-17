@@ -1,4 +1,6 @@
 const NEWS_HUB_URL = 'https://www.minecraft.net/en-us/article'
+const NEWS_SEARCH_URL =
+  'https://net-secondary.web.minecraft-services.net/api/v1.0/en-us/search?category=News&page=1&pageSize=24&sortType=Recent&newsOnly=true&geography=US'
 const NEWS_BASE_URL = 'https://www.minecraft.net'
 
 export interface MinecraftNewsItem {
@@ -7,6 +9,20 @@ export interface MinecraftNewsItem {
   imageUrl: string | null
   url: string
   publishedAt?: string | null
+}
+
+interface MinecraftSearchResponse {
+  result?: {
+    results?: MinecraftSearchItem[]
+  }
+}
+
+interface MinecraftSearchItem {
+  title?: string
+  description?: string
+  image?: string
+  url?: string
+  time?: number
 }
 
 function decodeHtml(value: string): string {
@@ -30,6 +46,33 @@ function absolutizeUrl(url: string): string {
   if (/^https?:\/\//i.test(url)) return url
   if (url.startsWith('//')) return `https:${url}`
   return new URL(url, NEWS_BASE_URL).toString()
+}
+
+function isOfficialArticleUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && url.hostname === 'www.minecraft.net' && url.pathname.startsWith('/en-us/article')
+  } catch {
+    return false
+  }
+}
+
+function trustedImageUrl(value: string | undefined): string | null {
+  if (!value) return null
+  try {
+    const url = new URL(absolutizeUrl(value))
+    if (url.protocol !== 'https:' || url.hostname !== 'www.minecraft.net') return null
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+function formatUnixDate(value: number | undefined): string | null {
+  if (!Number.isFinite(value)) return null
+  const date = new Date((value ?? 0) * 1000)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toISOString().slice(0, 10)
 }
 
 function firstMatch(value: string, patterns: RegExp[]): string | null {
@@ -77,14 +120,50 @@ export function parseMinecraftNewsHtml(html: string): MinecraftNewsItem[] {
   return items
 }
 
+function parseMinecraftNewsSearch(data: MinecraftSearchResponse): MinecraftNewsItem[] {
+  const items: MinecraftNewsItem[] = []
+  const seen = new Set<string>()
+
+  for (const result of data.result?.results ?? []) {
+    if (!result.title || !result.url || !isOfficialArticleUrl(result.url) || seen.has(result.url)) continue
+    seen.add(result.url)
+
+    items.push({
+      title: stripTags(result.title),
+      summary: stripTags(result.description ?? ''),
+      imageUrl: trustedImageUrl(result.image),
+      url: result.url,
+      publishedAt: formatUnixDate(result.time),
+    })
+  }
+
+  return items
+}
+
+async function fetchFeaturedNewsFallback(): Promise<MinecraftNewsItem[]> {
+  const response = await fetch(NEWS_HUB_URL, {
+    headers: { Accept: 'text/html,application/xhtml+xml' },
+  })
+  if (!response.ok) return []
+  const html = await response.text()
+  return parseMinecraftNewsHtml(html)
+}
+
 export async function fetchMinecraftNews(): Promise<MinecraftNewsItem[]> {
   try {
-    const response = await fetch(NEWS_HUB_URL, {
-      headers: { Accept: 'text/html,application/xhtml+xml' },
+    const response = await fetch(NEWS_SEARCH_URL, {
+      headers: { Accept: 'application/json' },
     })
-    if (!response.ok) return []
-    const html = await response.text()
-    return parseMinecraftNewsHtml(html)
+    if (response.ok) {
+      const items = parseMinecraftNewsSearch((await response.json()) as MinecraftSearchResponse)
+      if (items.length > 0) return items
+    }
+  } catch {
+    // Fall through to the static featured cards below.
+  }
+
+  try {
+    return await fetchFeaturedNewsFallback()
   } catch {
     return []
   }
