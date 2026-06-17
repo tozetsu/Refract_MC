@@ -24,6 +24,30 @@ fn emit(app: &AppHandle, iid: &str, step: &str, percent: f64) {
     }));
 }
 
+fn validate_java_executable(path: &str) -> Result<(), String> {
+    let path = Path::new(path);
+    if !path.is_absolute() {
+        return Err("Java executable must be an absolute path.".into());
+    }
+    if !path.is_file() {
+        return Err("Java executable does not exist.".into());
+    }
+    let file_name = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let valid_name = if cfg!(target_os = "windows") {
+        file_name == "java.exe"
+    } else {
+        file_name == "java"
+    };
+    if !valid_name {
+        return Err("Java executable path must end with java or java.exe.".into());
+    }
+    Ok(())
+}
+
 fn cache_dir() -> PathBuf {
     paths::data_dir().join("cache")
 }
@@ -548,6 +572,7 @@ async fn install_forge_inner(
             .and_then(|v| v["javaVersion"]["majorVersion"].as_u64())
             .unwrap_or(8) as u32;
         let java_exe = java::resolve_or_provision(app, required, None).await?;
+        validate_java_executable(&java_exe)?;
 
         emit(app, iid, "Running Forge processors", 70.0);
         run_processors(app, iid, &profile, mc, &java_exe, installer, extract).await?;

@@ -1,9 +1,10 @@
-name: Release
+name: Release (Legacy Electron)
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'electron-v*'
+  workflow_dispatch:
 
 permissions:
   contents: write

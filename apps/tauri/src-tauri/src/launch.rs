@@ -37,6 +37,30 @@ fn pids() -> &'static Mutex<HashMap<String, u32>> {
     R.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+fn validate_java_executable(path: &str) -> Result<(), String> {
+    let path = Path::new(path);
+    if !path.is_absolute() {
+        return Err("Java executable must be an absolute path.".into());
+    }
+    if !path.is_file() {
+        return Err("Java executable does not exist.".into());
+    }
+    let file_name = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let valid_name = if cfg!(target_os = "windows") {
+        file_name == "java.exe"
+    } else {
+        file_name == "java"
+    };
+    if !valid_name {
+        return Err("Java executable path must end with java or java.exe.".into());
+    }
+    Ok(())
+}
+
 // ── arg/classpath builders (port of core/launcher) ───────────────────────────
 
 /// Standard rule eval: empty → allowed; else the last matching rule's action
@@ -590,6 +614,7 @@ pub async fn launch_minecraft(app: AppHandle, instance_id: String) -> Result<(),
         instance.get("javaPath").and_then(Value::as_str),
     )
     .await?;
+    validate_java_executable(&java_exe)?;
 
     let inst_dir = instances::resolve_instance_dir(&instance_id);
     let game_dir = instance

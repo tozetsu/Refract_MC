@@ -260,18 +260,6 @@ pub struct DeviceLogin {
     pub message: String,
 }
 
-/// Open a URL in the user's default browser (Electron used shell.openExternal).
-fn open_url(url: &str) {
-    #[cfg(windows)]
-    let _ = std::process::Command::new("cmd")
-        .args(["/C", "start", "", url])
-        .spawn();
-    #[cfg(target_os = "macos")]
-    let _ = std::process::Command::new("open").arg(url).spawn();
-    #[cfg(all(not(target_os = "windows"), not(target_os = "macos")))]
-    let _ = std::process::Command::new("xdg-open").arg(url).spawn();
-}
-
 #[tauri::command]
 pub async fn auth_microsoft_begin() -> Result<DeviceLogin, String> {
     let res = reqwest::Client::new()
@@ -288,7 +276,6 @@ pub async fn auth_microsoft_begin() -> Result<DeviceLogin, String> {
         .as_str()
         .unwrap_or_default()
         .to_string();
-    open_url(&verification_uri);
     Ok(DeviceLogin {
         device_code: v["device_code"].as_str().unwrap_or_default().to_string(),
         user_code: v["user_code"].as_str().unwrap_or_default().to_string(),

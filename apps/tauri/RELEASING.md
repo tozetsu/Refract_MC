@@ -22,6 +22,18 @@ This prints a **public key**. Paste it into
 > Until a real public key is in place, `check()` will fail signature verification
 > at runtime (no update shown) — the rest of the app is unaffected.
 
+Operational rules for the private key:
+
+- Store the private key only in a password manager and in GitHub Actions secrets.
+- Do not put the private key in the repo, release artifacts, logs, issue comments,
+  screenshots, or local scripts.
+- Use `TAURI_SIGNING_PRIVATE_KEY` for the full private key contents, not a path.
+- Use `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` only for the key password.
+- Limit repository admin and secret access to release maintainers.
+- Rotate immediately if the private key or password may have been exposed:
+  generate a new keypair, replace `plugins.updater.pubkey`, commit it, and ship
+  one manual installer so future updates trust the new public key.
+
 ## 2. Build a signed installer
 
 Bump the version in `apps/tauri/src-tauri/tauri.conf.json` (and the renderer
@@ -32,6 +44,9 @@ $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content "$HOME/.refract/updater.key" -Raw
 $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "<your password>"
 pnpm dlx @tauri-apps/cli@latest build   # run from apps/tauri
 ```
+
+For GitHub Actions, define repository secrets with the same names. The Tauri
+release workflow reads only those secrets and creates a draft release for review.
 
 Output (under `src-tauri/target/release/bundle/`):
 - `nsis/Refract_<version>_x64-setup.exe` — the installer
