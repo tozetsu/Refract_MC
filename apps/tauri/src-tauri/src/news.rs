@@ -93,26 +93,14 @@ pub async fn minecraft_news() -> Result<Vec<MinecraftNewsItem>, String> {
         .await
         .map_err(|e| e.to_string())?;
 
-    let card_re = Regex::new(
-        r#"(?is)<a\b[^>]*href="(?P<href>(?:https?://(?:www\.)?minecraft\.net)?/en-us/article/[^"]+)"[^>]*>(?P<body>.*?)</a>"#,
-    )
-    .unwrap();
-    let title_res = [
-        Regex::new(r"(?is)<h1\b[^>]*>(.*?)</h1>").unwrap(),
-        Regex::new(r"(?is)<h2\b[^>]*>(.*?)</h2>").unwrap(),
-        Regex::new(r"(?is)<h3\b[^>]*>(.*?)</h3>").unwrap(),
-    ];
-    let summary_res = [
-        Regex::new(r"(?is)<p\b[^>]*>(.*?)</p>").unwrap(),
-        Regex::new(r#"(?is)<div\b[^>]*class="[^"]*summary[^"]*"[^>]*>(.*?)</div>"#).unwrap(),
-    ];
-    let image_res = [
-        Regex::new(r#"(?is)<img\b[^>]*src="([^"]+)""#).unwrap(),
-        Regex::new(r#"(?is)<img\b[^>]*data-src="([^"]+)""#).unwrap(),
-        Regex::new(r#"(?is)<source\b[^>]*srcset="([^"]+)""#).unwrap(),
-    ];
-    let date_re = Regex::new(r#"(?is)<time\b[^>]*datetime="([^"]+)""#).unwrap();
-    let date_text_re = Regex::new(r#"(?is)<time\b[^>]*>(.*?)</time>"#).unwrap();
+    let card_re = Regex::new(r#"(?is)<div\b[^>]*class="[^"]*\bMC_tiledHeroA_card\b[^"]*"[^>]*>(?P<body>.*?)<a\b[^>]*href="(?P<href>[^"]+)"[^>]*>[\s\S]*?(?:Discover more|Brave the unknown|Explore more|Learn more)[\s\S]*?</a>[\s\S]*?</div>\s*</div>"#).unwrap();
+    let title_res =
+        [
+            Regex::new(r#"(?is)<h2\b[^>]*class="[^"]*\bMC_Heading_3\b[^"]*"[^>]*>(.*?)</h2>"#)
+                .unwrap(),
+        ];
+    let summary_res = [Regex::new(r#"(?is)<div\b[^>]*class="[^"]*\bMC_tiledHeroA_blurb\b[^"]*"[^>]*>[\s\S]*?<p\b[^>]*>(.*?)</p>"#).unwrap()];
+    let image_res = [Regex::new(r#"(?is)<img\b[^>]*src="([^"]+)"[^>]*alt="([^"]*)""#).unwrap()];
 
     let mut items = Vec::new();
     let mut seen: HashSet<String> = HashSet::new();
@@ -128,31 +116,19 @@ pub async fn minecraft_news() -> Result<Vec<MinecraftNewsItem>, String> {
             Some(v) => strip_tags(&v),
             None => continue,
         };
-        let summary = match first_match(body, &summary_res) {
-            Some(v) => strip_tags(&v),
-            None => continue,
-        };
+        let summary = first_match(body, &summary_res).map_or_else(String::new, |v| strip_tags(&v));
 
         let image_url = first_match(body, &image_res).and_then(|value| {
             let candidate = value.split(',').next()?.trim().split_whitespace().next()?;
             Some(absolutize_url(candidate))
         });
 
-        let published_at = date_re
-            .captures(body)
-            .and_then(|caps| caps.get(1).map(|m| strip_tags(m.as_str())))
-            .or_else(|| {
-                date_text_re
-                    .captures(body)
-                    .and_then(|caps| caps.get(1).map(|m| strip_tags(m.as_str())))
-            });
-
         items.push(MinecraftNewsItem {
             title,
             summary,
             image_url,
             url: absolutize_url(href),
-            published_at,
+            published_at: None,
         });
     }
 

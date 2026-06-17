@@ -43,39 +43,26 @@ function firstMatch(value: string, patterns: RegExp[]): string | null {
 export function parseMinecraftNewsHtml(html: string): MinecraftNewsItem[] {
   const items: MinecraftNewsItem[] = []
   const seen = new Set<string>()
-  const cardRe = /<a\b[^>]*href="(?<href>(?:https?:\/\/(?:www\.)?minecraft\.net)?\/en-us\/article\/[^"]+)"[^>]*>(?<body>[\s\S]*?)<\/a>/gi
+  const cardRe = /<div\b[^>]*class="[^"]*\bMC_tiledHeroA_card\b[^"]*"[^>]*>(?<body>[\s\S]*?)<\/div>\s*<\/div>/gi
+  const titleRe = /<h2\b[^>]*class="[^"]*\bMC_Heading_3\b[^"]*"[^>]*>([\s\S]*?)<\/h2>/i
+  const summaryRe = /<div\b[^>]*class="[^"]*\bMC_tiledHeroA_blurb\b[^"]*"[^>]*>[\s\S]*?<p\b[^>]*>([\s\S]*?)<\/p>[\s\S]*?<\/div>/i
+  const imageRe = /<img\b[^>]*src="([^"]+)"[^>]*alt="([^"]*)"/i
+  const linkRe = /<a\b[^>]*href="([^"]+)"[^>]*>(?:\s*<span>)?[\s\S]*?(?:Discover more|Brave the unknown|Explore more|Learn more)[\s\S]*?<\/a>/i
 
   for (const match of html.matchAll(cardRe)) {
-    const href = match.groups?.href
     const body = match.groups?.body ?? ''
+    const title = firstMatch(body, [titleRe])
+    if (!title) continue
+    const summary = firstMatch(body, [summaryRe]) ?? ''
+    const image = firstMatch(body, [imageRe])
+    const href = firstMatch(body, [linkRe])
     if (!href || seen.has(href)) continue
 
-    const title = firstMatch(body, [
-      /<h1\b[^>]*>([\s\S]*?)<\/h1>/i,
-      /<h2\b[^>]*>([\s\S]*?)<\/h2>/i,
-      /<h3\b[^>]*>([\s\S]*?)<\/h3>/i,
-    ])
-    const summary = firstMatch(body, [
-      /<p\b[^>]*>([\s\S]*?)<\/p>/i,
-      /<div\b[^>]*class="[^"]*summary[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
-    ])
-    if (!title || !summary) continue
-
-    const image = firstMatch(body, [
-      /<img\b[^>]*src="([^"]+)"/i,
-      /<img\b[^>]*data-src="([^"]+)"/i,
-      /<source\b[^>]*srcset="([^"]+)"/i,
-    ])
     let imageUrl: string | null = null
     if (image) {
       const candidate = image.split(',')[0]?.trim().split(/\s+/)[0]
       if (candidate) imageUrl = absolutizeUrl(candidate)
     }
-
-    const publishedAt = firstMatch(body, [
-      /<time\b[^>]*datetime="([^"]+)"/i,
-      /<time\b[^>]*>([\s\S]*?)<\/time>/i,
-    ])
 
     seen.add(href)
     items.push({
@@ -83,7 +70,7 @@ export function parseMinecraftNewsHtml(html: string): MinecraftNewsItem[] {
       summary: stripTags(summary),
       imageUrl,
       url: absolutizeUrl(href),
-      publishedAt: publishedAt ? stripTags(publishedAt) : null,
+      publishedAt: null,
     })
   }
 
