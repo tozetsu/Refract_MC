@@ -237,6 +237,11 @@ function createBrowserApi(): RefractAPI {
         window.open(url, '_blank', 'noopener,noreferrer')
       },
     },
+    discord: {
+      openInvite: async () => {
+        window.open('https://discord.gg/SUPuuTjMGU', '_blank', 'noopener,noreferrer')
+      },
+    },
     modrinth: {
       search: async (query: string, gameVersion?: string, loader?: string, category?: string, limit = 20, offset = 0) => {
         const { searchMods } = await import('@refract/core')
@@ -552,6 +557,9 @@ function createTauriApi(): RefractAPI {
     news: {
       list: (() => tinvoke('minecraft_news')) as RefractAPI['news']['list'],
       open: ((url: string) => tinvoke('open_minecraft_news_article', { url })) as RefractAPI['news']['open'],
+    },
+    discord: {
+      openInvite: (() => tinvoke('open_discord_invite')) as RefractAPI['discord']['openInvite'],
     },
     config: {
       ...base.config,

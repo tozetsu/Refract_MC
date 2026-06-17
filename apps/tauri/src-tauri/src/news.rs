@@ -7,6 +7,7 @@ const NEWS_HUB_URL: &str = "https://www.minecraft.net/en-us/article";
 const NEWS_SEARCH_URL: &str =
     "https://net-secondary.web.minecraft-services.net/api/v1.0/en-us/search";
 const NEWS_BASE_URL: &str = "https://www.minecraft.net";
+const DISCORD_INVITE_URL: &str = "https://discord.gg/SUPuuTjMGU";
 const UA: &str = "Refract/1.1.3 (Minecraft news)";
 
 #[derive(Debug, Clone, Serialize)]
@@ -269,25 +270,33 @@ async fn fetch_featured_news() -> Result<Vec<MinecraftNewsItem>, String> {
 #[tauri::command]
 pub fn open_minecraft_news_article(url: String) -> Result<(), String> {
     let url = validate_minecraft_article_url(&url)?;
+    open_external_url(&url)
+}
 
+#[tauri::command]
+pub fn open_discord_invite() -> Result<(), String> {
+    open_external_url(DISCORD_INVITE_URL)
+}
+
+fn open_external_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     let mut cmd = {
         let mut cmd = Command::new("explorer");
-        cmd.arg(&url);
+        cmd.arg(url);
         cmd
     };
 
     #[cfg(target_os = "macos")]
     let mut cmd = {
         let mut cmd = Command::new("open");
-        cmd.arg(&url);
+        cmd.arg(url);
         cmd
     };
 
     #[cfg(all(unix, not(target_os = "macos")))]
     let mut cmd = {
         let mut cmd = Command::new("xdg-open");
-        cmd.arg(&url);
+        cmd.arg(url);
         cmd
     };
 

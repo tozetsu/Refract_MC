@@ -214,6 +214,9 @@ declare global {
         list: () => Promise<Array<{ title: string; summary: string; imageUrl: string | null; url: string; publishedAt?: string | null }>>
         open: (url: string) => Promise<void>
       }
+      discord: {
+        openInvite: () => Promise<void>
+      }
       modrinth: {
         search: (query: string, gameVersion?: string, loader?: string, category?: string, limit?: number, offset?: number) => Promise<import('@refract/core').ModrinthSearchResult>
         searchContent: (opts: import('@refract/core').ModrinthSearchOptions) => Promise<import('@refract/core').ModrinthSearchResult>

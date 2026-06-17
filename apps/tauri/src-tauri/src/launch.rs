@@ -451,6 +451,7 @@ pub fn stop_minecraft(instance_id: String) -> Result<(), String> {
         #[cfg(not(windows))]
         let _ = Command::new("kill").arg(pid.to_string()).output();
         pids().lock().unwrap().remove(&instance_id);
+        crate::discord::clear_game_activity(&instance_id);
     }
     Ok(())
 }
@@ -523,6 +524,11 @@ pub async fn launch_minecraft(app: AppHandle, instance_id: String) -> Result<(),
 
     let instance = instances::get_instance_by_id(instance_id.clone())
         .ok_or(format!("Instance not found: {instance_id}"))?;
+    let instance_name = instance
+        .get("name")
+        .and_then(Value::as_str)
+        .unwrap_or("Minecraft")
+        .to_string();
     if !instance
         .get("isInstalled")
         .and_then(Value::as_bool)
@@ -673,6 +679,7 @@ pub async fn launch_minecraft(app: AppHandle, instance_id: String) -> Result<(),
         instance_id.clone(),
         serde_json::json!({ "lastPlayed": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true) }),
     );
+    crate::discord::set_game_activity(&instance_id, &instance_name, &mc_version, Some(&loader));
 
     // Watcher owns the Child and blocks on wait(); on exit it clears the PID and
     // notifies the renderer so the UI flips back from "running".
@@ -681,6 +688,7 @@ pub async fn launch_minecraft(app: AppHandle, instance_id: String) -> Result<(),
     thread::spawn(move || {
         let code = child.wait().ok().and_then(|s| s.code()).unwrap_or(-1);
         pids().lock().unwrap().remove(&id_exit);
+        crate::discord::clear_game_activity(&id_exit);
         let _ = app_exit.emit(
             "mc://exit",
             ExitPayload {

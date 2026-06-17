@@ -563,6 +563,9 @@ export function Sidebar() {
   const lastExpanded = useRef(compact ? '232px' : sidebarWidth)
   useEffect(() => { if (!compact) lastExpanded.current = sidebarWidth }, [compact, sidebarWidth])
   const toggleCollapsed = () => setLayoutOverride({ sidebarWidth: compact ? lastExpanded.current : '60px' })
+  const openDiscord = () => {
+    void api.discord.openInvite()
+  }
 
   const navItems: NavItemProps[] = [
     { to: '/',          label: t.nav.library,    iconSrc: libraryIcon,    exact: true  },
@@ -619,7 +622,7 @@ export function Sidebar() {
         <NavItem to="/settings" label={t.nav.settings} iconSrc={settingsIcon} exact={true} compact={compact} />
         <button
           title={compact ? 'Discord' : undefined}
-          onClick={() => window.open('https://discord.gg/SUPuuTjMGU')}
+          onClick={openDiscord}
           style={{ display:'flex', alignItems:'center', justifyContent: compact ? 'center' : 'flex-start', gap: compact ? 0 : 10, padding: compact ? '9px 0' : '8px 10px', borderRadius:4, color:'var(--ink-2)', fontSize:13, fontWeight:500, background:'none', border:'1px solid transparent', cursor:'pointer', textAlign:'left' }}
           onMouseEnter={e => { e.currentTarget.style.color = '#5865F2'; e.currentTarget.style.background = 'rgba(88,101,242,.1)' }}
           onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-2)'; e.currentTarget.style.background = 'none' }}

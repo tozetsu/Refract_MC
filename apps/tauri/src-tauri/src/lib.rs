@@ -1,6 +1,7 @@
 mod auth;
 mod config;
 mod content;
+mod discord;
 mod external;
 mod forge;
 mod friends;
@@ -81,6 +82,7 @@ pub fn run() {
             content::curseforge_project_detail,
             news::minecraft_news,
             news::open_minecraft_news_article,
+            news::open_discord_invite,
             mods::mods_list,
             mods::mods_toggle,
             mods::mods_delete,

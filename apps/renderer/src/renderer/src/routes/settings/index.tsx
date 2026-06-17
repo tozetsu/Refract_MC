@@ -857,7 +857,7 @@ function Settings() {
             </p>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
               <Button
-                onClick={() => window.open('https://discord.gg/SUPuuTjMGU')}
+                onClick={() => { void api.discord.openInvite() }}
                 style={{ height:30, background:'#5865F2', color:'#fff' }}
               >
                 {t.settings.joinDiscord}
