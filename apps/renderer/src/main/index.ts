@@ -101,16 +101,9 @@ app.whenReady().then(() => {
   tray.on('double-click', () => { mainWindow.show(); mainWindow.focus() })
   mainWindow.on('show', () => buildTrayMenu(mainWindow, tray))
 
-  // ✕ behaviour depends on the "Minimize to tray" setting
+  // Closing the main window should terminate the app.
   app.on('second-instance', () => { mainWindow.show(); mainWindow.focus() })
-  mainWindow.on('close', (e) => {
-    if (!isQuitting && getConfig().minimizeToTray) {
-      e.preventDefault()
-      mainWindow.hide()
-    } else {
-      isQuitting = true
-    }
-  })
+  mainWindow.on('close', () => { isQuitting = true })
 
   ipcMain.on('updater:install',  () => autoUpdater.quitAndInstall())
   ipcMain.on('updater:download', () => autoUpdater.downloadUpdate().catch(() => {}))
@@ -125,7 +118,7 @@ app.whenReady().then(() => {
     })
     autoUpdater.on('update-downloaded', () => {
       mainWindow.webContents.send('updater:downloaded')
-      notify('Refract update ready', 'Click "Restart ↺" in the title bar to apply the update.')
+      notify('Refract update ready', 'Click "Restart now" in the title bar to apply the update.')
     })
     autoUpdater.checkForUpdates().catch(() => {})
   }
@@ -138,7 +131,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin' && !getConfig().minimizeToTray) app.quit()
+  app.quit()
 })
 
 app.on('before-quit', () => { isQuitting = true })

@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { app, ipcMain, BrowserWindow } from 'electron'
 import { totalmem } from 'os'
 import { logError } from '../services/logger'
 import { handleIpc } from './handle'
@@ -29,6 +29,16 @@ export function registerWindowIpc(mainWindow: BrowserWindow): void {
       mainWindow.close()
     } catch (error) {
       logError('ipc:window:close', error)
+    }
+  })
+
+  ipcMain.on('window:forceClose', () => {
+    try {
+      mainWindow.destroy()
+    } catch (error) {
+      logError('ipc:window:forceClose', error)
+    } finally {
+      app.quit()
     }
   })
 

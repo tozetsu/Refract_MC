@@ -5,7 +5,10 @@ class ThemeEngine {
   private customStyleTag: HTMLStyleElement | null = null
 
   apply(theme: ThemeDefinition): void {
+    document.documentElement.dataset.theme = theme.id
+    document.documentElement.dataset.hasThemeBg = theme.backgroundImage ? 'true' : 'false'
     this.applyColors(theme.colors)
+    this.applyBackground(theme)
     this.applyLayout({ ...DEFAULT_LAYOUT, ...theme.layout })
     this.applyCustomCSS(theme.customCSS ?? '')
   }
@@ -32,7 +35,6 @@ class ThemeEngine {
       'text-primary': 'ink',
       'text-secondary': 'ink-2',
       'text-muted': 'ink-3',
-      border: 'border-r',
       accent: 'accent',
       'accent-hover': 'accent-hi',
       success: 'grass',
@@ -47,13 +49,32 @@ class ThemeEngine {
 
     // Extra derived/optional mappings
     if (c['bg-base'])    root.style.setProperty('--sb', c['sb'] ?? c['bg-base'])
-    if (c['border'])     { root.style.setProperty('--line', c['line'] ?? c['border']); root.style.setProperty('--sb-line', c['sb-line'] ?? c['border']); root.style.setProperty('--border-2', c['border-2'] ?? c['border']) }
+    root.style.setProperty('--border-r', 'transparent')
+    root.style.setProperty('--border-2', 'transparent')
+    root.style.setProperty('--line', 'transparent')
+    root.style.setProperty('--sb-line', 'transparent')
     if (c['text-muted']) root.style.setProperty('--ink-4', c['ink-4'] ?? c['text-muted'])
     if (c['checker-1'])  root.style.setProperty('--checker-1', c['checker-1'])
     if (c['checker-2'])  root.style.setProperty('--checker-2', c['checker-2'])
 
     const accent = c.accent
     if (accent) root.style.setProperty('--accent-tint', `color-mix(in srgb, ${accent} 18%, transparent)`)
+  }
+
+  private applyBackground(theme: ThemeDefinition): void {
+    const root = document.documentElement
+    if (!theme.backgroundImage) {
+      root.style.removeProperty('--theme-bg-image')
+      root.style.removeProperty('--theme-bg-opacity')
+      root.style.removeProperty('--theme-bg-blur')
+      root.style.removeProperty('--theme-bg-dim')
+      return
+    }
+
+    root.style.setProperty('--theme-bg-image', `url("${theme.backgroundImage.replace(/"/g, '\\"')}")`)
+    root.style.setProperty('--theme-bg-opacity', String(theme.backgroundOpacity ?? 0.34))
+    root.style.setProperty('--theme-bg-blur', `${theme.backgroundBlur ?? 0}px`)
+    root.style.setProperty('--theme-bg-dim', String(theme.backgroundDim ?? 0.42))
   }
 
   private applyLayout(layout: LayoutConfig): void {

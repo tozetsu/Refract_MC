@@ -45,6 +45,7 @@ export const api = {
     list:    ()                         => ipcRenderer.invoke('theme.list'),
     install: (sourcePath: string)       => ipcRenderer.invoke('theme.install', sourcePath),
     delete:  (fileName: string)         => ipcRenderer.invoke('theme.delete', fileName),
+    browseBackgroundImage: (): Promise<string | null> => ipcRenderer.invoke('theme.browseBackgroundImage'),
   },
   skins: {
     list:    () => ipcRenderer.invoke('skins.list'),
@@ -97,6 +98,7 @@ export const api = {
     minimize: (): void => ipcRenderer.send('window:minimize'),
     maximize: (): void => ipcRenderer.send('window:maximize'),
     close: (): void => ipcRenderer.send('window:close'),
+    forceClose: (): void => ipcRenderer.send('window:forceClose'),
     isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
     onMaximizedChange: (callback: (isMaximized: boolean) => void): (() => void) => {
       const handler = (_event: IpcRendererEvent, value: boolean): void => callback(value)
@@ -224,7 +226,8 @@ export const api = {
     repair:    (instanceId: string) => ipcRenderer.invoke('mc.repair', instanceId),
     launch:    (instanceId: string) => ipcRenderer.invoke('mc.launch', instanceId),
     stop:      (instanceId: string) => ipcRenderer.invoke('mc.stop', instanceId),
-    crashReport: (instanceId: string): Promise<string | null> => ipcRenderer.invoke('mc.crashReport', instanceId),
+    crashReport: (instanceId: string): Promise<{ text: string; filename: string; path: string; modifiedAt: number } | null> =>
+      ipcRenderer.invoke('mc.crashReport', instanceId),
     worlds:    (instanceId: string) => ipcRenderer.invoke('mc.worlds', instanceId),
     deleteWorld: (instanceId: string, worldName: string) => ipcRenderer.invoke('mc.deleteWorld', instanceId, worldName),
     screenshots: (instanceId: string) => ipcRenderer.invoke('mc.screenshots', instanceId),

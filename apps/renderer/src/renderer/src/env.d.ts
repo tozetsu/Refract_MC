@@ -171,6 +171,7 @@ declare global {
         list:    () => Promise<import('@/lib/theme-types').ThemeDefinition[]>
         install: (sourcePath: string) => Promise<import('@/lib/theme-types').ThemeDefinition>
         delete:  (fileName: string) => Promise<void>
+        browseBackgroundImage: () => Promise<string | null>
       }
       updater: {
         onAvailable:  (cb: (v: { version: string }) => void) => () => void
@@ -201,6 +202,7 @@ declare global {
         minimize: () => void
         maximize: () => void
         close: () => void
+        forceClose: () => void
         isMaximized: () => Promise<boolean>
         onMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void
       }
@@ -270,7 +272,7 @@ declare global {
         repair: (instanceId: string) => Promise<void>
         launch: (instanceId: string) => Promise<void>
         stop: (instanceId: string) => Promise<void>
-        crashReport: (instanceId: string) => Promise<string | null>
+        crashReport: (instanceId: string) => Promise<{ text: string; filename: string; path: string; modifiedAt: number } | null>
         worlds: (instanceId: string) => Promise<Array<{ name: string; lastModified: number; sizeKb: number }>>
         deleteWorld: (instanceId: string, worldName: string) => Promise<void>
         screenshots: (instanceId: string) => Promise<Array<{ filename: string; sizeKb: number; timestamp: number; dataUrl: string | null }>>

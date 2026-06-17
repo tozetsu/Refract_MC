@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '@/components/ui/Button'
 import { useThemeStore } from '@/stores/theme'
@@ -47,12 +47,17 @@ export function ThemesDialog({ open, onOpenChange }: Props) {
   const applyBuiltin = useThemeStore((s) => s.applyBuiltin)
   const addCustomTheme = useThemeStore((s) => s.addCustomTheme)
   const removeCustomTheme = useThemeStore((s) => s.removeCustomTheme)
+  const backgroundInputRef = useRef<HTMLInputElement>(null)
 
   const builtins = useMemo(() => [darkTheme as ThemeDefinition, lightTheme as ThemeDefinition], [])
 
   const [creating, setCreating] = useState(false)
   const [draftName, setDraftName] = useState('My Theme')
   const [draftColors, setDraftColors] = useState<ThemeColors>(() => ({ ...activeTheme.colors }))
+  const [draftBackgroundImage, setDraftBackgroundImage] = useState(activeTheme.backgroundImage ?? '')
+  const [draftBackgroundOpacity, setDraftBackgroundOpacity] = useState(activeTheme.backgroundOpacity ?? 0.34)
+  const [draftBackgroundBlur, setDraftBackgroundBlur] = useState(activeTheme.backgroundBlur ?? 0)
+  const [draftBackgroundDim, setDraftBackgroundDim] = useState(activeTheme.backgroundDim ?? 0.42)
 
   async function persistActive(id: string) {
     try { await api.config.set('activeThemeId', id) } catch { /* localStorage already holds it */ }
@@ -71,7 +76,24 @@ export function ThemesDialog({ open, onOpenChange }: Props) {
   function startCreate() {
     setDraftColors({ ...activeTheme.colors })
     setDraftName('My Theme')
+    setDraftBackgroundImage(activeTheme.backgroundImage ?? '')
+    setDraftBackgroundOpacity(activeTheme.backgroundOpacity ?? 0.34)
+    setDraftBackgroundBlur(activeTheme.backgroundBlur ?? 0)
+    setDraftBackgroundDim(activeTheme.backgroundDim ?? 0.42)
     setCreating(true)
+  }
+
+  function chooseBackgroundImage() {
+    backgroundInputRef.current?.click()
+  }
+
+  function handleBackgroundFile(file: File | undefined) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') setDraftBackgroundImage(reader.result)
+    }
+    reader.readAsDataURL(file)
   }
 
   async function saveDraft() {
@@ -81,6 +103,14 @@ export function ThemesDialog({ open, onOpenChange }: Props) {
       author: 'You',
       version: '1.0.0',
       colors: draftColors,
+      ...(draftBackgroundImage.trim()
+        ? {
+            backgroundImage: draftBackgroundImage.trim(),
+            backgroundOpacity: draftBackgroundOpacity,
+            backgroundBlur: draftBackgroundBlur,
+            backgroundDim: draftBackgroundDim,
+          }
+        : {}),
     }
     addCustomTheme(theme)        // also applies it
     await persistActive(theme.id)
@@ -108,6 +138,18 @@ export function ThemesDialog({ open, onOpenChange }: Props) {
             <span key={k} style={{ width: 22, height: 22, borderRadius: 5, background: theme.colors[k], border: '1px solid rgba(0,0,0,.3)' }} />
           ))}
         </div>
+        {theme.backgroundImage && (
+          <div
+            aria-hidden
+            style={{
+              height: 54,
+              borderRadius: 7,
+              backgroundImage: `linear-gradient(rgba(0,0,0,.20), rgba(0,0,0,.20)), url("${theme.backgroundImage.replace(/"/g, '\\"')}")`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          />
+        )}
         {!builtin && (
           <span
             role="button"
@@ -174,6 +216,73 @@ export function ThemesDialog({ open, onOpenChange }: Props) {
                     />
                     Corner radius
                   </label>
+                </div>
+
+                <div style={{ display: 'grid', gap: 10, padding: 12, borderRadius: 10, background: 'var(--surface-2, #1a1a24)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink, #f0f0f5)' }}>Background image</div>
+                      <div style={{ fontSize: 11, color: 'var(--ink-3, #8a8a9a)', marginTop: 2 }}>Use a local image or paste an image URL.</div>
+                    </div>
+                    <Button variant="secondary" size="sm" onClick={chooseBackgroundImage}>Choose image</Button>
+                    <input
+                      ref={backgroundInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                      onChange={(e) => {
+                        handleBackgroundFile(e.target.files?.[0])
+                        e.target.value = ''
+                      }}
+                      style={{ display: 'none' }}
+                    />
+                  </div>
+
+                  <input
+                    value={draftBackgroundImage}
+                    onChange={(e) => setDraftBackgroundImage(e.target.value)}
+                    placeholder="https://example.com/background.jpg"
+                    style={{ padding: '8px 10px', borderRadius: 8, background: 'var(--bg, #111)', border: '1px solid var(--border-r, #2e2e3d)', color: 'var(--ink, #f0f0f5)', fontSize: 12 }}
+                  />
+
+                  {draftBackgroundImage && (
+                    <div style={{
+                      minHeight: 120,
+                      borderRadius: 10,
+                      overflow: 'hidden',
+                      backgroundImage: `linear-gradient(rgba(0,0,0,${draftBackgroundDim}), rgba(0,0,0,${draftBackgroundDim})), url("${draftBackgroundImage.replace(/"/g, '\\"')}")`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      display: 'grid',
+                      alignItems: 'end',
+                      padding: 12,
+                    }}>
+                      <div style={{ width: 160, padding: 10, borderRadius: 8, background: `rgba(12,16,24,${Math.min(0.9, 0.38 + draftBackgroundOpacity)})`, color: '#fff' }}>
+                        <div style={{ fontSize: 12, fontWeight: 800 }}>Preview</div>
+                        <div style={{ fontSize: 11, opacity: .75, marginTop: 2 }}>Text stays readable over image.</div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+                    <label style={{ display: 'grid', gap: 5, fontSize: 11, color: 'var(--ink-3, #8a8a9a)' }}>
+                      Image opacity {Math.round(draftBackgroundOpacity * 100)}%
+                      <input type="range" min={0.1} max={0.8} step={0.05} value={draftBackgroundOpacity} onChange={(e) => setDraftBackgroundOpacity(Number(e.target.value))} />
+                    </label>
+                    <label style={{ display: 'grid', gap: 5, fontSize: 11, color: 'var(--ink-3, #8a8a9a)' }}>
+                      Background dim {Math.round(draftBackgroundDim * 100)}%
+                      <input type="range" min={0.15} max={0.75} step={0.05} value={draftBackgroundDim} onChange={(e) => setDraftBackgroundDim(Number(e.target.value))} />
+                    </label>
+                    <label style={{ display: 'grid', gap: 5, fontSize: 11, color: 'var(--ink-3, #8a8a9a)' }}>
+                      Blur {draftBackgroundBlur}px
+                      <input type="range" min={0} max={16} step={1} value={draftBackgroundBlur} onChange={(e) => setDraftBackgroundBlur(Number(e.target.value))} />
+                    </label>
+                  </div>
+
+                  {draftBackgroundImage && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button variant="ghost" size="sm" onClick={() => setDraftBackgroundImage('')}>Remove image</Button>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

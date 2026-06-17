@@ -134,9 +134,12 @@ export function TitleBar() {
         }}>
           {update.phase === 'ready' ? (
             <>
-              <span style={{ fontSize: 10, color: 'var(--grass)', fontWeight: 600 }}>v{update.version} ready</span>
+              <span style={{ fontSize: 10, color: 'var(--grass)', fontWeight: 600 }}>v{update.version} downloaded</span>
               <button onClick={() => api.updater.install()} style={{ height: 16, padding: '0 6px', fontSize: 10, fontWeight: 700, background: 'var(--grass)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', lineHeight: 1 }}>
-                Restart ↺
+                Restart now
+              </button>
+              <button onClick={() => setUpdate(null)} title="Restart later" style={{ height: 16, padding: '0 6px', fontSize: 10, fontWeight: 700, background: 'transparent', color: 'var(--ink-4)', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', lineHeight: 1 }}>
+                Later
               </button>
             </>
           ) : update.phase === 'downloading' ? (

@@ -30,6 +30,10 @@ export interface ThemeDefinition {
   version?: string
   colors: ThemeColors
   layout?: Partial<LayoutConfig>
+  backgroundImage?: string
+  backgroundOpacity?: number
+  backgroundBlur?: number
+  backgroundDim?: number
   customCSS?: string
 }
 

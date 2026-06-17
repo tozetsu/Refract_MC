@@ -177,11 +177,11 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
           onPointerDownOutside={() => { if (!loading) onOpenChange(false) }}
         >
           {/* ── Header ── */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '20px 22px', borderBottom: '1px solid var(--border-r)', background: 'linear-gradient(var(--surface-2), var(--surface))', flexShrink: 0 }}>
+          <div className="ni-dialog-header" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '20px 22px', borderBottom: '1px solid var(--border-r)', background: 'linear-gradient(var(--surface-2), var(--surface))', flexShrink: 0 }}>
             <IrisLogo />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-              <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1, color: 'var(--ink)' }}>{t.editInst.title}</h2>
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', color: 'var(--ink-3)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 850, letterSpacing: '-.02em', lineHeight: 1, color: 'var(--ink)' }}>{t.editInst.title}</h2>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.10em', color: 'var(--ink-3)', textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {displayName}
               </span>
             </div>
@@ -203,6 +203,7 @@ export function EditInstanceDialog({ instance, open, onOpenChange, onSave, onDel
 
               {/* Preview card — clickable to pick image */}
               <div
+                className="ni-preview-card"
                 style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', boxShadow: 'var(--shadow-card)', cursor: 'pointer' }}
                 onClick={() => fileInputRef.current?.click()}
                 onMouseEnter={() => setPreviewHover(true)}

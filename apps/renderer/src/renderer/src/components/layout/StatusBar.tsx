@@ -35,12 +35,11 @@ export function StatusBar() {
   return (
     <footer style={{
       height: 'var(--statusbar-height)',
-      background: 'var(--sb)',
-      borderTop: '1px solid var(--sb-line)',
+      background: 'color-mix(in srgb, var(--sb) 88%, transparent)',
       display: 'flex', alignItems: 'center',
       padding: '0 14px',
       gap: 14,
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+      fontFamily: 'var(--font-mono)',
       fontSize: 12,
       color: 'var(--ink-4)',
       letterSpacing: '.01em',

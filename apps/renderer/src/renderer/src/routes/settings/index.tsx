@@ -16,6 +16,51 @@ export const Route = createFileRoute('/settings/')({
 })
 
 const SIDEBAR_WIDTHS_VALUES = ['60px', '232px', '268px'] as const
+const MEMORY_MIN_MB = 1024
+
+type ConfirmAction = {
+  title: string
+  body: string
+  confirmLabel: string
+  run: () => Promise<void>
+}
+
+function safeMemoryMaxMb(systemMaxMb: number): number {
+  return Math.max(MEMORY_MIN_MB, Math.floor(systemMaxMb * 0.8 / 512) * 512)
+}
+
+function clampMemoryMb(value: number, systemMaxMb: number): number {
+  const max = safeMemoryMaxMb(systemMaxMb)
+  const clamped = Math.min(Math.max(value, MEMORY_MIN_MB), max)
+  return Math.max(MEMORY_MIN_MB, Math.round(clamped / 512) * 512)
+}
+
+function ConfirmActionModal({
+  action,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  action: ConfirmAction
+  busy: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:220, background:'rgba(0,0,0,.72)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={e => { if (e.target === e.currentTarget && !busy) onCancel() }}>
+      <div style={{ width:380, maxWidth:'100%', background:'var(--surface)', borderRadius:'var(--radius)', padding:18, display:'grid', gap:12 }}>
+        <div style={{ fontSize:15, fontWeight:700, color:'var(--lava)' }}>{action.title}</div>
+        <div style={{ fontSize:13, lineHeight:1.5, color:'var(--ink-3)' }}>{action.body}</div>
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:4 }}>
+          <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>Cancel</Button>
+          <Button variant="danger" size="sm" onClick={onConfirm} disabled={busy}>
+            {busy ? 'Working...' : action.confirmLabel}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function Settings() {
   const t = useT()
@@ -37,6 +82,8 @@ function Settings() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null)
+  const [confirmActionBusy, setConfirmActionBusy] = useState(false)
   const [themesOpen, setThemesOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [memoryMb, setMemoryMb] = useState<number>(2048)
@@ -65,6 +112,7 @@ function Settings() {
   async function clearLogs() {
     await api.log.clear().catch(() => {})
     setLogs([])
+    showToast('Logs cleared.')
   }
 
   async function refresh() {
@@ -74,23 +122,28 @@ function Settings() {
       api.auth.active(),
     ])
     setConfig(nextConfig)
-    setMemoryMb(nextConfig.defaultMemoryMb ?? 2048)
+    setMemoryMb(clampMemoryMb(nextConfig.defaultMemoryMb ?? 2048, memoryMaxMb))
     setCfKeyDraft(nextConfig.curseforgeApiKey ?? '')
     setAccounts(nextAccounts)
     setActiveAccount(nextActive)
   }
 
   function handleMemoryChange(mb: number) {
-    setMemoryMb(mb)
+    const safeMb = clampMemoryMb(mb, memoryMaxMb)
+    setMemoryMb(safeMb)
     if (memorySaveTimeout.current) clearTimeout(memorySaveTimeout.current)
     memorySaveTimeout.current = setTimeout(() => {
-      api.config.set('defaultMemoryMb', mb).catch(() => {})
+      api.config.set('defaultMemoryMb', safeMb).catch(() => {})
     }, 400)
   }
 
   useEffect(() => {
     refresh().catch((err) => setError(err instanceof Error ? err.message : String(err)))
-    api.system.ramGb().then(gb => setMemoryMaxMb(Math.max(1024, gb * 1024))).catch(() => {})
+    api.system.ramGb().then(gb => {
+      const max = Math.max(MEMORY_MIN_MB, gb * 1024)
+      setMemoryMaxMb(max)
+      setMemoryMb(prev => clampMemoryMb(prev, max))
+    }).catch(() => {})
   }, [])
 
   async function scanJava() {
@@ -135,6 +188,24 @@ function Settings() {
     await api.java.removeCustom(javaPath)
     await scanJava()
     showToast(t.settings.javaRemoved)
+  }
+
+  async function confirmAndRun(action: ConfirmAction) {
+    setConfirmAction(action)
+  }
+
+  async function runConfirmedAction() {
+    const action = confirmAction
+    if (!action) return
+    setConfirmActionBusy(true)
+    try {
+      await action.run()
+      setConfirmAction(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setConfirmActionBusy(false)
+    }
   }
 
   async function downloadJava(major: number) {
@@ -312,7 +383,7 @@ function Settings() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <input
                     type="range"
-                    min={512} max={memoryMaxMb} step={512}
+                    min={MEMORY_MIN_MB} max={safeMemoryMaxMb(memoryMaxMb)} step={512}
                     value={memoryMb}
                     onChange={(e) => handleMemoryChange(Number(e.target.value))}
                     style={{ flex: 1, accentColor: 'var(--accent)', cursor: 'pointer' }}
@@ -600,7 +671,14 @@ function Settings() {
                           <Button
                             variant="danger"
                             size="sm"
-                            onClick={() => deleteJava(j.version)}
+                            onClick={() => {
+                              void confirmAndRun({
+                                title: `Remove Java ${j.version}?`,
+                                body: 'This removes the managed Java runtime from disk. The launcher can download it again later if needed.',
+                                confirmLabel: 'Remove Java',
+                                run: () => deleteJava(j.version),
+                              })
+                            }}
                             style={{ fontSize:10, padding:'2px 7px' }}
                           >
                             Remove
@@ -610,7 +688,14 @@ function Settings() {
                           <Button
                             variant="danger"
                             size="sm"
-                            onClick={() => removeCustomJava(j.path)}
+                            onClick={() => {
+                              void confirmAndRun({
+                                title: 'Remove custom Java?',
+                                body: 'This only removes the custom Java entry from Refract. It does not delete the Java files from your computer.',
+                                confirmLabel: 'Remove entry',
+                                run: () => removeCustomJava(j.path),
+                              })
+                            }}
                             style={{ fontSize:10, padding:'2px 7px' }}
                           >
                             Remove
@@ -695,7 +780,18 @@ function Settings() {
             <Button variant="secondary" size="sm" onClick={loadLogs} style={{ opacity: logsLoading ? .55 : 1 }}>
               {logsLoading ? t.settings.loading : t.settings.refresh}
             </Button>
-            <Button variant="danger" size="sm" onClick={clearLogs}>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => {
+                void confirmAndRun({
+                  title: 'Clear app logs?',
+                  body: 'This deletes the stored launcher log history shown here. It does not affect instances or game files.',
+                  confirmLabel: 'Clear logs',
+                  run: clearLogs,
+                })
+              }}
+            >
               {t.settings.clearLogs}
             </Button>
           </div>
@@ -835,6 +931,15 @@ function Settings() {
           )}
         </div>
       </section>
+
+      {confirmAction && (
+        <ConfirmActionModal
+          action={confirmAction}
+          busy={confirmActionBusy}
+          onCancel={() => { if (!confirmActionBusy) setConfirmAction(null) }}
+          onConfirm={() => { void runConfirmedAction() }}
+        />
+      )}
 
       {error && (
         <div style={{ padding:12, color:'#fff', background:'rgba(217,59,59,.18)', border:'1px solid var(--redstone)', borderRadius:4, fontSize:13 }}>

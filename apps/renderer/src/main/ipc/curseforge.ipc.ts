@@ -4,6 +4,7 @@ import { BrowserWindow } from 'electron'
 import { handleIpc } from './handle'
 import { getConfig } from '../services/config'
 import { downloadFile } from '../services/download'
+import { enqueueDownload } from '../services/download-queue'
 import { resolveGameDir, getInstanceById, updateInstance } from '../services/instance-store'
 import { installModpackFromFile } from '../services/modpack'
 import { paths } from '../services/paths'
@@ -83,7 +84,14 @@ export function registerCurseForgeIpc(mainWindow?: BrowserWindow): void {
     return { ...proj, screenshots: proj.screenshots ?? [], description: descData } as import('@refract/core').CFProjectDetail
   })
 
-  handleIpc('curseforge.installModpack', async (_event, name, modId, fileId) => {
+  handleIpc('curseforge.installModpack', async (_event, name, modId, fileId) => enqueueDownload(
+    position => {
+      if (position > 0) {
+        const win = mainWindow ?? BrowserWindow.getAllWindows()[0]
+        win?.webContents.send('modpack:progress', { projectId: `cf:${modId}`, step: `Queued (${position} ahead)`, percent: 0 })
+      }
+    },
+    async () => {
     const apiKey = getApiKey()
     const midNum = Number(modId)
     const fidNum = Number(fileId)
@@ -105,9 +113,10 @@ export function registerCurseForgeIpc(mainWindow?: BrowserWindow): void {
     } finally {
       try { if (existsSync(tempPath)) rmSync(tempPath) } catch { /* ignore */ }
     }
-  })
+    }
+  ))
 
-  handleIpc('curseforge.install', async (_event, instanceId, modId, fileId, displayName) => {
+  handleIpc('curseforge.install', async (_event, instanceId, modId, fileId, displayName) => enqueueDownload(undefined, async () => {
     const apiKey = getApiKey()
     const instance = getInstanceById(String(instanceId))
     if (!instance) throw new Error(`Instance not found: ${instanceId}`)
@@ -145,5 +154,5 @@ export function registerCurseForgeIpc(mainWindow?: BrowserWindow): void {
     updateInstance(String(instanceId), { mods })
 
     return mod
-  })
+  }))
 }

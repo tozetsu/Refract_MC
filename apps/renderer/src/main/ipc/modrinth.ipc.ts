@@ -4,6 +4,7 @@ import { createHash } from 'crypto'
 import { handleIpc } from './handle'
 import { installMod, uninstallMod } from '../services/modrinth'
 import { downloadFile } from '../services/download'
+import { enqueueDownload } from '../services/download-queue'
 import { resolveGameDir, getInstanceById } from '../services/instance-store'
 import { searchMods, searchContent, getProjectVersions, fetchGameVersions } from '@refract/core'
 import type { ModrinthSearchOptions, ModrinthVersion } from '@refract/core'
@@ -64,11 +65,14 @@ export function registerModrinthIpc(): void {
   )
 
   handleIpc('modrinth.install', async (_event, instanceId, projectId, projectName, versionId) =>
-    installMod(
-      String(instanceId),
-      String(projectId),
-      String(projectName),
-      versionId ? String(versionId) : undefined
+    enqueueDownload(
+      undefined,
+      () => installMod(
+        String(instanceId),
+        String(projectId),
+        String(projectName),
+        versionId ? String(versionId) : undefined
+      )
     )
   )
 
@@ -141,19 +145,21 @@ export function registerModrinthIpc(): void {
   })
 
   handleIpc('modrinth.applyModUpdates', async (_event, instanceId, updates) => {
-    const modsDir = join(resolveGameDir(String(instanceId)), 'mods')
-    const results: UpdateResult[] = []
-    for (const u of (updates as UpdateInfo[])) {
-      try {
-        const newPath = join(modsDir, basename(u.newFilename))
-        await downloadFile(u.downloadUrl, newPath)
-        const oldPath = join(modsDir, u.filename)
-        if (existsSync(oldPath) && oldPath !== newPath) rmSync(oldPath)
-        results.push({ filename: u.filename, success: true })
-      } catch (e) {
-        results.push({ filename: u.filename, success: false, error: e instanceof Error ? e.message : String(e) })
+    return enqueueDownload(undefined, async () => {
+      const modsDir = join(resolveGameDir(String(instanceId)), 'mods')
+      const results: UpdateResult[] = []
+      for (const u of (updates as UpdateInfo[])) {
+        try {
+          const newPath = join(modsDir, basename(u.newFilename))
+          await downloadFile(u.downloadUrl, newPath)
+          const oldPath = join(modsDir, u.filename)
+          if (existsSync(oldPath) && oldPath !== newPath) rmSync(oldPath)
+          results.push({ filename: u.filename, success: true })
+        } catch (e) {
+          results.push({ filename: u.filename, success: false, error: e instanceof Error ? e.message : String(e) })
+        }
       }
-    }
-    return results
+      return results
+    })
   })
 }

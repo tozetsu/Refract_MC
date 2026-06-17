@@ -20,7 +20,7 @@ const ALL_PRESETS = [1, 2, 4, 8, 16, 32, 64]
 interface Template {
   id: string
   label: string
-  emoji: string
+  mark: string
   desc: string
   loader: ModLoader | ''
   memGB: number
@@ -29,12 +29,12 @@ interface Template {
 }
 
 const TEMPLATES: Template[] = [
-  { id: 'vanilla',    label: 'Vanilla',      emoji: '🌿', desc: 'Latest vanilla',            loader: '',         memGB: 2, javaArgs: '' },
-  { id: 'fabric',     label: 'Fabric',       emoji: '🧵', desc: 'Latest + Fabric loader',     loader: 'fabric',   memGB: 4, javaArgs: '' },
-  { id: 'neoforge',   label: 'NeoForge',     emoji: '⚙️', desc: 'Latest + NeoForge loader',   loader: 'neoforge', memGB: 4, javaArgs: '' },
-  { id: 'perf',       label: 'Performance',  emoji: '⚡', desc: 'Fabric + Aikar\'s JVM flags', loader: 'fabric',   memGB: 6, javaArgs: '-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M -XX:+DisableExplicitGC' },
-  { id: 'pvp',        label: '1.8.9 PvP',    emoji: '⚔️', desc: 'Classic PvP',                loader: '',         memGB: 2, javaArgs: '', mcVersion: '1.8.9' },
-  { id: 'speedrun',   label: 'Speedrun',     emoji: '🏃', desc: 'Lightweight, fast startup',   loader: '',         memGB: 2, javaArgs: '-XX:+UseSerialGC -XX:TieredStopAtLevel=1' },
+  { id: 'vanilla',    label: 'Vanilla',      mark: '#55d88a', desc: 'Latest vanilla',            loader: '',         memGB: 2, javaArgs: '' },
+  { id: 'fabric',     label: 'Fabric',       mark: '#62c9ff', desc: 'Latest + Fabric loader',     loader: 'fabric',   memGB: 4, javaArgs: '' },
+  { id: 'neoforge',   label: 'NeoForge',     mark: '#b79cff', desc: 'Latest + NeoForge loader',   loader: 'neoforge', memGB: 4, javaArgs: '' },
+  { id: 'perf',       label: 'Performance',  mark: '#f4bf4d', desc: 'Fabric + Aikar\'s JVM flags', loader: 'fabric',   memGB: 6, javaArgs: '-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M -XX:+DisableExplicitGC' },
+  { id: 'pvp',        label: '1.8.9 PvP',    mark: '#ff706d', desc: 'Classic PvP',                loader: '',         memGB: 2, javaArgs: '', mcVersion: '1.8.9' },
+  { id: 'speedrun',   label: 'Speedrun',     mark: '#ffffff', desc: 'Lightweight, fast startup',   loader: '',         memGB: 2, javaArgs: '-XX:+UseSerialGC -XX:TieredStopAtLevel=1' },
 ]
 
 interface CreateInput {
@@ -159,12 +159,12 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
           onPointerDownOutside={close}
         >
           {/* ── Header ── */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '20px 22px', borderBottom: '1px solid var(--border-r)', background: 'linear-gradient(var(--surface-2), var(--surface))', flexShrink: 0 }}>
+          <div className="ni-dialog-header" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '20px 22px', borderBottom: '1px solid var(--border-r)', background: 'linear-gradient(var(--surface-2), var(--surface))', flexShrink: 0 }}>
             <IrisLogo />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-              <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: '-.02em', lineHeight: 1, color: 'var(--ink)' }}>New Instance</h2>
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.10em', color: 'var(--ink-3)', textTransform: 'uppercase' }}>
-                Set it up · launch in seconds
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 850, letterSpacing: '-.02em', lineHeight: 1, color: 'var(--ink)' }}>New Instance</h2>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.10em', color: 'var(--ink-3)', textTransform: 'uppercase' }}>
+                Configure launch profile
               </span>
             </div>
             <button className="ni-close" onClick={close} aria-label="Close" type="button">
@@ -184,7 +184,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
               </div>
 
               {/* Preview card */}
-              <div style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', boxShadow: 'var(--shadow-card)' }}>
+              <div className="ni-preview-card" style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', boxShadow: 'var(--shadow-card)' }}>
                 {/* Thumbnail: pixel skyline */}
                 <div style={{ height: 128, position: 'relative', overflow: 'hidden', background: 'linear-gradient(var(--sky-1, #3a2a66), var(--sky-2, #5a3fa6))' }}>
                   {/* Stars */}
@@ -242,7 +242,7 @@ export function CreateInstanceDialog({ open, onOpenChange, onCreate, onImportFil
                         color: activeTemplate === tpl.id ? 'var(--ni-p-deep, var(--accent))' : 'var(--ink-3)',
                       }}
                     >
-                      <span>{tpl.emoji}</span>
+                      <span className="ni-template-mark" style={{ background: `linear-gradient(135deg, rgba(255,255,255,.28), transparent 48%), ${tpl.mark}` }} />
                       {tpl.label}
                     </Button>
                   ))}

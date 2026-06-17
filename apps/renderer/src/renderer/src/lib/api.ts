@@ -173,6 +173,7 @@ function createBrowserApi(): RefractAPI {
         throw new Error('Theme import is available in the Electron app.')
       },
       delete: async () => undefined,
+      browseBackgroundImage: async () => null,
     },
     updater: {
       onAvailable:  () => () => undefined,
@@ -503,7 +504,6 @@ async function runUpdateCheck(): Promise<void> {
 function startUpdater(): void {
   if (updaterStarted) return
   updaterStarted = true
-  void registerQuitInstaller()
   void runUpdateCheck()
   setInterval(() => void runUpdateCheck(), UPDATE_CHECK_INTERVAL_MS)
 }
@@ -912,8 +912,8 @@ export const api: RefractAPI = wrapApi(
   electronApi ?? (isTauri ? createTauriApi() : createBrowserApi()),
 )
 
-/** True when a native file picker is available (Tauri). */
-export const supportsFilePicker = isTauri
+/** True when a native file picker is available. */
+export const supportsFilePicker = !!electronApi || isTauri
 
 /** True when the active runtime can send analytics events. */
 export const analyticsAvailable = !isTauri

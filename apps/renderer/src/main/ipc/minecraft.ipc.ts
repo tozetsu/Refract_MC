@@ -265,7 +265,16 @@ export function registerMinecraftIpc(mainWindow: BrowserWindow): void {
       .map(f => ({ name: f, mtime: statSync(join(crashDir, f)).mtimeMs }))
       .sort((a, b) => b.mtime - a.mtime)
     if (files.length === 0) return null
-    try { return readFileSync(join(crashDir, files[0].name), 'utf-8') } catch { return null }
+    const latest = files[0]
+    const path = join(crashDir, latest.name)
+    try {
+      return {
+        text: readFileSync(path, 'utf-8'),
+        filename: latest.name,
+        path,
+        modifiedAt: latest.mtime,
+      }
+    } catch { return null }
   })
 
   handleIpc('mc.worlds', (_event, instanceId) => {

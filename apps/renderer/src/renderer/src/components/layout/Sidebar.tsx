@@ -71,16 +71,16 @@ function NavItem({ to, label, iconSrc, exact, compact }: NavItemProps) {
         position: 'relative',
         display: 'flex', alignItems: 'center', justifyContent: compact ? 'center' : 'flex-start',
         gap: compact ? 0 : 10,
-        padding: compact ? '9px 0' : '8px 10px', borderRadius: 4,
+        padding: compact ? '9px 0' : '9px 10px', borderRadius: 'var(--radius-sm)',
         color: active ? 'var(--ink)' : hover ? 'var(--ink)' : 'var(--ink-2)',
         fontSize: 13, fontWeight: 500, textDecoration: 'none',
-        background: active ? 'var(--accent-tint)' : hover ? 'rgba(255,255,255,.05)' : 'transparent',
-        border: `1px solid ${active ? 'var(--accent)' : hover ? 'rgba(255,255,255,.08)' : 'transparent'}`,
+        background: active ? 'linear-gradient(90deg, var(--accent-tint), rgba(255,255,255,.025))' : hover ? 'rgba(255,255,255,.05)' : 'transparent',
+        border: `1px solid ${active ? 'color-mix(in srgb, var(--accent) 58%, transparent)' : hover ? 'rgba(255,255,255,.08)' : 'transparent'}`,
         userSelect: 'none',
         transition: 'background 100ms, color 100ms, border-color 100ms',
       }}
     >
-      {active && !compact && <div style={{ position:'absolute', left:-13, top:6, bottom:6, width:3, background:'var(--accent)' }} />}
+      {active && !compact && <div style={{ position:'absolute', left:-13, top:6, bottom:6, width:3, background:'var(--accent)', borderRadius:2, boxShadow:'0 0 12px var(--accent)' }} />}
       <NavIcon src={iconSrc} size={compact ? 20 : 18} />
       {!compact && <span>{label}</span>}
     </Link>
@@ -564,9 +564,9 @@ export function Sidebar() {
   ]
 
   return (
-    <aside style={{
+    <aside className="launcher-sidebar" style={{
       gridRow:'2/3', gridColumn:'1/2',
-      background:'var(--sb)', borderRight:'1px solid var(--line)',
+      background:'var(--sidebar-bg)',
       display:'flex', flexDirection:'column',
       padding: compact ? '14px 8px 12px' : '14px 12px 12px',
       transition: 'padding 220ms cubic-bezier(.4,0,.2,1)',
@@ -574,14 +574,14 @@ export function Sidebar() {
     }}>
       {/* Brand + collapse toggle */}
       {compact ? (
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, padding:'0 0 10px', borderBottom:'1px solid var(--sb-line)', marginBottom:6 }}>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, padding:'0 0 12px', borderBottom:'1px solid var(--sb-line)', marginBottom:8 }}>
           <RefractLogo size={32} />
           <CollapseToggle compact onClick={toggleCollapsed} label={t.sidebar.expand} />
         </div>
       ) : (
-        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'0 6px 10px', borderBottom:'1px solid var(--sb-line)', marginBottom:6 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'0 6px 12px', borderBottom:'1px solid var(--sb-line)', marginBottom:8 }}>
           <RefractLogo size={32} />
-          <span style={{ fontSize:16, fontWeight:700, letterSpacing:'.14em', color:'var(--ink)', lineHeight:1 }}>REFRACT</span>
+          <span style={{ fontSize:16, fontWeight:800, letterSpacing:'.14em', color:'var(--ink)', lineHeight:1 }}>REFRACT</span>
           <div style={{ flex:1 }} />
           <CollapseToggle compact={false} onClick={toggleCollapsed} label={t.sidebar.collapse} />
         </div>

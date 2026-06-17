@@ -364,20 +364,14 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
     <div
       style={{
         position: 'fixed', inset: 0, zIndex: 150,
-        background: 'rgba(0,0,0,.65)',
+        background: 'rgba(0,0,0,.72)',
+        backdropFilter: 'blur(8px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}
       onClick={e => { if (e.target === e.currentTarget) onOpenChange(false) }}
     >
       <div
-        style={{
-          width: 860, height: '88vh',
-          background: 'var(--surface)',
-          border: '1px solid var(--border-r)',
-          borderRadius: 'var(--radius)',
-          display: 'flex', flexDirection: 'column',
-          overflow: 'hidden',
-        }}
+        className="detail-dialog"
         onClick={e => e.stopPropagation()}
       >
         {/* Hidden file inputs */}
@@ -385,23 +379,17 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
         <input ref={modInputRef} type="file" accept=".jar,.zip" style={{ display: 'none' }} onChange={handleAddModFile} />
 
         {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 14,
-          padding: '14px 16px',
-          borderBottom: '1px solid var(--border-r)',
-          flexShrink: 0,
-          background: 'var(--surface-2)',
-        }}>
+        <div className="detail-header">
           {/* Instance icon — click to change */}
           <div
             title="Click to change image"
             onClick={() => iconInputRef.current?.click()}
             onMouseEnter={() => setIconHover(true)}
             onMouseLeave={() => setIconHover(false)}
+            className="detail-icon"
             style={{
-              width: 56, height: 56, borderRadius: 'var(--radius-md)', overflow: 'hidden', flexShrink: 0,
-              border: `1px solid ${iconHover ? 'var(--accent)' : 'var(--border-r)'}`,
-              background: 'var(--bg)', cursor: 'pointer', position: 'relative',
+              cursor: 'pointer', position: 'relative',
+              borderColor: iconHover ? 'var(--accent)' : undefined,
               transition: 'border-color 120ms',
             }}
           >
@@ -418,15 +406,15 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
 
           {/* Instance info */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: 24, fontWeight: 850, color: 'var(--ink)', lineHeight: 1.05, letterSpacing: '-.03em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {instance.name}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11 }}>MC {instance.minecraftVersion}</span>
+            <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', padding: '3px 8px', background: 'color-mix(in srgb, var(--bg) 76%, transparent)' }}>MC {instance.minecraftVersion}</span>
               <span style={{ color: 'var(--border-r)' }}>·</span>
-              <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, color: 'var(--accent)' }}>{instance.modLoader?.toUpperCase() ?? 'VANILLA'}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--accent-hi)', border: '1px solid color-mix(in srgb, var(--accent) 35%, transparent)', borderRadius: 'var(--radius-sm)', padding: '3px 8px', background: 'var(--accent-tint)' }}>{instance.modLoader?.toUpperCase() ?? 'VANILLA'}</span>
               <span style={{ color: 'var(--border-r)' }}>·</span>
-              <span>{items.length} mod{items.length !== 1 ? 's' : ''}</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', padding: '3px 8px', background: 'color-mix(in srgb, var(--bg) 76%, transparent)' }}>{items.length} mod{items.length !== 1 ? 's' : ''}</span>
             </div>
             {instance.playtimeLog && Object.keys(instance.playtimeLog).length > 0 && (
               <PlaytimeChart log={instance.playtimeLog} />
@@ -434,7 +422,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
           </div>
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {onLaunch && (
               <Button
                 variant={isRunning ? 'danger' : 'primary'}
@@ -521,28 +509,13 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
         </div>
 
         {/* Tabs */}
-        <div style={{
-          display: 'flex', gap: 2, padding: '8px 12px',
-          borderBottom: '1px solid var(--border-r)',
-          flexShrink: 0,
-          background: 'var(--surface-2)',
-          flexWrap: 'wrap',
-        }}>
+        <div className="detail-tabs">
           {CONTENT_TABS.map(t => (
-            <Button
+            <button
               key={t.id}
-              variant={tab === t.id ? 'outline' : 'ghost'}
-              size="sm"
               onClick={() => setTab(t.id)}
-              className="glow-hover"
-              style={{
-                padding: '4px 10px', borderRadius: 'var(--radius-sm)',
-                fontSize: 11, fontWeight: 600,
-                border: tab === t.id ? '1px solid var(--accent)' : '1px solid transparent',
-                background: tab === t.id ? 'var(--accent-tint)' : 'transparent',
-                color: tab === t.id ? 'var(--ink)' : 'var(--ink-4)',
-                display: 'flex', gap: 5, alignItems: 'center',
-              }}
+              className="detail-tab"
+              data-active={tab === t.id}
             >
               {t.label}
               {(counts[t.id] ?? 0) > 0 && (
@@ -555,18 +528,13 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                   {counts[t.id]}
                 </span>
               )}
-            </Button>
+            </button>
           ))}
         </div>
 
         {/* Mod profiles strip */}
         {isContentTab && (tab === 'mod' || tab === 'all') && (
-          <div style={{
-            display: 'flex', gap: 6, padding: '5px 12px',
-            borderBottom: '1px solid var(--line)',
-            flexShrink: 0, alignItems: 'center', flexWrap: 'wrap',
-            minHeight: 34, background: 'var(--bg)',
-          }}>
+          <div className="detail-strip" style={{ minHeight: 38 }}>
             <span style={{ fontSize: 10, color: 'var(--ink-4)', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', flexShrink: 0, marginRight: 2 }}>
               {td.profiles}
             </span>
@@ -662,7 +630,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
 
         {/* Bulk action bar */}
         {isContentTab && selectedMods.size > 0 && (
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 12px', background:'var(--accent-tint)', borderBottom:'1px solid var(--accent)', flexShrink:0 }}>
+          <div className="detail-strip" style={{ background:'var(--accent-tint)', borderBottom:'1px solid var(--accent)' }}>
             <span style={{ fontSize:11, color:'var(--accent)', fontWeight:700, minWidth:70 }}>{td.selected(selectedMods.size)}</span>
             <Button variant="outline" size="sm" onClick={() => handleBulkToggle(true)}  style={{ fontSize:11, padding:'2px 10px', background:'var(--surface-2)', color:'var(--grass)', border:'1px solid var(--grass)', fontWeight:600 }}>{td.enable}</Button>
             <Button variant="danger"  size="sm" onClick={() => handleBulkToggle(false)} style={{ fontSize:11, padding:'2px 10px', background:'var(--surface-2)', color:'var(--gold)',  border:'1px solid var(--gold)',  fontWeight:600 }}>{td.disable}</Button>
@@ -695,17 +663,17 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
         {/* Body */}
         {/* Mod search */}
         {isContentTab && items.length > 6 && (
-          <div style={{ padding: '6px 12px 4px', flexShrink: 0, borderBottom: '1px solid var(--line)', background: 'var(--bg)' }}>
+          <div className="detail-strip" style={{ padding: '8px 12px' }}>
             <input
+              className="detail-search"
               value={modSearch}
               onChange={e => setModSearch(e.target.value)}
               placeholder="Search mods…"
-              style={{ width: '100%', height: 28, background: 'var(--surface-2)', border: '1px solid var(--border-r)', color: 'var(--ink)', padding: '0 10px', outline: 'none', fontSize: 12, borderRadius: 'var(--radius-sm)' }}
             />
           </div>
         )}
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: tab === 'screenshots' ? 12 : '6px 0' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: tab === 'screenshots' ? 14 : '8px 0' }}>
           {loading ? (
             <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>Loading…</div>
           ) : error ? (
@@ -729,7 +697,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
             screenshots.length === 0 ? (
               <EmptyMsg msg={EMPTY_MSG.screenshots} sub={td.emptyScreensSub} />
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                 {screenshots.map(s => (
                   <ScreenshotThumb
                     key={s.filename}
@@ -866,7 +834,7 @@ function ServerRow({ server }: { server: ServerEntry }) {
   const isOffline = ping === null
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 16px', borderBottom: '1px solid var(--line)' }}>
+    <div className="detail-row" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid var(--line)' }}>
       <div style={{ width: 36, height: 36, background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18, overflow: 'hidden' }}>
         {server.icon ? <img src={`data:image/png;base64,${server.icon}`} alt="" style={{ width: '100%', height: '100%', imageRendering: 'pixelated' }} /> : '🖥'}
       </div>
@@ -904,8 +872,9 @@ function ServerRow({ server }: { server: ServerEntry }) {
 
 function EmptyMsg({ msg, sub }: { msg: string; sub: string }) {
   return (
-    <div style={{ padding: '40px 16px', textAlign: 'center' }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-4)', letterSpacing: '.04em', marginBottom: 6 }}>{msg}</div>
+    <div className="detail-empty">
+      <div style={{ width: 34, height: 34, borderRadius: 9, background: 'var(--accent-tint)', border: '1px solid color-mix(in srgb, var(--accent) 38%, transparent)', margin: '0 auto 14px', boxShadow: '0 0 22px color-mix(in srgb, var(--accent) 18%, transparent)' }} />
+      <div style={{ fontSize: 13, fontWeight: 750, color: 'var(--ink-2)', letterSpacing: '.04em', marginBottom: 6 }}>{msg}</div>
       <div style={{ fontSize: 12, color: 'var(--ink-4)' }}>{sub}</div>
     </div>
   )
@@ -917,7 +886,7 @@ function WorldRow({ world, isBusy, onDelete, onBackup }: { world: WorldEntry; is
   const [confirm, setConfirm] = useState(false)
   const [backing, setBacking] = useState(false)
   return (
-    <div style={{
+    <div className="detail-row" style={{
       display: 'flex', alignItems: 'center', gap: 12, padding: '9px 16px',
       borderBottom: '1px solid var(--line)', opacity: isBusy ? 0.5 : 1,
     }}>
@@ -1001,7 +970,7 @@ function ScreenshotThumb({ shot, onClick }: { shot: ScreenshotEntry; onClick: ()
 function UpdateRow({ entry }: { entry: ModUpdateEntry }) {
   const displayName = entry.filename.replace(/\.jar(\.disabled)?$/, '').replace(/-\d.*$/, '')
   return (
-    <div style={{
+    <div className="detail-row" style={{
       display: 'flex', alignItems: 'center', gap: 10,
       padding: '8px 14px',
       borderBottom: '1px solid var(--line)',
@@ -1050,7 +1019,7 @@ function ContentRow({ entry, isBusy, selected, onSelect, onToggle, onDelete }: {
   const isFolder = !entry.filename.includes('.')
 
   return (
-    <div style={{
+    <div className="detail-row" style={{
       display: 'flex', alignItems: 'center', gap: 10,
       padding: '7px 14px',
       borderBottom: '1px solid var(--line)',
