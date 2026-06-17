@@ -153,13 +153,14 @@ function StatusChip({ label, tone = 'neutral' }: { label: string; tone?: 'neutra
   )
 }
 
-function InstanceCard({ instance, onLaunch, onEdit, onConsole, onMods, onOpenFolder, onServers, onDropJar, blockReason, isRunning, hasLogs, updateCount, javaOk, selectionMode, selected, onSelect, updateAvailable, onUpdate }: { instance: Instance; onLaunch: () => void; onEdit: () => void; onConsole: () => void; onMods: () => void; onOpenFolder: () => void; onServers: () => void; onDropJar: (path: string) => void; blockReason: 'no-profile' | 'no-license' | null; isRunning: boolean; hasLogs: boolean; updateCount: number; javaOk: boolean; selectionMode?: boolean; selected?: boolean; onSelect?: () => void; updateAvailable?: boolean; onUpdate?: () => void }) {
+function InstanceCard({ instance, onLaunch, onEdit, onConsole, onMods, onOpenFolder, onServers, onDropJar, blockReason, isRunning, isLaunching, hasLogs, updateCount, javaOk, selectionMode, selected, onSelect, updateAvailable, onUpdate }: { instance: Instance; onLaunch: () => void; onEdit: () => void; onConsole: () => void; onMods: () => void; onOpenFolder: () => void; onServers: () => void; onDropJar: (path: string) => void; blockReason: 'no-profile' | 'no-license' | null; isRunning: boolean; isLaunching?: boolean; hasLogs: boolean; updateCount: number; javaOk: boolean; selectionMode?: boolean; selected?: boolean; onSelect?: () => void; updateAvailable?: boolean; onUpdate?: () => void }) {
   const t = useT()
   const [dragOver, setDragOver] = useState(false)
   const [bannerHover, setBannerHover] = useState(false)
-  const label = isRunning ? t.home.stop : instance.isInstalled ? t.home.play : t.home.install
+  const label = isLaunching ? 'Launching...' : isRunning ? t.home.stop : instance.isInstalled ? t.home.play : t.home.install
   const statusChips: Array<{ label: string; tone?: 'neutral' | 'good' | 'warn' | 'info' }> = []
-  if (isRunning) statusChips.push({ label: 'Running', tone: 'good' })
+  if (isLaunching) statusChips.push({ label: 'Launching', tone: 'info' })
+  else if (isRunning) statusChips.push({ label: 'Running', tone: 'good' })
   if (instance.isInstalled && updateAvailable) statusChips.push({ label: 'Update', tone: 'good' })
   if (instance.isInstalled && updateCount > 0) statusChips.push({ label: `${updateCount} mod${updateCount === 1 ? '' : 's'}`, tone: 'warn' })
   if (instance.isInstalled && !javaOk) statusChips.push({ label: 'Missing Java', tone: 'warn' })
@@ -310,17 +311,17 @@ function InstanceCard({ instance, onLaunch, onEdit, onConsole, onMods, onOpenFol
         <div style={{ marginTop: 'auto', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
           {/* Primary row: PLAY + CONSOLE */}
           <div style={{ display: 'flex', gap: 6 }}>
-            <PlayButton onClick={onLaunch} disabled={false} label={label} />
-            {(isRunning || hasLogs) && (
+            <PlayButton onClick={onLaunch} disabled={isLaunching} label={label} />
+            {(isRunning || isLaunching || hasLogs) && (
               <Button
                 variant="outline"
                 onClick={onConsole}
                 style={{
                   height: 40,
-                  ...(isRunning ? { color: 'var(--grass)', borderColor: 'color-mix(in srgb, var(--grass) 40%, transparent)' } : {}),
+                  ...(isRunning || isLaunching ? { color: 'var(--grass)', borderColor: 'color-mix(in srgb, var(--grass) 40%, transparent)' } : {}),
                 }}
               >
-                {isRunning ? t.home.console : t.home.log}
+                {isRunning || isLaunching ? t.home.console : t.home.log}
               </Button>
             )}
           </div>
@@ -781,6 +782,7 @@ function Library() {
   const [modpackUpdating, setModpackUpdating] = useState<{ step: string; percent: number } | null>(null)
   const updatingModpackRef = useRef(false)
   const [runningIds, setRunningIds] = useState<Set<string>>(new Set())
+  const [launchingIds, setLaunchingIds] = useState<Set<string>>(new Set())
   const [mcVersions, setMcVersions] = useState<MinecraftVersion[]>([])
   const [consoleLogs, setConsoleLogs] = useState<Map<string, string[]>>(new Map())
   const consoleLogsRef = useRef(consoleLogs)
@@ -1030,6 +1032,7 @@ function Library() {
       await handleInstallMc(instance)
       return
     }
+    if (launchingIds.has(instance.id)) return
     if (runningIds.has(instance.id)) {
       api.mc.stop(instance.id)
       setRunningIds(prev => { const n = new Set(prev); n.delete(instance.id); return n })
@@ -1038,11 +1041,14 @@ function Library() {
     // Surface the one-time Java download (if the required runtime is missing)
     // that resolveJava performs in the main process during launch.
     launchingRef.current = true
+    setLaunchingIds(prev => new Set([...prev, instance.id]))
+    setRunningIds(prev => new Set([...prev, instance.id]))
+    setConsoleOpen(instance.id)
     try {
       await api.mc.launch(instance.id)
-      setRunningIds(prev => new Set([...prev, instance.id]))
       void recordActivity(`Launched "${instance.name}"`)
     } catch (e) {
+      setRunningIds(prev => { const n = new Set(prev); n.delete(instance.id); return n })
       const msg = e instanceof Error ? e.message : 'Unknown error'
       // Expired sign-in: show the friendly message and send them to Accounts
       // to re-authenticate, instead of dumping the raw AADSTS error.
@@ -1056,6 +1062,7 @@ function Library() {
       setTimeout(() => setLaunchToast(null), 4000)
     } finally {
       launchingRef.current = false
+      setLaunchingIds(prev => { const n = new Set(prev); n.delete(instance.id); return n })
       setJavaPrep(null)
     }
   }
@@ -1512,6 +1519,7 @@ function Library() {
                                   }}
                                   blockReason={!hasProfile ? 'no-profile' : !canPlayMinecraft ? 'no-license' : null}
                                   isRunning={runningIds.has(inst.id)}
+                                  isLaunching={launchingIds.has(inst.id)}
                                   hasLogs={(consoleLogs.get(inst.id)?.length ?? 0) > 0}
                                   updateCount={updateCounts.get(inst.id) ?? 0}
                                   javaOk={javaOk}
@@ -1575,6 +1583,7 @@ function Library() {
                   }}
                   blockReason={!hasProfile ? 'no-profile' : !canPlayMinecraft ? 'no-license' : null}
                   isRunning={runningIds.has(inst.id)}
+                  isLaunching={launchingIds.has(inst.id)}
                   hasLogs={(consoleLogs.get(inst.id)?.length ?? 0) > 0}
                   updateCount={updateCounts.get(inst.id) ?? 0}
                   javaOk={javaOk}
