@@ -87,6 +87,83 @@ async fn get_json(url: &str) -> Result<Value, String> {
     res.json().await.map_err(|e| e.to_string())
 }
 
+fn string_at<'a>(value: &'a Value, path: &[&str]) -> Option<&'a str> {
+    let mut current = value;
+    for key in path {
+        current = current.get(*key)?;
+    }
+    current.as_str().filter(|s| !s.trim().is_empty())
+}
+
+fn item_with_type<'a>(items: &'a [Value], kind: &str) -> Option<&'a Value> {
+    items
+        .iter()
+        .find(|item| item["type"].as_str() == Some(kind))
+}
+
+fn modrinth_project_image(project: &Value) -> Option<String> {
+    project["gallery"]
+        .as_array()
+        .and_then(|items| {
+            items
+                .iter()
+                .find(|item| item["featured"].as_bool() == Some(true))
+                .or_else(|| items.first())
+        })
+        .and_then(|item| {
+            string_at(item, &["raw_url"])
+                .or_else(|| string_at(item, &["url"]))
+                .map(String::from)
+        })
+        .or_else(|| string_at(project, &["icon_url"]).map(String::from))
+}
+
+async fn curseforge_project_image(mod_id: i64) -> Option<String> {
+    let key = config::curseforge_api_key()?;
+    let res = client()
+        .get(format!("https://api.curseforge.com/v1/mods/{mod_id}"))
+        .header("x-api-key", key)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .ok()?;
+    if !res.status().is_success() {
+        return None;
+    }
+    let body = res.json::<Value>().await.ok()?;
+    let data = &body["data"];
+    data["screenshots"]
+        .as_array()
+        .and_then(|screenshots| screenshots.first())
+        .and_then(|shot| {
+            string_at(shot, &["url"])
+                .or_else(|| string_at(shot, &["thumbnailUrl"]))
+                .map(String::from)
+        })
+        .or_else(|| {
+            string_at(data, &["logo", "url"])
+                .or_else(|| string_at(data, &["logo", "thumbnailUrl"]))
+                .map(String::from)
+        })
+}
+
+async fn ftb_pack_image(pack_id: i64) -> Option<String> {
+    let pack = get_json(&format!("{FTB}/modpack/{pack_id}")).await.ok()?;
+    let art = pack["art"].as_array()?;
+    art.iter()
+        .find(|item| item["type"].as_str() == Some("splash"))
+        .or_else(|| item_with_type(art, "square"))
+        .or_else(|| item_with_type(art, "logo"))
+        .or_else(|| art.first())
+        .and_then(|item| item["url"].as_str().map(String::from))
+}
+
+fn set_instance_image(id: &str, image: Option<String>) {
+    if let Some(image) = image {
+        let _ = instances::update_instance(id.to_string(), json!({ "iconPath": image }));
+    }
+}
+
 async fn download_to(
     url: &str,
     dest: &Path,
@@ -430,13 +507,11 @@ async fn install_modrinth(
         version["id"].as_str().unwrap_or(""),
     )?;
 
-    if let Some(icon) = get_json(&format!("https://api.modrinth.com/v2/project/{project_id}"))
+    let image = get_json(&format!("https://api.modrinth.com/v2/project/{project_id}"))
         .await
         .ok()
-        .and_then(|p| p["icon_url"].as_str().map(String::from))
-    {
-        let _ = instances::update_instance(id.clone(), json!({ "iconPath": icon }));
-    }
+        .and_then(|project| modrinth_project_image(&project));
+    set_instance_image(&id, image);
 
     let game_dir = instances::resolve_instance_dir(&id).join("minecraft");
     fs::create_dir_all(game_dir.join("mods")).ok();
@@ -651,6 +726,7 @@ async fn install_curseforge_inner(
         &mod_id.to_string(),
         &file_id.to_string(),
     )?;
+    set_instance_image(&id, curseforge_project_image(mod_id).await);
     let game_dir = instances::resolve_instance_dir(&id).join("minecraft");
     let mods_dir = game_dir.join("mods");
     fs::create_dir_all(&mods_dir).ok();
@@ -733,6 +809,7 @@ async fn install_ftb(
         &pack_id.to_string(),
         &version_id.to_string(),
     )?;
+    set_instance_image(&id, ftb_pack_image(pack_id).await);
     let game_dir = instances::resolve_instance_dir(&id).join("minecraft");
     fs::create_dir_all(&game_dir).ok();
 
