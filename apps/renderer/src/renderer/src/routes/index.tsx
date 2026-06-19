@@ -38,6 +38,8 @@ type FileImportState = {
 type ActiveAccount = Awaited<ReturnType<typeof api.auth.active>>
 
 const CHANGELOG_URL = 'https://raw.githubusercontent.com/RefractMC/Refract_MC/main/CHANGELOG.md'
+const activeLaunchIds = new Set<string>()
+const consoleLogCache = new Map<string, string[]>()
 
 interface ChangelogEntry { version: string; notes: string[]; date?: string }
 
@@ -124,6 +126,12 @@ function requiredJava(mcVersion: string): number {
   if (minor >= 21 || (minor === 20 && patch >= 5)) return 21
   if (minor >= 17) return 17
   return 8
+}
+
+function sameSet(a: Set<string>, b: Set<string>) {
+  if (a.size !== b.size) return false
+  for (const value of a) if (!b.has(value)) return false
+  return true
 }
 
 function StatusChip({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'good' | 'warn' | 'info' }) {
@@ -781,10 +789,10 @@ function Library() {
   const [modpackUpdates, setModpackUpdates] = useState<Set<string>>(new Set())
   const [modpackUpdating, setModpackUpdating] = useState<{ step: string; percent: number } | null>(null)
   const updatingModpackRef = useRef(false)
-  const [runningIds, setRunningIds] = useState<Set<string>>(new Set())
-  const [launchingIds, setLaunchingIds] = useState<Set<string>>(new Set())
+  const [runningIds, setRunningIds] = useState<Set<string>>(() => new Set(activeLaunchIds))
+  const [launchingIds, setLaunchingIds] = useState<Set<string>>(() => new Set(activeLaunchIds))
   const [mcVersions, setMcVersions] = useState<MinecraftVersion[]>([])
-  const [consoleLogs, setConsoleLogs] = useState<Map<string, string[]>>(new Map())
+  const [consoleLogs, setConsoleLogs] = useState<Map<string, string[]>>(() => new Map(consoleLogCache))
   const consoleLogsRef = useRef(consoleLogs)
   const [consoleOpen, setConsoleOpen] = useState<string | null>(null)
   const [modsTarget, setModsTarget] = useState<Instance | null>(null)
@@ -878,6 +886,38 @@ function Library() {
   useEffect(() => {
     api.mc.java().then(setJavas).catch(() => setJavas([]))
   }, [])
+
+  useEffect(() => {
+    const sync = () => {
+      const next = new Set(activeLaunchIds)
+      setLaunchingIds(prev => sameSet(prev, next) ? prev : next)
+    }
+    sync()
+    const interval = window.setInterval(sync, 500)
+    return () => window.clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    if (instances.length === 0) {
+      setRunningIds(prev => activeLaunchIds.size === 0 && prev.size === 0 ? prev : new Set(activeLaunchIds))
+      return
+    }
+    let alive = true
+    const refresh = async () => {
+      const installedIds = instances.filter(inst => inst.isInstalled).map(inst => inst.id)
+      const pairs = await Promise.all(installedIds.map(async id => [id, await api.mc.isRunning(id).catch(() => false)] as const))
+      if (!alive) return
+      const next = new Set(activeLaunchIds)
+      for (const [id, running] of pairs) if (running) next.add(id)
+      setRunningIds(prev => sameSet(prev, next) ? prev : next)
+    }
+    void refresh()
+    const interval = window.setInterval(() => { void refresh() }, 3000)
+    return () => {
+      alive = false
+      window.clearInterval(interval)
+    }
+  }, [instances])
 
   // Background mod update check — deferred 8 s so page renders first
   useEffect(() => {
@@ -1032,8 +1072,9 @@ function Library() {
       await handleInstallMc(instance)
       return
     }
-    if (launchingIds.has(instance.id)) return
+    if (launchingIds.has(instance.id) || activeLaunchIds.has(instance.id)) return
     if (runningIds.has(instance.id)) {
+      activeLaunchIds.delete(instance.id)
       api.mc.stop(instance.id)
       setRunningIds(prev => { const n = new Set(prev); n.delete(instance.id); return n })
       return
@@ -1041,6 +1082,7 @@ function Library() {
     // Surface the one-time Java download (if the required runtime is missing)
     // that resolveJava performs in the main process during launch.
     launchingRef.current = true
+    activeLaunchIds.add(instance.id)
     setLaunchingIds(prev => new Set([...prev, instance.id]))
     setRunningIds(prev => new Set([...prev, instance.id]))
     setConsoleOpen(instance.id)
@@ -1048,6 +1090,7 @@ function Library() {
       await api.mc.launch(instance.id)
       void recordActivity(`Launched "${instance.name}"`)
     } catch (e) {
+      activeLaunchIds.delete(instance.id)
       setRunningIds(prev => { const n = new Set(prev); n.delete(instance.id); return n })
       const msg = e instanceof Error ? e.message : 'Unknown error'
       // Expired sign-in: show the friendly message and send them to Accounts
@@ -1062,6 +1105,7 @@ function Library() {
       setTimeout(() => setLaunchToast(null), 4000)
     } finally {
       launchingRef.current = false
+      activeLaunchIds.delete(instance.id)
       setLaunchingIds(prev => { const n = new Set(prev); n.delete(instance.id); return n })
       setJavaPrep(null)
     }
@@ -1083,6 +1127,8 @@ function Library() {
 
   useEffect(() => {
     const unsub = api.mc.onExit(({ instanceId, code, error }) => {
+      activeLaunchIds.delete(instanceId)
+      setLaunchingIds(prev => { const n = new Set(prev); n.delete(instanceId); return n })
       setRunningIds(prev => { const n = new Set(prev); n.delete(instanceId); return n })
       if (error || (typeof code === 'number' && code !== 0)) {
         api.mc.crashReport(instanceId)
@@ -1124,7 +1170,9 @@ function Library() {
       setConsoleLogs(prev => {
         const next = new Map(prev)
         const existing = next.get(instanceId) ?? []
-        next.set(instanceId, [...existing, ...lines].slice(-2000))
+        const updated = [...existing, ...lines].slice(-2000)
+        next.set(instanceId, updated)
+        consoleLogCache.set(instanceId, updated)
         return next
       })
     })
@@ -1607,40 +1655,8 @@ function Library() {
       {/* Bottom panels */}
       {instances.length > 0 && (
         <div className="panel-grid">
-          {/* What's New */}
-          <Panel title={t.home.whatsNew}>
-            <div style={{ maxHeight: 260, overflowY: 'auto', marginRight: -6, paddingRight: 6 }}>
-              {whatsNew.map(item => (
-                <div key={item.version} style={{ padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12, fontWeight: 600, color: 'var(--accent)', letterSpacing: '.02em' }}>v{item.version}</span>
-                    {item.date && <span style={{ fontSize: 10, color: 'var(--ink-4)' }}>{item.date}</span>}
-                  </div>
-                  <ul style={{ margin: '3px 0 0', paddingLeft: 14, listStyle: 'disc' }}>
-                    {item.notes.map((n, i) => (
-                      <li key={i} style={{ fontSize: 11, color: 'var(--ink-3)', lineHeight: 1.5 }}>{n}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          {/* Activity */}
-          <Panel title={t.home.activity}>
-            {activity.length === 0 ? (
-              <div style={{ padding: '12px 0', fontSize: 12, color: 'var(--ink-4)', textAlign: 'center' }}>
-                {t.home.noActivity}
-              </div>
-            ) : activity.slice(0, 6).map(item => (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid var(--line)' }}>
-                <span style={{ fontSize: 12, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>{item.label}</span>
-                <span style={{ fontSize: 11, color: 'var(--ink-4)', flexShrink: 0 }}>{timeAgo(item.ts)}</span>
-              </div>
-            ))}
-          </Panel>
-
-          {/* Playtime */}
+          <WhatsNewPanel entries={whatsNew} />
+          <ActivityPanel items={activity} />
           <PlaytimePanel instances={instances} />
         </div>
       )}
@@ -2161,6 +2177,140 @@ function computeStreak(instances: Instance[]): { streak: number; savesLeft: numb
   return { streak, savesLeft }
 }
 
+function WhatsNewPanel({ entries }: { entries: ChangelogEntry[] }) {
+  const t = useT()
+  const latest = entries[0]
+  const latestNotes = latest?.notes.slice(0, 4) ?? []
+  const older = entries.slice(1, 4)
+  const [openVersion, setOpenVersion] = useState<string | null>(latest?.version ?? null)
+
+  return (
+    <Panel title={t.home.whatsNew} meta={latest ? `v${latest.version}` : undefined}>
+      {latest ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <button
+            type="button"
+            onClick={() => setOpenVersion(v => v === latest.version ? null : latest.version)}
+            style={{
+              padding: '10px 12px',
+              background: 'color-mix(in srgb, var(--accent) 10%, var(--surface-2))',
+              border: '1px solid color-mix(in srgb, var(--accent) 34%, var(--border-r))',
+              borderRadius: 'var(--radius-md)',
+              textAlign: 'left',
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink)', letterSpacing: '.01em' }}>
+                v{latest.version}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {latest.date && <span style={{ fontSize: 10, color: 'var(--ink-4)', whiteSpace: 'nowrap' }}>{latest.date}</span>}
+                <span style={{ fontSize: 10, color: 'var(--ink-4)' }}>{openVersion === latest.version ? 'Collapse' : 'Read'}</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 9 }}>
+              {(openVersion === latest.version ? latest.notes : latestNotes).map((note, index) => (
+                <div key={`${latest.version}-${index}`} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                  <span style={{ width: 5, height: 5, marginTop: 6, flexShrink: 0, background: 'var(--accent)' }} />
+                  <span style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.45 }}>{note}</span>
+                </div>
+              ))}
+            </div>
+          </button>
+
+          {older.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {older.map(item => (
+                <button
+                  key={item.version}
+                  type="button"
+                  onClick={() => setOpenVersion(v => v === item.version ? null : item.version)}
+                  style={{
+                    padding: '7px 0',
+                    border: 'none',
+                    borderTop: '1px solid var(--line)',
+                    background: 'transparent',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '56px 1fr auto',
+                    gap: 10,
+                    alignItems: 'baseline',
+                  }}>
+                    <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11, fontWeight: 700, color: 'var(--ink-3)' }}>
+                      v{item.version}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.notes[0]}
+                    </span>
+                    <span style={{ fontSize: 10, color: 'var(--ink-4)' }}>{openVersion === item.version ? 'Less' : 'Read'}</span>
+                  </div>
+                  {openVersion === item.version && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 7, paddingLeft: 66 }}>
+                      {item.notes.map((note, index) => (
+                        <div key={`${item.version}-${index}`} style={{ display: 'flex', gap: 7, alignItems: 'flex-start' }}>
+                          <span style={{ width: 4, height: 4, marginTop: 6, flexShrink: 0, background: 'var(--surface-3)' }} />
+                          <span style={{ fontSize: 11, color: 'var(--ink-3)', lineHeight: 1.45 }}>{note}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <PanelEmpty label={t.news.empty} />
+      )}
+    </Panel>
+  )
+}
+
+function ActivityPanel({ items }: { items: ActivityEntry[] }) {
+  const t = useT()
+  const recent = items.slice(0, 6)
+
+  return (
+    <Panel title={t.home.activity} meta={items.length > 0 ? String(items.length) : undefined}>
+      {recent.length === 0 ? (
+        <PanelEmpty label={t.home.noActivity} />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {recent.map((item, index) => (
+            <div key={item.id} style={{
+              display: 'grid',
+              gridTemplateColumns: '8px minmax(0, 1fr) auto',
+              gap: 10,
+              alignItems: 'center',
+              minHeight: 36,
+              padding: '7px 0',
+              borderTop: index === 0 ? 'none' : '1px solid var(--line)',
+            }}>
+              <span style={{ width: 6, height: 6, background: index === 0 ? 'var(--accent)' : 'var(--surface-3)' }} />
+              <span style={{ fontSize: 12, color: 'var(--ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {item.label}
+              </span>
+              <span style={{
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                fontSize: 10,
+                color: 'var(--ink-4)',
+                whiteSpace: 'nowrap',
+              }}>
+                {timeAgo(item.ts)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  )
+}
+
 function PlaytimePanel({ instances }: { instances: Instance[] }) {
   const t = useT()
   const sorted = [...instances]
@@ -2188,34 +2338,73 @@ function PlaytimePanel({ instances }: { instances: Instance[] }) {
   }
   const maxDay = Math.max(...days.map(d => d.seconds), 1)
 
-  const totalHours = Math.floor(grandTotal / 3600)
   const { streak, savesLeft } = computeStreak(instances)
+  const activeDays = days.filter(day => day.seconds > 0).length
+  const topInstance = sorted[0]
 
   if (sorted.length === 0 && grandTotal === 0) {
     return (
       <Panel title={t.home.playtime}>
-        <div style={{ padding: '12px 0', fontSize: 12, color: 'var(--ink-4)', textAlign: 'center' }}>
-          {t.home.playtimeEmpty}
-        </div>
+        <PanelEmpty label={t.home.playtimeEmpty} />
       </Panel>
     )
   }
 
   return (
-    <Panel title={t.home.playtime}>
-      {/* Per-instance bars */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+    <Panel title={t.home.playtime} meta={`${activeDays}/7 active days`}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr auto',
+        gap: 12,
+        alignItems: 'center',
+        padding: '10px 12px',
+        background: 'var(--surface-2)',
+        border: '1px solid var(--border-r)',
+        borderRadius: 'var(--radius-md)',
+      }}>
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 850, color: 'var(--ink)', lineHeight: 1 }}>
+            {fmtSeconds(grandTotal)}
+          </div>
+          <div style={{ marginTop: 4, fontSize: 11, color: 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {t.home.playtimeTotal}{topInstance ? `, led by ${topInstance.name}` : ''}
+          </div>
+        </div>
+        {streak > 0 && (
+          <div style={{
+            minWidth: 74,
+            padding: '8px 9px',
+            border: '1px solid color-mix(in srgb, var(--accent) 36%, var(--border-r))',
+            background: 'color-mix(in srgb, var(--accent) 9%, transparent)',
+            borderRadius: 'var(--radius-sm)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: 7,
+          }}>
+            <span style={{ fontSize: 20, lineHeight: 1 }}>🔥</span>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 18, fontWeight: 850, color: 'var(--accent)', lineHeight: 1 }}>{streak}</div>
+              <div style={{ marginTop: 3, fontSize: 9, color: 'var(--ink-4)', letterSpacing: '.05em', textTransform: 'uppercase' }}>
+                {t.home.dayStreak}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 7 }}>
         {sorted.map(inst => {
           const pct = (inst.totalTimePlayed / maxTime) * 100
           return (
-            <div key={inst.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 72, fontSize: 10, color: 'var(--ink-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            <div key={inst.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 78px) 1fr 44px', alignItems: 'center', gap: 8 }}>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {inst.name}
               </div>
-              <div style={{ flex: 1, height: 6, background: 'var(--surface-2)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)', borderRadius: 3 }} />
+              <div style={{ height: 7, background: 'var(--surface-2)', borderRadius: 2, overflow: 'hidden', border: '1px solid var(--line)' }}>
+                <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)' }} />
               </div>
-              <div style={{ width: 34, fontSize: 10, color: 'var(--ink-4)', textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 10, color: 'var(--ink-4)', textAlign: 'right' }}>
                 {fmtSeconds(inst.totalTimePlayed)}
               </div>
             </div>
@@ -2223,15 +2412,19 @@ function PlaytimePanel({ instances }: { instances: Instance[] }) {
         })}
       </div>
 
-      {/* Last 7 days */}
-      <div style={{ marginTop: 10, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
-        <div style={{ fontSize: 10, color: 'var(--ink-4)', letterSpacing: '.08em', marginBottom: 6 }}>{t.home.last7Days}</div>
-        <div style={{ display: 'flex', gap: 4, alignItems: 'flex-end', height: 36 }}>
+      <div style={{ marginTop: 13, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--ink-4)', letterSpacing: '.08em', textTransform: 'uppercase' }}>{t.home.last7Days}</div>
+          {savesLeft > 0 && streak > 0 && (
+            <div style={{ fontSize: 10, color: 'var(--ink-4)' }}>{savesLeft} {savesLeft === 1 ? t.home.saveLeft : t.home.savesLeft}</div>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 5, alignItems: 'flex-end', height: 48 }}>
           {days.map((day, i) => {
-            const h = day.seconds > 0 ? Math.max(4, Math.round((day.seconds / maxDay) * 32)) : 0
+            const h = day.seconds > 0 ? Math.max(5, Math.round((day.seconds / maxDay) * 40)) : 0
             return (
-              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                <div style={{ width: '100%', height: 32, display: 'flex', alignItems: 'flex-end' }}>
+              <div key={i} title={`${day.label}: ${fmtSeconds(day.seconds)}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: '100%', height: 40, display: 'flex', alignItems: 'flex-end' }}>
                   <div style={{
                     width: '100%',
                     height: h,
@@ -2248,7 +2441,7 @@ function PlaytimePanel({ instances }: { instances: Instance[] }) {
       </div>
 
       {/* Streak */}
-      {streak > 0 && (() => {
+      {false && streak > 0 && (() => {
         const streakColor = streak >= 90 ? '#a020f0' : streak >= 31 ? '#ff2200' : '#ff9966'
         return (
           <div style={{ marginTop: 12, borderTop: '1px solid var(--line)', paddingTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -2277,21 +2470,45 @@ function PlaytimePanel({ instances }: { instances: Instance[] }) {
         )
       })()}
 
-      {/* Total */}
-      <div style={{ marginTop: 8, fontSize: 11, color: 'var(--ink-4)', textAlign: 'right' }}>
-        {fmtSeconds(grandTotal)} {t.home.playtimeTotal}
-      </div>
     </Panel>
   )
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function PanelEmpty({ label }: { label: string }) {
+  return (
+    <div style={{
+      minHeight: 96,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      border: '1px dashed var(--border-r)',
+      borderRadius: 'var(--radius-md)',
+      color: 'var(--ink-4)',
+      fontSize: 12,
+      background: 'color-mix(in srgb, var(--surface-2) 58%, transparent)',
+    }}>
+      {label}
+    </div>
+  )
+}
+
+function Panel({ title, meta, children }: { title: string; meta?: string; children: React.ReactNode }) {
   return (
     <div className="launcher-panel" style={{
-      padding: '12px 14px',
+      padding: 14,
+      minHeight: 258,
+      display: 'flex',
+      flexDirection: 'column',
     }}>
-      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-4)', marginBottom: 6 }}>
-        {title}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ink-2)' }}>
+          {title}
+        </div>
+        {meta && (
+          <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 10, color: 'var(--ink-4)', whiteSpace: 'nowrap' }}>
+            {meta}
+          </div>
+        )}
       </div>
       {children}
     </div>

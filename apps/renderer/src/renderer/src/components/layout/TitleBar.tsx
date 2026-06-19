@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouterState } from '@tanstack/react-router'
+import { Bell } from 'lucide-react'
 import { api } from '@/lib/api'
-import { BellIcon } from '../ui/BlockIcons'
 
 const CRUMBS: Record<string, string> = {
   '/':           'Instance Library',
@@ -164,23 +164,26 @@ export function TitleBar() {
         </div>
       )}
 
-      {/* Bell */}
+      {/* Activity */}
       <div className="no-drag-region" style={{ position: 'relative', marginRight: 4 }} ref={panelRef}>
         <button
           onClick={togglePanel}
+          title="Activity"
+          aria-label="Activity"
           style={{
-            width: 28, height: 28, borderRadius: 'var(--radius-sm)',
+            width: 30, height: 28, borderRadius: 'var(--radius-sm)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: open ? 'rgba(255,255,255,.08)' : 'transparent',
-            border: 'none', cursor: 'default',
+            background: open ? 'color-mix(in srgb, var(--accent) 16%, transparent)' : 'transparent',
+            border: open ? '1px solid color-mix(in srgb, var(--accent) 36%, transparent)' : '1px solid transparent',
+            cursor: 'default',
             color: unread > 0 ? 'var(--accent)' : 'var(--ink-3)',
             position: 'relative',
           }}
         >
-          <BellIcon />
+          <Bell size={16} strokeWidth={1.8} />
           {unread > 0 && (
             <span style={{
-              position: 'absolute', top: 4, right: 4,
+              position: 'absolute', top: 4, right: 5,
               width: 6, height: 6, borderRadius: '50%',
               background: 'var(--accent)',
               border: '1.5px solid var(--sb)',
@@ -193,29 +196,41 @@ export function TitleBar() {
             position: 'absolute', top: 'calc(100% + 4px)', right: 0,
             width: 260,
             background: 'var(--surface-2)',
+            border: '1px solid var(--border-r)',
             borderRadius: 'var(--radius-md)',
+            boxShadow: 'var(--shadow-floating)',
             zIndex: 9999,
             overflow: 'hidden',
           }}>
-            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--line)', fontSize: 11, fontWeight: 700, color: 'var(--ink-3)', letterSpacing: '.06em', textTransform: 'uppercase' }}>
-              Activity
+            <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink-2)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
+                Activity
+              </span>
+              {entries.length > 0 && (
+                <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 10, color: 'var(--ink-4)' }}>
+                  {entries.length}
+                </span>
+              )}
             </div>
             <div style={{ maxHeight: 280, overflowY: 'auto' }}>
               {entries.length === 0 ? (
-                <div style={{ padding: '20px 12px', fontSize: 12, color: 'var(--ink-4)', textAlign: 'center' }}>
+                <div style={{ margin: 12, minHeight: 76, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--border-r)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--ink-4)', textAlign: 'center' }}>
                   No recent activity
                 </div>
-              ) : entries.slice(0, 20).map(entry => (
+              ) : entries.slice(0, 20).map((entry, index) => (
                 <div key={entry.id} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  display: 'grid',
+                  gridTemplateColumns: '8px minmax(0, 1fr) auto',
+                  alignItems: 'center',
                   padding: '7px 12px',
-                  borderBottom: '1px solid var(--line)',
-                  gap: 8,
+                  borderTop: index === 0 ? 'none' : '1px solid var(--line)',
+                  gap: 10,
                 }}>
+                  <span style={{ width: 6, height: 6, background: index === 0 ? 'var(--accent)' : 'var(--surface-3)' }} />
                   <span style={{ fontSize: 12, color: 'var(--ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                     {entry.label}
                   </span>
-                  <span style={{ fontSize: 10, color: 'var(--ink-4)', flexShrink: 0 }}>
+                  <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 10, color: 'var(--ink-4)', flexShrink: 0 }}>
                     {timeAgo(entry.ts)}
                   </span>
                 </div>

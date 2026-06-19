@@ -361,10 +361,10 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
     }
   }
 
-  return (
+  const dialog = (
     <div
       style={{
-        position: 'fixed', inset: 0, zIndex: 150,
+        position: 'fixed', inset: 0, zIndex: 10000,
         background: 'rgba(0,0,0,.72)',
         backdropFilter: 'blur(8px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -407,10 +407,10 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
 
           {/* Instance info */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 24, fontWeight: 850, color: 'var(--ink)', lineHeight: 1.05, letterSpacing: '-.03em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <div className="detail-title" style={{ fontSize: 24, fontWeight: 850, color: 'var(--ink)', lineHeight: 1.05, letterSpacing: '-.03em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {instance.name}
             </div>
-            <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="detail-meta" style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)', padding: '3px 8px', background: 'color-mix(in srgb, var(--bg) 76%, transparent)' }}>MC {instance.minecraftVersion}</span>
               <span style={{ color: 'var(--border-r)' }}>·</span>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--accent-hi)', border: '1px solid color-mix(in srgb, var(--accent) 35%, transparent)', borderRadius: 'var(--radius-sm)', padding: '3px 8px', background: 'var(--accent-tint)' }}>{instance.modLoader?.toUpperCase() ?? 'VANILLA'}</span>
@@ -423,7 +423,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
           </div>
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div className="detail-actions" style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {onLaunch && (
               <Button
                 variant={isRunning ? 'danger' : 'primary'}
@@ -674,7 +674,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
           </div>
         )}
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: tab === 'screenshots' ? 14 : '8px 0' }}>
+        <div className="detail-body" style={{ flex: 1, overflowY: 'auto', padding: tab === 'screenshots' ? 14 : '8px 0' }}>
           {loading ? (
             <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>Loading…</div>
           ) : error ? (
@@ -698,7 +698,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
             screenshots.length === 0 ? (
               <EmptyMsg msg={EMPTY_MSG.screenshots} sub={td.emptyScreensSub} />
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              <div className="detail-screenshot-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                 {screenshots.map(s => (
                   <ScreenshotThumb
                     key={s.filename}
@@ -752,6 +752,8 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
       </div>
     </div>
   )
+
+  return createPortal(dialog, document.body)
 }
 
 function ScreenshotLightbox({ shot, instanceId, onClose, onOpenExternal }: {
@@ -774,7 +776,7 @@ function ScreenshotLightbox({ shot, instanceId, onClose, onOpenExternal }: {
     <div
       onClick={e => { e.stopPropagation(); onClose() }}
       style={{
-        position: 'fixed', inset: 0, zIndex: 300,
+        position: 'fixed', inset: 0, zIndex: 10001,
         background: 'rgba(0,0,0,.93)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', gap: 14,

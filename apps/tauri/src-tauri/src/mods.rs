@@ -2,7 +2,7 @@
 //! delete/installLocal) plus the download+record half of mod installs. The
 //! Modrinth/CurseForge metadata lookup stays in JS (CORS-open Modrinth, plus the
 //! curseforge_* proxy commands); this module owns the filesystem + instance.json
-//! writes. Pack icons (pack.png extraction) are not ported yet.
+//! writes.
 
 use crate::{instances, net};
 use base64::Engine as _;
@@ -86,9 +86,23 @@ pub struct ContentEntry {
 
 // ── icon extraction (mod metadata logo / pack.png) ───────────────────────────
 
-fn to_data_url(bytes: &[u8]) -> String {
+fn image_mime(name: &str) -> &'static str {
+    let lower = name.to_ascii_lowercase();
+    if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
+        "image/jpeg"
+    } else if lower.ends_with(".webp") {
+        "image/webp"
+    } else if lower.ends_with(".svg") {
+        "image/svg+xml"
+    } else {
+        "image/png"
+    }
+}
+
+fn to_data_url(name: &str, bytes: &[u8]) -> String {
     format!(
-        "data:image/png;base64,{}",
+        "data:{};base64,{}",
+        image_mime(name),
         base64::engine::general_purpose::STANDARD.encode(bytes)
     )
 }
@@ -100,6 +114,81 @@ fn read_zip_entry(zip_path: &Path, name: &str) -> Option<Vec<u8>> {
     let mut buf = Vec::new();
     e.read_to_end(&mut buf).ok()?;
     Some(buf)
+}
+
+fn read_zip_icon(zip_path: &Path, name: &str) -> Option<String> {
+    let clean = name.trim().trim_start_matches('/').replace('\\', "/");
+    if clean.is_empty() {
+        return None;
+    }
+    if let Some(bytes) = read_zip_entry(zip_path, &clean) {
+        return Some(to_data_url(&clean, &bytes));
+    }
+    if !clean.contains('.') {
+        let png = format!("{clean}.png");
+        if let Some(bytes) = read_zip_entry(zip_path, &png) {
+            return Some(to_data_url(&png, &bytes));
+        }
+    }
+    None
+}
+
+fn icon_from_json_value(value: &Value) -> Option<String> {
+    value.as_str().map(String::from).or_else(|| {
+        value.as_object().and_then(|object| {
+            object
+                .iter()
+                .filter_map(|(key, value)| {
+                    let path = value.as_str()?;
+                    let size = key.parse::<u32>().unwrap_or(0);
+                    Some((size, path))
+                })
+                .max_by_key(|(size, _)| *size)
+                .map(|(_, path)| path.to_string())
+        })
+    })
+}
+
+fn find_common_icon(zip_path: &Path) -> Option<String> {
+    let f = fs::File::open(zip_path).ok()?;
+    let mut z = zip::ZipArchive::new(f).ok()?;
+    let mut fallback: Option<(String, Vec<u8>)> = None;
+
+    for i in 0..z.len() {
+        let mut entry = z.by_index(i).ok()?;
+        if entry.is_dir() {
+            continue;
+        }
+        let name = entry.name().replace('\\', "/");
+        let lower = name.to_ascii_lowercase();
+        let base = lower.rsplit('/').next().unwrap_or(&lower);
+        let image = lower.ends_with(".png")
+            || lower.ends_with(".jpg")
+            || lower.ends_with(".jpeg")
+            || lower.ends_with(".webp")
+            || lower.ends_with(".svg");
+        if !image {
+            continue;
+        }
+
+        let strong_match = base == "pack.png"
+            || base == "icon.png"
+            || base == "logo.png"
+            || base == "mod_icon.png"
+            || base == "modicon.png";
+        let asset_icon = lower.starts_with("assets/")
+            && (base == "icon.png" || base == "logo.png" || base == "mod_icon.png");
+        if strong_match || asset_icon {
+            let mut bytes = Vec::new();
+            entry.read_to_end(&mut bytes).ok()?;
+            if base == "pack.png" || base == "icon.png" || base == "logo.png" {
+                return Some(to_data_url(&name, &bytes));
+            }
+            fallback.get_or_insert((name, bytes));
+        }
+    }
+
+    fallback.map(|(name, bytes)| to_data_url(&name, &bytes))
 }
 
 /// `logoFile="logo.png"` from a Forge/NeoForge mods.toml.
@@ -119,7 +208,7 @@ fn toml_logo(text: &str) -> Option<String> {
 fn extract_icon(path: &Path, is_dir: bool) -> Option<String> {
     if is_dir {
         let png = path.join("pack.png");
-        return fs::read(&png).ok().map(|b| to_data_url(&b));
+        return fs::read(&png).ok().map(|b| to_data_url("pack.png", &b));
     }
     let name = path.file_name()?.to_string_lossy().to_string();
     let base = name.strip_suffix(".disabled").unwrap_or(&name);
@@ -128,19 +217,10 @@ fn extract_icon(path: &Path, is_dir: bool) -> Option<String> {
         if let Some(meta) = read_zip_entry(path, "fabric.mod.json")
             .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
         {
-            let icon = meta.get("icon").and_then(|v| {
-                v.as_str().map(String::from).or_else(|| {
-                    v.as_object().and_then(|o| {
-                        o.values()
-                            .filter_map(Value::as_str)
-                            .last()
-                            .map(String::from)
-                    })
-                })
-            });
+            let icon = meta.get("icon").and_then(icon_from_json_value);
             if let Some(icon) = icon {
-                if let Some(bytes) = read_zip_entry(path, &icon) {
-                    return Some(to_data_url(&bytes));
+                if let Some(data_url) = read_zip_icon(path, &icon) {
+                    return Some(data_url);
                 }
             }
         }
@@ -148,9 +228,9 @@ fn extract_icon(path: &Path, is_dir: bool) -> Option<String> {
         if let Some(meta) = read_zip_entry(path, "quilt.mod.json")
             .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
         {
-            if let Some(icon) = meta["quilt_loader"]["metadata"]["icon"].as_str() {
-                if let Some(bytes) = read_zip_entry(path, icon) {
-                    return Some(to_data_url(&bytes));
+            if let Some(icon) = icon_from_json_value(&meta["quilt_loader"]["metadata"]["icon"]) {
+                if let Some(data_url) = read_zip_icon(path, &icon) {
+                    return Some(data_url);
                 }
             }
         }
@@ -159,14 +239,13 @@ fn extract_icon(path: &Path, is_dir: bool) -> Option<String> {
             .or_else(|| read_zip_entry(path, "META-INF/neoforge.mods.toml"));
         if let Some(toml) = toml {
             if let Some(logo) = toml_logo(&String::from_utf8_lossy(&toml)) {
-                if let Some(bytes) = read_zip_entry(path, &logo) {
-                    return Some(to_data_url(&bytes));
+                if let Some(data_url) = read_zip_icon(path, &logo) {
+                    return Some(data_url);
                 }
             }
         }
     }
-    // pack.png fallback (zips + any jar that bundles one)
-    read_zip_entry(path, "pack.png").map(|b| to_data_url(&b))
+    find_common_icon(path)
 }
 
 fn list_dir(instance_id: &str, subdir: &str, kind: &str, exts: &[&str]) -> Vec<ContentEntry> {
