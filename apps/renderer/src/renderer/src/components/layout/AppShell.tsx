@@ -18,6 +18,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       position: 'relative',
       zIndex: 1,
     }}>
+      <div
+        aria-hidden="true"
+        className="chrome-top-fill"
+        style={{
+          gridRow: '1 / 2',
+          gridColumn: '1 / -1',
+          background: 'var(--chrome-top)',
+          borderBottom: '1px solid rgba(166, 181, 214, .12)',
+          position: 'relative',
+          zIndex: 2,
+        }}
+      />
       <TitleBar />
       <Sidebar />
       <div style={{ gridRow:'2/3', gridColumn:'2/3', display:'flex', flexDirection:'column', minHeight:0, minWidth:0, overflow:'hidden', background:'transparent', position:'relative' }}>

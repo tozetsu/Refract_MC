@@ -41,6 +41,14 @@ declare module '@tanstack/react-router' {
   }
 }
 
+function hideStartupLoader(): void {
+  const loader = document.getElementById('startup-loader')
+  if (!loader) return
+  const remove = () => loader.remove()
+  loader.setAttribute('data-state', 'done')
+  window.setTimeout(remove, 280)
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
@@ -48,3 +56,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </React.StrictMode>
 )
+
+requestAnimationFrame(() => {
+  requestAnimationFrame(hideStartupLoader)
+})

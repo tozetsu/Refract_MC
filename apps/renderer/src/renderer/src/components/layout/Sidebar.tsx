@@ -577,14 +577,14 @@ export function Sidebar() {
 
   return (
     <aside className="launcher-sidebar" style={{
-      gridRow:'2/3', gridColumn:'1/2',
+      gridRow:'1 / -1', gridColumn:'1/2',
       background:'var(--sidebar-bg)',
       display:'flex', flexDirection:'column',
       padding: compact ? '14px 8px 12px' : '14px 12px 12px',
       transition: 'padding 220ms cubic-bezier(.4,0,.2,1)',
       minHeight:0, overflow:'hidden',
       position:'relative',
-      zIndex:2,
+      zIndex:4,
     }}>
       {/* Brand + collapse toggle */}
       {compact ? (

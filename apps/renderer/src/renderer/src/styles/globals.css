@@ -43,6 +43,9 @@
   --sb:     #0c1018;
   --sb-line:rgba(166, 181, 214, .12);
   --sidebar-bg: linear-gradient(180deg, color-mix(in srgb, var(--sb) 96%, var(--accent)), var(--sb));
+  /* Flat color matching the sidebar gradient's top edge — used by the title bar
+     so the top chrome reads as one continuous strip with the sidebar. */
+  --chrome-top: color-mix(in srgb, var(--sb) 96%, var(--accent));
   --sidebar-item-hover-bg: rgba(255,255,255,.05);
   --sidebar-item-active-bg: linear-gradient(90deg, var(--accent-tint), rgba(255,255,255,.025));
 
@@ -108,6 +111,14 @@ html, body, #root {
 
 .drag-region    { -webkit-app-region: drag; }
 .no-drag-region { -webkit-app-region: no-drag; }
+
+.launcher-titlebar {
+  background: var(--chrome-top) !important;
+}
+
+.chrome-top-fill {
+  background: var(--chrome-top) !important;
+}
 
 /* Freeze the main scroll area while a modal is open so scrolling inside the
    modal can't chain to the page behind it (see useScrollLock). */
@@ -240,6 +251,7 @@ html[data-has-theme-bg="true"] :where(.launcher-panel, .detail-empty, .ni-dialog
 html[data-has-theme-bg="true"] {
   --sidebar-bg:
     linear-gradient(180deg, color-mix(in srgb, var(--sb) 98%, #000), color-mix(in srgb, var(--sb) 96%, #000));
+  --chrome-top: color-mix(in srgb, var(--sb) 98%, #000);
   --sidebar-item-hover-bg: color-mix(in srgb, var(--surface-3) 72%, transparent);
   --sidebar-item-active-bg:
     linear-gradient(90deg, color-mix(in srgb, var(--accent) 34%, var(--sb)), color-mix(in srgb, var(--surface-2) 74%, transparent));
@@ -1440,6 +1452,15 @@ body :where(button, a, input, select, textarea, [role="button"], [tabindex]:not(
 /* Light theme repair: the app CSS was authored dark-first, so keep the flat
    direction but swap out dark overlays, white hover washes, and low-contrast
    muted text when the built-in light theme is active. */
+html[data-theme="light"] {
+  /* index.html hardcodes `color-scheme: dark` for the startup splash — undo it
+     here so native surfaces (scrollbars, controls) aren't dark in light theme. */
+  color-scheme: light;
+  /* Match the top chrome to the (now light) sidebar regardless of background-image
+     state — overrides both the :root and [data-has-theme-bg] definitions. */
+  --chrome-top: color-mix(in srgb, var(--sb) 96%, var(--accent));
+}
+
 html[data-theme="light"],
 html[data-theme="light"] body,
 html[data-theme="light"] #root {

@@ -31,7 +31,7 @@ function WinBtn({ onClick, danger, children }: { onClick: () => void; danger?: b
       onMouseLeave={() => setHover(false)}
       style={{
         width: 46, height: '100%',
-        background: hover ? (danger ? '#c42b1c' : 'rgba(255,255,255,.08)') : 'transparent',
+        background: hover ? (danger ? '#c42b1c' : 'rgba(255,255,255,.08)') : 'var(--chrome-top)',
         border: 'none', cursor: 'pointer', padding: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: hover && danger ? '#fff' : 'var(--ink-3)',
@@ -96,16 +96,19 @@ export function TitleBar() {
 
   return (
     <div
-      className="drag-region"
+      className="drag-region launcher-titlebar"
       style={{
-        gridColumn: '1 / -1',
+        gridRow: '1 / 2',
+        gridColumn: '2 / 3',
         display: 'flex', alignItems: 'center',
-        height: 32,
-        background: 'color-mix(in srgb, var(--sb) 88%, transparent)',
+        height: '100%',
+        background: 'var(--chrome-top)',
+        borderBottom: '1px solid rgba(166, 181, 214, .12)',
         color: 'var(--ink-3)',
         fontSize: 11.5, fontWeight: 600, letterSpacing: '.01em',
         userSelect: 'none',
         position: 'relative',
+        zIndex: 4,
       }}
     >
       {/* Logo + breadcrumb */}
@@ -186,7 +189,7 @@ export function TitleBar() {
               position: 'absolute', top: 4, right: 5,
               width: 6, height: 6, borderRadius: '50%',
               background: 'var(--accent)',
-              border: '1.5px solid var(--sb)',
+              border: '1.5px solid var(--chrome-top)',
             }} />
           )}
         </button>
@@ -241,7 +244,7 @@ export function TitleBar() {
       </div>
 
       {/* Windows-style controls */}
-      <div className="no-drag-region" style={{ display: 'flex', alignSelf: 'stretch' }}>
+      <div className="no-drag-region" style={{ display: 'flex', alignSelf: 'stretch', background: 'var(--chrome-top)' }}>
         <WinBtn onClick={() => api.window.minimize()}>
           <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
         </WinBtn>
