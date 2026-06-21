@@ -535,17 +535,31 @@ function CollapseToggle({ compact, onClick, label }: { compact: boolean; onClick
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
-        width: 26, height: 26, flexShrink: 0, padding: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: hover ? 'rgba(255,255,255,.06)' : 'transparent',
-        border: '1px solid', borderColor: hover ? 'var(--accent)' : 'var(--border-r)',
-        borderRadius: 4, cursor: 'pointer',
+        width: '100%',
+        height: 34,
+        flexShrink: 0,
+        padding: compact ? 0 : '0 10px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: compact ? 'center' : 'flex-start',
+        gap: compact ? 0 : 10,
+        background: hover ? 'var(--sidebar-item-hover-bg)' : 'transparent',
+        border: '1px solid transparent',
+        borderRadius: 4,
+        cursor: 'pointer',
         color: hover ? 'var(--ink)' : 'var(--ink-3)',
-        fontSize: 15, lineHeight: 1,
-        transition: 'background 100ms, color 100ms, border-color 100ms',
+        fontSize: 13,
+        fontWeight: 600,
+        lineHeight: 1,
+        textAlign: 'left',
+        transition: 'background 100ms, color 100ms',
       }}
     >
-      {compact ? '»' : '«'}
+      <svg width={18} height={18} viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+        <path d={compact ? 'M7 4l5 5-5 5' : 'M11 4L6 9l5 5'} />
+        <path d={compact ? 'M4 3v12' : 'M14 3v12'} />
+      </svg>
+      {!compact && <span>{label}</span>}
     </button>
   )
 }
@@ -586,18 +600,15 @@ export function Sidebar() {
       position:'relative',
       zIndex:4,
     }}>
-      {/* Brand + collapse toggle */}
+      {/* Brand */}
       {compact ? (
         <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8, padding:'0 0 12px', borderBottom:'1px solid var(--sb-line)', marginBottom:8 }}>
           <RefractLogo size={32} />
-          <CollapseToggle compact onClick={toggleCollapsed} label={t.sidebar.expand} />
         </div>
       ) : (
         <div style={{ display:'flex', alignItems:'center', gap:10, padding:'0 6px 12px', borderBottom:'1px solid var(--sb-line)', marginBottom:8 }}>
           <RefractLogo size={32} />
           <span style={{ fontSize:16, fontWeight:800, letterSpacing:'.14em', color:'var(--ink)', lineHeight:1 }}>REFRACT</span>
-          <div style={{ flex:1 }} />
-          <CollapseToggle compact={false} onClick={toggleCollapsed} label={t.sidebar.collapse} />
         </div>
       )}
 
@@ -618,7 +629,7 @@ export function Sidebar() {
       {!compact && <FriendsPanel />}
 
       {/* Bottom */}
-      <div style={{ marginTop:'auto', display:'flex', flexDirection:'column', gap:2, paddingTop:10, borderTop:'1px solid var(--sb-line)' }}>
+      <div style={{ marginTop:'auto', flexShrink:0, display:'flex', flexDirection:'column', gap:2, paddingTop:10, borderTop:'1px solid var(--sb-line)' }}>
         <NavItem to="/settings" label={t.nav.settings} iconSrc={settingsIcon} exact={true} compact={compact} />
         <button
           title={compact ? 'Discord' : undefined}
@@ -632,6 +643,9 @@ export function Sidebar() {
           </div>
           {!compact && <span>{t.nav.discord}</span>}
         </button>
+        <div style={{ marginTop: 6, paddingTop: 8, borderTop: '1px solid var(--sb-line)' }}>
+          <CollapseToggle compact={compact} onClick={toggleCollapsed} label={compact ? t.sidebar.expand : t.sidebar.collapse} />
+        </div>
       </div>
     </aside>
   )
