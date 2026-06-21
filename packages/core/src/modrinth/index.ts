@@ -53,6 +53,7 @@ export interface ModrinthVersion {
   project_id: string
   version_number: string
   name: string
+  changelog?: string | null
   game_versions: string[]
   loaders: string[]
   files: ModrinthFile[]

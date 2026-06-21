@@ -475,6 +475,10 @@ function ContentDetailModal({ project, tab, onClose, onInstall, installed, statu
   const [detail, setDetail]         = useState<ModrinthProjectDetail | null>(null)
   const [loading, setLoading]       = useState(true)
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null)
+  const [detailSection, setDetailSection] = useState<'description' | 'changelog'>('description')
+  const [versions, setVersions] = useState<ModrinthVersion[]>([])
+  const [versionsLoading, setVersionsLoading] = useState(false)
+  const [selectedChangelogVersion, setSelectedChangelogVersion] = useState<string | null>(null)
 
   const isModpack = tab === 'modpack'
   const accent    = tabColor(tab)
@@ -503,12 +507,32 @@ function ContentDetailModal({ project, tab, onClose, onInstall, installed, statu
       .catch(() => setLoading(false))
   }, [project.project_id])
 
+  useEffect(() => {
+    setDetailSection('description')
+    setVersions([])
+    setSelectedChangelogVersion(null)
+    if (!isModpack) return
+    setVersionsLoading(true)
+    api.modrinth.versions(project.project_id)
+      .then(list => {
+        setVersions(list)
+        setSelectedChangelogVersion(list[0]?.id ?? null)
+      })
+      .catch(() => {
+        setVersions([])
+        setSelectedChangelogVersion(null)
+      })
+      .finally(() => setVersionsLoading(false))
+  }, [isModpack, project.project_id])
+
   const gallery     = detail?.gallery ?? []
   const loaders     = detail?.loaders ?? project.loaders ?? []
   const gameVersions = detail?.game_versions ?? project.game_versions ?? []
   const followers   = detail?.followers ?? project.follows
   const modrinthUrl = `https://modrinth.com/${tab}/${project.slug ?? project.project_id}`
   const bodyText    = detail?.body ? stripMarkdown(detail.body) : project.description
+  const changelogVersion = versions.find(v => v.id === selectedChangelogVersion) ?? versions[0] ?? null
+  const changelogText = changelogVersion?.changelog ? stripMarkdown(changelogVersion.changelog) : ''
 
   const btnLabel = isModpack ? t.content.installAsInstance : t.content.addToInstance
 
@@ -576,9 +600,96 @@ function ContentDetailModal({ project, tab, onClose, onInstall, installed, statu
 
         {/* Body */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', minHeight: 0 }}>
-          {/* Description text */}
+          {/* Description / changelog */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
-            {loading ? (
+            {isModpack && (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+                {(['description', 'changelog'] as const).map(section => {
+                  const active = detailSection === section
+                  return (
+                    <Button
+                      key={section}
+                      variant="ghost"
+                      onClick={() => setDetailSection(section)}
+                      style={{
+                        height: 28,
+                        padding: '0 10px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: '.04em',
+                        textTransform: 'uppercase',
+                        color: active ? '#fff' : 'var(--ink-4)',
+                        background: active ? accent : 'transparent',
+                        border: active ? 'none' : '1px solid var(--border-r)',
+                        borderRadius: 'var(--radius-sm)',
+                      }}
+                    >
+                      {section === 'description' ? 'Description' : 'Changelog'}
+                    </Button>
+                  )
+                })}
+              </div>
+            )}
+
+            {detailSection === 'changelog' && isModpack ? (
+              <div style={{ display: 'grid', gap: 12 }}>
+                {versionsLoading ? (
+                  <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>{t.content.loadingVersions}</div>
+                ) : versions.length === 0 ? (
+                  <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>No versions found.</div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <select
+                        value={changelogVersion?.id ?? ''}
+                        onChange={e => setSelectedChangelogVersion(e.target.value)}
+                        style={{
+                          minWidth: 220,
+                          height: 32,
+                          background: 'var(--bg)',
+                          border: '1px solid var(--border-r)',
+                          borderRadius: 'var(--radius-sm)',
+                          color: 'var(--ink)',
+                          padding: '0 9px',
+                          fontSize: 12,
+                          outline: 'none',
+                        }}
+                      >
+                        {versions.map(v => (
+                          <option key={v.id} value={v.id}>
+                            {v.version_number} - {v.name}
+                          </option>
+                        ))}
+                      </select>
+                      {changelogVersion && (
+                        <span style={{ fontSize: 11, color: 'var(--ink-4)' }}>
+                          {fmtDate(changelogVersion.date_published)} · ↓ {fmtNum(changelogVersion.downloads)}
+                        </span>
+                      )}
+                    </div>
+
+                    {changelogVersion && (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {changelogVersion.game_versions.slice(0, 4).map(version => (
+                          <Tag key={version} color="var(--diamond)">MC {version}</Tag>
+                        ))}
+                        {changelogVersion.loaders.filter(loader => loader !== 'mrpack').map(loader => (
+                          <Tag key={loader} color={accent}>{loaderLabel(loader)}</Tag>
+                        ))}
+                      </div>
+                    )}
+
+                    {changelogText ? (
+                      <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.75, margin: 0, whiteSpace: 'pre-wrap' }}>
+                        {changelogText}
+                      </p>
+                    ) : (
+                      <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>No changelog was published for this version.</div>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : loading ? (
               <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>{t.content.loading}</div>
             ) : (
               <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.75, margin: 0, whiteSpace: 'pre-wrap' }}>
