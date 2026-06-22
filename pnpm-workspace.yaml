@@ -8,5 +8,7 @@ overrides:
   ws: ^8.21.0
 onlyBuiltDependencies:
   - esbuild
+  - electron
 allowBuilds:
+  electron: true
   esbuild: true

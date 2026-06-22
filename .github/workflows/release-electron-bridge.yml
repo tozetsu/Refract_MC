@@ -1,0 +1,58 @@
+name: Release (Electron bridge)
+
+# Run this after the Tauri release workflow has created the release for the same
+# tag. It uploads the Electron updater assets old Electron installs need:
+# latest.yml, the bridge NSIS installer, and its blockmap.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing Tauri release tag to attach bridge assets to (e.g. v1.2.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release-bridge:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build bridge
+        run: pnpm --filter @refract/electron-bridge build
+
+      - name: Upload bridge assets to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          $installer = Get-ChildItem "apps/electron-bridge/dist" -Filter "Refract Setup *.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "Bridge installer was not found."
+          }
+
+          $blockmap = "$($installer.FullName).blockmap"
+          if (-not (Test-Path $blockmap)) {
+            throw "Bridge blockmap was not found: $blockmap"
+          }
+
+          gh release upload "$env:RELEASE_TAG" `
+            "$($installer.FullName)" `
+            "$blockmap" `
+            "apps/electron-bridge/dist/latest.yml" `
+            --clobber

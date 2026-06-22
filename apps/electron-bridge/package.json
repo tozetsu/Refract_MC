@@ -1,0 +1,53 @@
+{
+  "name": "@refract/electron-bridge",
+  "version": "1.2.0",
+  "description": "Final Electron bridge that installs the Tauri build.",
+  "author": "ShevRuslan1",
+  "homepage": "https://github.com/RefractMC/Refract_MC",
+  "private": true,
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win nsis -c.win.signAndEditExecutable=false",
+    "build:signed": "electron-builder --win nsis",
+    "pack": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "electron": "31.7.7",
+    "electron-builder": "24.13.3"
+  },
+  "build": {
+    "appId": "com.refract",
+    "productName": "Refract",
+    "copyright": "Copyright (c) Refract",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "../tauri/src-tauri/icons/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowElevation": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "RefractMC",
+        "repo": "Refract_MC"
+      }
+    ]
+  }
+}

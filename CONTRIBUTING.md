@@ -6,6 +6,8 @@ Thanks for helping improve Refract. This guide explains how to set up the projec
 
 - `apps/renderer` contains the shared React renderer.
 - `apps/tauri` contains the Tauri shell and Rust backend.
+- `apps/electron-bridge` contains the final Electron updater bridge for moving
+  old Electron installs to Tauri.
 - `packages/core` contains shared launcher logic.
 - `packages/plugin-api` contains the public plugin API.
 - `locales` contains translation files.
@@ -48,6 +50,12 @@ pnpm --filter @refract/tauri-poc build:signed
 ```
 
 Signed Tauri builds require `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+
+Final Electron-to-Tauri bridge build:
+
+```bash
+pnpm build:electron-bridge
+```
 
 ## Checks before a pull request
 

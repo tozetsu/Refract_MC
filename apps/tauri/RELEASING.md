@@ -84,5 +84,11 @@ to `latest.json`, shows the banner, and updates on click.
 - **Accounts need a one-time re-login**: tokens live in the keyring-backed
   Stronghold vault, so old encrypted tokens aren't readable. Offline accounts
   still work; Microsoft accounts must sign in again once.
-- Ship the Tauri NSIS installer as the next version. Users run it once over the
-  existing install at the same install path/app id, then auto-update takes over.
+- Preferred automatic path: publish the signed Tauri release first, then run the
+  `Release (Electron bridge)` workflow with the same tag. It uploads
+  `latest.yml`, the bridge installer, and its blockmap to the release for old
+  Electron clients. The bridge downloads the Tauri `latest.json` installer,
+  starts it, quits, and future updates are handled by Tauri.
+- Manual fallback: ship the Tauri NSIS installer as the next version. Users run
+  it once over the existing install at the same install path/app id, then
+  auto-update takes over.
