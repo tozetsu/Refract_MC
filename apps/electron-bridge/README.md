@@ -14,6 +14,10 @@ installer can replace the Electron install.
 pnpm --filter @refract/electron-bridge build
 ```
 
+The build commands pass `--publish never` intentionally. Publishing is handled
+by `.github/workflows/release-electron-bridge.yml` with `gh release upload`, so
+electron-builder should only create local artifacts.
+
 The default build skips Electron executable signing so it works on local Windows
 machines without symlink privilege. Use `build:signed` in release CI if you have
 Windows code-signing configured:

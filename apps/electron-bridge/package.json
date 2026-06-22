@@ -8,8 +8,8 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win nsis -c.win.signAndEditExecutable=false",
-    "build:signed": "electron-builder --win nsis",
+    "build": "electron-builder --win nsis --publish never -c.win.signAndEditExecutable=false",
+    "build:signed": "electron-builder --win nsis --publish never",
     "pack": "electron-builder --dir"
   },
   "devDependencies": {
