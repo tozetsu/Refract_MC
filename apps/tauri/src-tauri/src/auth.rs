@@ -121,6 +121,18 @@ fn safe_account(acc: &Value) -> Value {
     let authenticated = ty == "microsoft" || ty == "yggdrasil";
     let mut o = acc.clone();
     if let Some(m) = o.as_object_mut() {
+        let username = m
+            .get("username")
+            .and_then(Value::as_str)
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| {
+                m.get("name")
+                    .and_then(Value::as_str)
+                    .filter(|value| !value.trim().is_empty())
+            })
+            .unwrap_or("Player")
+            .to_string();
+        m.insert("username".into(), json!(username));
         m.insert("canManageContent".into(), json!(true));
         m.insert("canPlayMinecraft".into(), json!(true));
         m.insert(

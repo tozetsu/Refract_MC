@@ -4,6 +4,7 @@ import { SignOutIcon } from '../ui/BlockIcons'
 import { api, type SafeAccount } from '@/lib/api'
 import { useT } from '@/i18n'
 import { useThemeStore } from '@/stores/theme'
+import { skinFaceDataUrl } from '@/lib/skin-face'
 import { SkinViewer3DLazy } from '../ui/SkinViewer3DLazy'
 import discordIcon          from '@/assets/discord-icon.webp'
 import libraryIconRaw    from '@/assets/instance-library.svg?raw'
@@ -56,13 +57,6 @@ interface Friend {
   note?: string
 }
 
-function avatarUrl(uuid: string, fallback = false): string {
-  const id = uuid.replace(/-/g, '')
-  return fallback
-    ? `https://crafatar.com/avatars/${id}?size=32&overlay=true&default=MHF_Steve`
-    : `https://mc-heads.net/avatar/${id}/32`
-}
-
 interface NavItemProps { to: string; label: string; iconSrc: string; exact: boolean; compact?: boolean }
 function NavItem({ to, label, iconSrc, exact, compact }: NavItemProps) {
   const matchRoute = useMatchRoute()
@@ -104,12 +98,9 @@ function AvatarStatus({ account }: { account: SafeAccount | null }) {
 function AvatarBlock({ compact }: { compact: boolean }) {
   const t = useT()
   const [account, setAccount] = useState<SafeAccount | null>(null)
-  const [skinFailed, setSkinFailed] = useState(false)
-  const [skinFallback, setSkinFallback] = useState(false)
+  const [faceUrl, setFaceUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    setSkinFailed(false)
-    setSkinFallback(false)
     api.auth.active().then(setAccount).catch(() => setAccount(null))
     const id = window.setInterval(() => {
       api.auth.active().then(setAccount).catch(() => setAccount(null))
@@ -117,21 +108,38 @@ function AvatarBlock({ compact }: { compact: boolean }) {
     return () => window.clearInterval(id)
   }, [])
 
+  useEffect(() => {
+    if (!account || account.type === 'offline') {
+      setFaceUrl(null)
+      return
+    }
+
+    let alive = true
+    setFaceUrl(null)
+    api.auth.fetchSkinTextureUrl(account.uuid)
+      .then(async (skinUrl) => {
+        if (!alive || !skinUrl) return
+        const face = await skinFaceDataUrl(skinUrl, 64)
+        if (alive) setFaceUrl(face)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [account?.uuid, account?.type])
+
   async function signOut() {
     if (!account) return
     try { await api.auth.logout(account.uuid); setAccount(null) } catch { /* ignore */ }
   }
 
   const initial = account?.username[0]?.toUpperCase() ?? '?'
-  const hasSkin = !!account && account.type !== 'offline'
   const avatar = (
     <div style={{ width:38, height:38, flexShrink:0, border:'1px solid #000', position:'relative', overflow:'hidden', background:'#1a1f2e', imageRendering:'pixelated' }}>
-      {hasSkin && !skinFailed ? (
+      {faceUrl ? (
         <img
-          src={skinFallback ? avatarUrl(account.uuid, true) : avatarUrl(account.uuid)}
+          src={faceUrl}
           alt={account?.username}
           style={{ width:'100%', height:'100%', objectFit:'cover', imageRendering:'pixelated' }}
-          onError={() => { if (!skinFallback) setSkinFallback(true); else setSkinFailed(true) }}
+          onError={() => setFaceUrl(null)}
         />
       ) : (
         <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:600, color:'var(--ink-3)' }}>
@@ -387,8 +395,7 @@ function FriendRow({ friend, onRemove, onNoteChange, onSkinClick }: {
 }) {
   const t = useT()
   const [hovered, setHovered]       = useState(false)
-  const [imgSrc, setImgSrc] = useState(() => avatarUrl(friend.uuid))
-  const [imgFailed, setImgFailed]   = useState(false)
+  const [imgSrc, setImgSrc] = useState<string | null>(null)
   const [editingNote, setEditingNote] = useState(false)
   const [noteDraft, setNoteDraft]   = useState(friend.note ?? '')
   const [copied, setCopied]         = useState<string | null>(null)
@@ -403,6 +410,19 @@ function FriendRow({ friend, onRemove, onNoteChange, onSkinClick }: {
   function openNameMC() {
     void api.external.open(`https://namemc.com/profile/${friend.uuid}`)
   }
+
+  useEffect(() => {
+    let alive = true
+    setImgSrc(null)
+    api.auth.fetchSkinTextureUrl(friend.uuid)
+      .then(async (skinUrl) => {
+        if (!alive || !skinUrl) return
+        const face = await skinFaceDataUrl(skinUrl, 64)
+        if (alive) setImgSrc(face)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [friend.uuid])
 
   function startNote() {
     setNoteDraft(friend.note ?? '')
@@ -430,13 +450,13 @@ function FriendRow({ friend, onRemove, onNoteChange, onSkinClick }: {
           title={t.sidebar.viewSkin}
           style={{ width: 24, height: 24, flexShrink: 0, position: 'relative', overflow: 'hidden', border: '1px solid var(--line)', background: 'var(--surface-3)', imageRendering: 'pixelated', cursor: 'pointer' }}
         >
-          {!imgFailed ? (
-            <img src={imgSrc} alt={friend.username}
+          {imgSrc ? (
+            <img
+              src={imgSrc}
+              alt={friend.username}
               style={{ width: '100%', height: '100%', objectFit: 'cover', imageRendering: 'pixelated' }}
-              onError={() => {
-                if (!imgSrc.includes('crafatar')) setImgSrc(avatarUrl(friend.uuid, true))
-                else setImgFailed(true)
-              }} />
+              onError={() => setImgSrc(null)}
+            />
           ) : (
             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: 'var(--ink-3)' }}>
               {friend.username[0]?.toUpperCase()}

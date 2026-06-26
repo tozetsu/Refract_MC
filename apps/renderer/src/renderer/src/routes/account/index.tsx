@@ -7,21 +7,31 @@ import { useAvatarStore } from '@/stores/avatar'
 import { compressImage } from '@/lib/image'
 import { useT, type T } from '@/i18n'
 import { Button } from '@/components/ui/Button'
+import { skinFaceDataUrl } from '@/lib/skin-face'
 
 function SkinFace({ uuid, size }: { uuid: string; size: number }) {
-  const id = uuid.replace(/-/g, '')
-  const [src, setSrc] = useState(`https://mc-heads.net/avatar/${id}/${size}`)
-  const [failed, setFailed] = useState(false)
-  if (failed) return null
+  const [src, setSrc] = useState<string | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    setSrc(null)
+    api.auth.fetchSkinTextureUrl(uuid)
+      .then(async (skinUrl) => {
+        if (!alive || !skinUrl) return
+        const face = await skinFaceDataUrl(skinUrl, size)
+        if (alive) setSrc(face)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [uuid, size])
+
+  if (!src) return null
   return (
     <img
       src={src}
       alt=""
       style={{ width: '100%', height: '100%', objectFit: 'cover', imageRendering: 'pixelated' }}
-      onError={() => {
-        if (!src.includes('crafatar')) setSrc(`https://crafatar.com/avatars/${id}?size=${size}&overlay=true&default=MHF_Steve`)
-        else setFailed(true)
-      }}
+      onError={() => setSrc(null)}
     />
   )
 }

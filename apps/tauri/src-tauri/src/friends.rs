@@ -29,6 +29,36 @@ fn friends_path() -> PathBuf {
     paths::data_dir().join("friends.json")
 }
 
+fn value_string(value: &Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn normalize_friend(value: &Value) -> Option<Friend> {
+    let uuid = value_string(value, "uuid")?;
+    let username = value_string(value, "username")
+        .or_else(|| value_string(value, "name"))
+        .or_else(|| value_string(value, "playerName"))
+        .unwrap_or_else(|| "Unknown Player".to_string());
+    let added_at = value
+        .get("addedAt")
+        .or_else(|| value.get("added_at"))
+        .and_then(Value::as_u64)
+        .unwrap_or_else(now_ms);
+    let note = value_string(value, "note");
+
+    Some(Friend {
+        uuid,
+        username,
+        added_at,
+        note,
+    })
+}
+
 fn load() -> Vec<Friend> {
     let path = friends_path();
     if !path.exists() {
@@ -37,7 +67,12 @@ fn load() -> Vec<Friend> {
 
     fs::read_to_string(path)
         .ok()
-        .and_then(|text| serde_json::from_str::<Vec<Friend>>(&text).ok())
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+        .and_then(|value| {
+            value
+                .as_array()
+                .map(|items| items.iter().filter_map(normalize_friend).collect())
+        })
         .unwrap_or_default()
 }
 
