@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { api, type SafeAccount } from '@/lib/api'
 import { SkinViewer3DLazy as SkinViewer3D } from '@/components/ui/SkinViewer3DLazy'
 import { Button } from '@/components/ui/Button'
+import { invalidateSkinFaceCache, primeSkinFaceCacheFromSkinUrl } from '@/lib/skin-face'
 import { useT } from '@/i18n'
 
 export const Route = createFileRoute('/skins/')({ component: SkinsPage })
@@ -98,6 +99,9 @@ function SkinsPage_() {
     setApplying(true); setMsg(null)
     try {
       await api.skins.apply(selected.id, msAccount.uuid)
+      const skinDataUrl = await api.skins.getDataUrl(selected.filename).catch(() => null)
+      if (skinDataUrl) await primeSkinFaceCacheFromSkinUrl(msAccount.uuid, skinDataUrl)
+      else invalidateSkinFaceCache(msAccount.uuid)
       setMsg({ ok: true, text: t.skins.skinApplied(msAccount.username) })
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) })

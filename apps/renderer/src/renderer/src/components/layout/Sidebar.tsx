@@ -4,7 +4,7 @@ import { SignOutIcon } from '../ui/BlockIcons'
 import { api, type SafeAccount } from '@/lib/api'
 import { useT } from '@/i18n'
 import { useThemeStore } from '@/stores/theme'
-import { skinFaceDataUrl } from '@/lib/skin-face'
+import { loadSkinFaceDataUrl, subscribeSkinFaceRefresh } from '@/lib/skin-face'
 import { SkinViewer3DLazy } from '../ui/SkinViewer3DLazy'
 import discordIcon          from '@/assets/discord-icon.webp'
 import libraryIconRaw    from '@/assets/instance-library.svg?raw'
@@ -115,15 +115,16 @@ function AvatarBlock({ compact }: { compact: boolean }) {
     }
 
     let alive = true
+    const load = async () => {
+      const face = await loadSkinFaceDataUrl(account.uuid, 64, api.auth.fetchSkinTextureUrl)
+      if (alive) setFaceUrl(face)
+    }
     setFaceUrl(null)
-    api.auth.fetchSkinTextureUrl(account.uuid)
-      .then(async (skinUrl) => {
-        if (!alive || !skinUrl) return
-        const face = await skinFaceDataUrl(skinUrl, 64)
-        if (alive) setFaceUrl(face)
-      })
-      .catch(() => {})
-    return () => { alive = false }
+    void load()
+    const unsubscribe = subscribeSkinFaceRefresh(({ uuid }) => {
+      if (!uuid || uuid === account.uuid) void load()
+    })
+    return () => { alive = false; unsubscribe() }
   }, [account?.uuid, account?.type])
 
   async function signOut() {
@@ -413,15 +414,16 @@ function FriendRow({ friend, onRemove, onNoteChange, onSkinClick }: {
 
   useEffect(() => {
     let alive = true
+    const load = async () => {
+      const face = await loadSkinFaceDataUrl(friend.uuid, 64, api.auth.fetchSkinTextureUrl)
+      if (alive) setImgSrc(face)
+    }
     setImgSrc(null)
-    api.auth.fetchSkinTextureUrl(friend.uuid)
-      .then(async (skinUrl) => {
-        if (!alive || !skinUrl) return
-        const face = await skinFaceDataUrl(skinUrl, 64)
-        if (alive) setImgSrc(face)
-      })
-      .catch(() => {})
-    return () => { alive = false }
+    void load()
+    const unsubscribe = subscribeSkinFaceRefresh(({ uuid }) => {
+      if (!uuid || uuid === friend.uuid) void load()
+    })
+    return () => { alive = false; unsubscribe() }
   }, [friend.uuid])
 
   function startNote() {

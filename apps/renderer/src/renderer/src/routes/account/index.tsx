@@ -7,22 +7,23 @@ import { useAvatarStore } from '@/stores/avatar'
 import { compressImage } from '@/lib/image'
 import { useT, type T } from '@/i18n'
 import { Button } from '@/components/ui/Button'
-import { skinFaceDataUrl } from '@/lib/skin-face'
+import { invalidateSkinFaceCache, loadSkinFaceDataUrl, primeSkinFaceCacheFromSkinUrl, subscribeSkinFaceRefresh } from '@/lib/skin-face'
 
 function SkinFace({ uuid, size }: { uuid: string; size: number }) {
   const [src, setSrc] = useState<string | null>(null)
 
   useEffect(() => {
     let alive = true
+    const load = async () => {
+      const face = await loadSkinFaceDataUrl(uuid, size, api.auth.fetchSkinTextureUrl)
+      if (alive) setSrc(face)
+    }
     setSrc(null)
-    api.auth.fetchSkinTextureUrl(uuid)
-      .then(async (skinUrl) => {
-        if (!alive || !skinUrl) return
-        const face = await skinFaceDataUrl(skinUrl, size)
-        if (alive) setSrc(face)
-      })
-      .catch(() => {})
-    return () => { alive = false }
+    void load()
+    const unsubscribe = subscribeSkinFaceRefresh((detail) => {
+      if (!detail.uuid || detail.uuid === uuid) void load()
+    })
+    return () => { alive = false; unsubscribe() }
   }, [uuid, size])
 
   if (!src) return null
@@ -271,6 +272,8 @@ function Account() {
     setSkinMsg(null)
     try {
       await api.auth.uploadSkin(uuid, skinPath, skinVariant)
+      if (skinTextureUrl) await primeSkinFaceCacheFromSkinUrl(uuid, skinTextureUrl)
+      else invalidateSkinFaceCache(uuid)
       setSkinMsg({ ok: true, text: t.skins.skinUpdated })
       setSkinTarget(null)
       setSkinPath(null)
