@@ -518,7 +518,7 @@ pub struct ModUpdateEntry {
     download_url: String,
     #[serde(rename = "hasUpdate")]
     has_update: bool,
-    /// "mod" | "resourcepack" | "shader" — which folder this file lives in, so the
+    /// "mod" | "resourcepack" | "shader" | "datapack" — which folder this file lives in, so the
     /// browser can label it and apply_mod_updates can write the update back correctly.
     #[serde(rename = "contentType")]
     content_type: String,
@@ -541,6 +541,7 @@ pub struct ApplyModUpdate {
 fn update_loaders(content_type: &str, mod_loader: &Option<Vec<String>>) -> Option<Vec<String>> {
     match content_type {
         "resourcepack" => Some(vec!["minecraft".to_string()]),
+        "datapack" => Some(vec!["datapack".to_string()]),
         "shader" => Some(vec![
             "iris".to_string(),
             "optifine".to_string(),
@@ -595,10 +596,11 @@ pub async fn check_mod_updates(
     // Enumerate enabled content across mods, resource packs and shaders, tagging each
     // file with its content type, and fold (type/name, size, mtime) into a cheap
     // directory signature — no file reads, so this stays fast even with many files.
-    let scan: [(&str, &str, &str); 3] = [
+    let scan: [(&str, &str, &str); 4] = [
         ("mods", "mod", ".jar"),
         ("resourcepacks", "resourcepack", ".zip"),
         ("shaderpacks", "shader", ".zip"),
+        ("datapacks", "datapack", ".zip"),
     ];
     let mut entries: Vec<(String, PathBuf, &'static str)> = Vec::new();
     let mut sig_parts: Vec<(String, u64, u64)> = Vec::new();
