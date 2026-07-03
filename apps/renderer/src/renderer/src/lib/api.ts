@@ -384,6 +384,7 @@ function createBrowserApi(): RefractAPI {
       crashReport: async () => null,
       uploadLog: async () => { throw new Error('Log upload requires the desktop app.') },
       importWorld: async () => { throw new Error('World import requires the desktop app.') },
+      createShortcut: async () => { throw new Error('Shortcuts require the desktop app.') },
       worlds: async () => [],
       deleteWorld: async () => undefined,
       screenshots: async () => [],
@@ -944,6 +945,8 @@ function createTauriApi(): RefractAPI {
       deleteWorld: ((instanceId: string, worldName: string) => tinvoke('mc_delete_world', { instanceId, worldName })) as RefractAPI['mc']['deleteWorld'],
       crashReport: ((instanceId: string) => tinvoke('mc_crash_report', { instanceId })) as RefractAPI['mc']['crashReport'],
       uploadLog: ((instanceId: string, source: 'latest' | 'crash' | 'launcher') => tinvoke('mc_upload_log', { instanceId, source })) as RefractAPI['mc']['uploadLog'],
+      createShortcut: ((instanceId: string, label: string, quickPlay?: QuickPlayTarget) =>
+        tinvoke('create_play_shortcut', { instanceId, label, quickPlay })) as RefractAPI['mc']['createShortcut'],
       importWorld: (async (instanceId: string) => {
         const src = await dialogOpen({ multiple: false, title: 'Select World Backup (.zip)', filters: [{ name: 'ZIP Archive', extensions: ['zip'] }] })
         if (typeof src !== 'string') return null

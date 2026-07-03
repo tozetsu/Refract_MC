@@ -22,6 +22,7 @@ mod paths;
 mod procutil;
 mod secrets;
 mod servers;
+mod shortcuts;
 mod skins;
 mod system;
 mod theme;
@@ -33,8 +34,18 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .setup(|_app| {
+        .setup(|app| {
             analytics::init();
+            // Quick Play desktop shortcut: relaunched with --play-instance,
+            // start that instance right away (the UI comes up alongside it).
+            if let Some((id, quick_play)) = shortcuts::parse_play_args() {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = launch::launch_minecraft(handle, id, quick_play, None).await {
+                        log::log_line("warn", "quickplay-shortcut", &e);
+                    }
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -143,6 +154,7 @@ pub fn run() {
             gamedata::mc_crash_report,
             gamedata::mc_upload_log,
             gamedata::mc_import_world,
+            shortcuts::create_play_shortcut,
             gamedata::mc_backup_world,
             gamedata::mc_screenshots,
             gamedata::mc_open_screenshot,

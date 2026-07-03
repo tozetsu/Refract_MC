@@ -58,6 +58,16 @@ fn rotate_logs() {
     let _ = fs::write(&file, format!("{}\n", lines.join("\n")));
 }
 
+/// Convenience for Rust-side callers that want a line in the launcher log.
+pub fn log_line(level: &str, source: &str, message: &str) {
+    let _ = log_write(LogEntryInput {
+        level: Some(level.to_string()),
+        source: Some(source.to_string()),
+        message: Some(message.to_string()),
+        stack: None,
+    });
+}
+
 #[tauri::command]
 pub fn log_write(entry: LogEntryInput) -> Result<(), String> {
     let file = log_file();

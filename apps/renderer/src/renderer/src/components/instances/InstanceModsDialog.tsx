@@ -731,6 +731,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                   try { await api.mc.backupWorld(instance.id, w.name) } catch { /* ignore */ }
                 }}
                 onPlay={onLaunch && !isRunning ? () => { onLaunch({ kind: 'world', name: w.name }); onOpenChange(false) } : undefined}
+                onShortcut={() => api.mc.createShortcut(instance.id, `${instance.name} — ${w.name}`, { kind: 'world', name: w.name })}
               />
             ))
           ) : tab === 'screenshots' ? (
@@ -755,6 +756,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                 key={s.ip}
                 server={s}
                 onJoin={onLaunch && !isRunning ? () => { onLaunch({ kind: 'server', address: s.ip }); onOpenChange(false) } : undefined}
+                onShortcut={() => api.mc.createShortcut(instance.id, `${instance.name} — ${s.name || s.ip}`, { kind: 'server', address: s.ip })}
               />
             ))
           ) : tab === 'updates' ? (
@@ -860,7 +862,30 @@ function pingColor(ms: number): string {
   return 'var(--lava)'
 }
 
-function ServerRow({ server, onJoin }: { server: ServerEntry; onJoin?: () => void }) {
+/// Creates a desktop shortcut for a Quick Play target, with a transient result state.
+function ShortcutButton({ onCreate }: { onCreate: () => Promise<unknown> }) {
+  const t = useT()
+  const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle')
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={state === 'busy'}
+      title="Create a desktop shortcut that launches straight into this"
+      onClick={async () => {
+        if (state === 'busy') return
+        setState('busy')
+        try { await onCreate(); setState('done') } catch { setState('error') }
+        setTimeout(() => setState('idle'), 2500)
+      }}
+      style={{ fontSize: 11, color: state === 'done' ? 'var(--grass)' : state === 'error' ? 'var(--lava)' : 'var(--ink-3)', background: 'none' }}
+    >
+      {state === 'done' ? t.instanceDetail.shortcutDone : state === 'error' ? t.instanceDetail.shortcutFailed : t.instanceDetail.shortcut}
+    </Button>
+  )
+}
+
+function ServerRow({ server, onJoin, onShortcut }: { server: ServerEntry; onJoin?: () => void; onShortcut?: () => Promise<unknown> }) {
   const t = useT()
   const [copied, setCopied] = useState(false)
   const [ping, setPing] = useState<PingResult>('loading')
@@ -912,6 +937,7 @@ function ServerRow({ server, onJoin }: { server: ServerEntry; onJoin?: () => voi
       >
         {copied ? t.instanceDetail.copied : t.instanceDetail.copyIp}
       </Button>
+      {onShortcut && <ShortcutButton onCreate={onShortcut} />}
       {onJoin && (
         <Button
           variant="primary"
@@ -937,7 +963,7 @@ function EmptyMsg({ msg, sub }: { msg: string; sub: string }) {
   )
 }
 
-function WorldRow({ world, isBusy, onDelete, onBackup, onPlay }: { world: WorldEntry; isBusy: boolean; onDelete: () => void; onBackup?: () => void; onPlay?: () => void }) {
+function WorldRow({ world, isBusy, onDelete, onBackup, onPlay, onShortcut }: { world: WorldEntry; isBusy: boolean; onDelete: () => void; onBackup?: () => void; onPlay?: () => void; onShortcut?: () => Promise<unknown> }) {
   const t = useT()
   const td = t.instanceDetail
   const [confirm, setConfirm] = useState(false)
@@ -958,6 +984,7 @@ function WorldRow({ world, isBusy, onDelete, onBackup, onPlay }: { world: WorldE
         </div>
       </div>
       <div style={{ display:'flex', gap:5 }}>
+        {onShortcut && <ShortcutButton onCreate={onShortcut} />}
         {onPlay && (
           <Button
             variant="primary"

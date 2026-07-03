@@ -288,6 +288,7 @@ declare global {
         crashReport: (instanceId: string) => Promise<{ text: string; filename: string; path: string; modifiedAt: number } | null>
         uploadLog: (instanceId: string, source: 'latest' | 'crash' | 'launcher') => Promise<string>
         importWorld: (instanceId: string) => Promise<string | null>
+        createShortcut: (instanceId: string, label: string, quickPlay?: { kind: 'server'; address: string } | { kind: 'world'; name: string }) => Promise<string>
         worlds: (instanceId: string) => Promise<Array<{ name: string; lastModified: number; sizeKb: number }>>
         deleteWorld: (instanceId: string, worldName: string) => Promise<void>
         screenshots: (instanceId: string) => Promise<Array<{ filename: string; sizeKb: number; timestamp: number; dataUrl: string | null }>>
