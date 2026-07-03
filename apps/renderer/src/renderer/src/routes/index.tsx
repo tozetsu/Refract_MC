@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button'
 import { CornerCat } from '@/components/ui/CornerCat'
 import { useInstances, useCreateInstance, useUpdateInstance, useDeleteInstance } from '@/hooks/use-instances'
 import { analyticsAvailable, api, type AppConfig, type QuickPlayTarget } from '@/lib/api'
+import { logger } from '@/lib/logger'
 import { getFilePath } from '@/lib/file-path'
 import { registerNativeDropTarget } from '@/lib/native-drop'
 
@@ -1310,6 +1311,9 @@ function Library() {
       activeLaunchIds.delete(instance.id)
       setRunningIds(prev => { const n = new Set(prev); n.delete(instance.id); return n })
       const msg = e instanceof Error ? e.message : 'Unknown error'
+      // A failed launch must leave a trace the user can find later — the toast
+      // is transient, and a pre-spawn failure produces no game log at all.
+      logger.error('launch', `Launch failed for "${instance.name}": ${msg}`)
       // Expired sign-in: show the friendly message and send them to Accounts
       // to re-authenticate, instead of dumping the raw AADSTS error.
       if (msg.includes('AUTH_EXPIRED')) {
@@ -1325,7 +1329,7 @@ function Library() {
         return
       }
       setLaunchToast(`Launch failed: ${msg}`)
-      setTimeout(() => setLaunchToast(null), 4000)
+      setTimeout(() => setLaunchToast(null), 10000)
     } finally {
       launchingRef.current = false
       activeLaunchIds.delete(instance.id)
