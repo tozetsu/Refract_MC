@@ -19,6 +19,10 @@ jobs:
   release:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.platform }}
+    env:
+      # `secrets` isn't allowed in step-level `if`, so surface presence flags here.
+      HAS_AZURE_SIGNING: ${{ secrets.AZURE_CLIENT_SECRET != '' }}
+      HAS_APPLE_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -85,7 +89,7 @@ jobs:
       # exist, so releases stay unsigned-but-working before the accounts are set
       # up. See apps/tauri/RELEASING.md § "OS code signing & notarization".
       - name: Enable Windows code signing (Azure Trusted Signing)
-        if: runner.os == 'Windows' && secrets.AZURE_CLIENT_SECRET != ''
+        if: runner.os == 'Windows' && env.HAS_AZURE_SIGNING == 'true'
         shell: pwsh
         env:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -107,7 +111,7 @@ jobs:
           "AZURE_CLIENT_SECRET=$env:AZURE_CLIENT_SECRET" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Enable macOS code signing & notarization
-        if: runner.os == 'macOS' && secrets.APPLE_CERTIFICATE != ''
+        if: runner.os == 'macOS' && env.HAS_APPLE_SIGNING == 'true'
         env:
           CERT: ${{ secrets.APPLE_CERTIFICATE }}
           CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
