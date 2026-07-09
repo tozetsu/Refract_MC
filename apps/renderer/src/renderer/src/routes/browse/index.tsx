@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import type React from 'react'
 import { SearchIcon } from '@/components/ui/BlockIcons'
 import { Button } from '@/components/ui/Button'
+import { CardGridSkeleton, TextSkeleton } from '@/components/ui/Skeleton'
 import { api } from '@/lib/api'
 import { htmlToText } from '@/lib/sanitize'
 import type { ModrinthProject, ModrinthVersion, ModrinthSortIndex, Instance, CFProject, CFFile, CFProjectDetail, ResolvedDep } from '@refract/core'
@@ -686,7 +687,7 @@ function ModDetailModal({ mod, onClose, onInstall }: {
           {/* Description */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
             {loading ? (
-              <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>{t.browse.loadingDetails}</div>
+              <TextSkeleton lines={6} />
             ) : (
               <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.75, margin: 0, whiteSpace: 'pre-wrap' }}>
                 {bodyText}
@@ -1231,7 +1232,7 @@ function Browse() {
           )}
 
           {loading ? (
-            <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>{t.browse.loading}</div>
+            <CardGridSkeleton />
           ) : source === 'cf' ? (
             cfError ? (
               <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>
@@ -1792,7 +1793,7 @@ function CFModDetailModal({ mod, onClose, onInstall }: { mod: CFProject; onClose
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', minHeight: 0 }}>
           <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
             {loading
-              ? <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>{t.browse.loadingDetails}</div>
+              ? <TextSkeleton lines={6} />
               : <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{bodyText}</div>
             }
           </div>

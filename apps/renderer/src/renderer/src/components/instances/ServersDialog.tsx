@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from '@/lib/api'
 import type { Instance } from '@refract/core'
 import { Button } from '@/components/ui/Button'
+import { RowsSkeleton } from '@/components/ui/Skeleton'
 
 type Server = { name: string; ip: string; icon?: string }
 
@@ -55,7 +56,7 @@ export function ServersDialog({ instance, open, onOpenChange }: Props) {
         {/* Body */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {loading ? (
-            <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>Loading…</div>
+            <RowsSkeleton rows={4} />
           ) : servers.length === 0 ? (
             <div style={{ padding: '48px 24px', textAlign: 'center' }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-4)', letterSpacing: '.10em', marginBottom: 8 }}>NO SAVED SERVERS</div>

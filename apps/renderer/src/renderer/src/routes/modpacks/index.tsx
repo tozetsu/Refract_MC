@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import type React from 'react'
 import { SearchIcon } from '@/components/ui/BlockIcons'
 import { Button } from '@/components/ui/Button'
+import { CardGridSkeleton, TextSkeleton } from '@/components/ui/Skeleton'
 import { api } from '@/lib/api'
 import { htmlToText } from '@/lib/sanitize'
 import type { ModrinthProject, ModrinthVersion, ModrinthSortIndex, ModrinthProjectType, Instance, CFProject, CFFile, CFProjectDetail, FtbModpack } from '@refract/core'
@@ -690,7 +691,7 @@ function ContentDetailModal({ project, tab, onClose, onInstall, installed, statu
                 )}
               </div>
             ) : loading ? (
-              <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>{t.content.loading}</div>
+              <TextSkeleton lines={6} />
             ) : (
               <p style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.75, margin: 0, whiteSpace: 'pre-wrap' }}>
                 {bodyText}
@@ -1492,7 +1493,7 @@ function ContentBrowser() {
 
       {/* Grid */}
       {loading ? (
-        <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>{t.content.loading}</div>
+        <CardGridSkeleton />
       ) : tab === 'modpack' && cfSource === 'curseforge' ? (
         !cfHasKey
           ? <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>{t.browse.noApiKeyDesc}</div>
@@ -1978,7 +1979,7 @@ function CFModpackDetailModal({ project, onClose, onInstall }: {
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', minHeight: 0 }}>
           <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
             {loading ? (
-              <div style={{ color: 'var(--ink-4)', fontSize: 13 }}>{t.content.loading}</div>
+              <TextSkeleton lines={6} />
             ) : (
               <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{bodyText}</div>
             )}

@@ -6,6 +6,7 @@ import { getFilePath } from '@/lib/file-path'
 import type { Instance } from '@refract/core'
 import { useT } from '@/i18n'
 import { Button } from '@/components/ui/Button'
+import { RowsSkeleton } from '@/components/ui/Skeleton'
 
 type ContentType = 'mod' | 'resourcepack' | 'shader' | 'datapack'
 type ContentEntry = {
@@ -714,7 +715,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
 
         <div className="detail-body" style={{ flex: 1, overflowY: 'auto', padding: tab === 'screenshots' ? 14 : '8px 0' }}>
           {loading ? (
-            <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--ink-4)', fontSize: 13 }}>Loading…</div>
+            <RowsSkeleton rows={7} />
           ) : error ? (
             <div style={{ padding: '20px 16px', color: 'var(--lava)', fontSize: 12 }}>{error}</div>
           ) : tab === 'worlds' ? (
