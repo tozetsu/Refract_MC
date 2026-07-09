@@ -81,6 +81,53 @@ jobs:
           sudo pkill -9 XProtect >/dev/null 2>&1 || true
           while pgrep XProtect >/dev/null; do sleep 3; done
 
+      # OS code signing — both steps are no-ops until the corresponding secrets
+      # exist, so releases stay unsigned-but-working before the accounts are set
+      # up. See apps/tauri/RELEASING.md § "OS code signing & notarization".
+      - name: Enable Windows code signing (Azure Trusted Signing)
+        if: runner.os == 'Windows' && secrets.AZURE_CLIENT_SECRET != ''
+        shell: pwsh
+        env:
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
+          AZURE_SIGNING_PROFILE: ${{ secrets.AZURE_SIGNING_PROFILE }}
+        run: |
+          cargo install trusted-signing-cli --locked
+          # The endpoint/account/profile are account-specific, so the signCommand
+          # overlay is generated here instead of living in tauri.conf.json.
+          $overlay = @{ bundle = @{ windows = @{ signCommand = "trusted-signing-cli -e $env:AZURE_SIGNING_ENDPOINT -a $env:AZURE_SIGNING_ACCOUNT -c $env:AZURE_SIGNING_PROFILE %1" } } } | ConvertTo-Json -Depth 5
+          Set-Content -Path "apps/tauri/src-tauri/tauri.codesign.conf.json" -Value $overlay -Encoding utf8
+          "TAURI_SIGN_ARGS=--config src-tauri/tauri.codesign.conf.json" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          # trusted-signing-cli reads these at sign time (invoked by the build step)
+          "AZURE_TENANT_ID=$env:AZURE_TENANT_ID" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "AZURE_CLIENT_ID=$env:AZURE_CLIENT_ID" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "AZURE_CLIENT_SECRET=$env:AZURE_CLIENT_SECRET" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Enable macOS code signing & notarization
+        if: runner.os == 'macOS' && secrets.APPLE_CERTIFICATE != ''
+        env:
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          NOTARY_ID: ${{ secrets.APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        # Exported via GITHUB_ENV (not set directly on the build step) so that
+        # tauri's bundler never sees empty-string APPLE_* vars when the secrets
+        # are absent — it treats "set but empty" as "try to sign" and fails.
+        run: |
+          {
+            printf 'APPLE_CERTIFICATE<<EOF_REFRACT\n%s\nEOF_REFRACT\n' "$CERT"
+            printf 'APPLE_CERTIFICATE_PASSWORD<<EOF_REFRACT\n%s\nEOF_REFRACT\n' "$CERT_PASSWORD"
+            printf 'APPLE_SIGNING_IDENTITY<<EOF_REFRACT\n%s\nEOF_REFRACT\n' "$IDENTITY"
+            printf 'APPLE_ID<<EOF_REFRACT\n%s\nEOF_REFRACT\n' "$NOTARY_ID"
+            printf 'APPLE_PASSWORD<<EOF_REFRACT\n%s\nEOF_REFRACT\n' "$NOTARY_PASSWORD"
+            printf 'APPLE_TEAM_ID<<EOF_REFRACT\n%s\nEOF_REFRACT\n' "$TEAM_ID"
+          } >> "$GITHUB_ENV"
+
       - name: Build, sign & publish
         uses: tauri-apps/tauri-action@v0.6.2
         env:
@@ -106,4 +153,5 @@ jobs:
           uploadUpdaterJson: true
           updaterJsonPreferNsis: true
           releaseAssetNamePattern: "Refract_[version]_[platform]_[arch][setup][ext]"
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} ${{ env.TAURI_SIGN_ARGS }}
+
