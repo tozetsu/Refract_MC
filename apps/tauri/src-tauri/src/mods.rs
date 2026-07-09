@@ -107,7 +107,7 @@ fn to_data_url(name: &str, bytes: &[u8]) -> String {
     )
 }
 
-fn read_zip_entry(zip_path: &Path, name: &str) -> Option<Vec<u8>> {
+pub(crate) fn read_zip_entry(zip_path: &Path, name: &str) -> Option<Vec<u8>> {
     let f = fs::File::open(zip_path).ok()?;
     let mut z = zip::ZipArchive::new(f).ok()?;
     let mut e = z.by_name(name).ok()?;

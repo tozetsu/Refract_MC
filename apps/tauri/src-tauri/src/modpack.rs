@@ -5,7 +5,8 @@
 //! finalizes. Progress streams over `modpack://progress`; completion (with the
 //! new instance id, or an error) over `modpack://done`.
 
-use crate::{config, instances, mc_install, net, paths};
+use crate::{config, external, instances, mc_install, mods, net, paths};
+use flate2::read::GzDecoder;
 use serde::Serialize;
 use serde_json::{json, Value};
 use sha1::{Digest as Sha1Digest, Sha1};
@@ -1334,6 +1335,158 @@ pub async fn curseforge_install_modpack(
 
 // ── import from a local file (.mrpack / CF zip / plain zip) ──────────────────
 
+/// Files/dirs that mark a directory as the real root of an imported archive.
+const ROOT_MARKERS: &[&str] = &[
+    "modrinth.index.json",
+    "manifest.json",
+    "instance.cfg",
+    "mmc-pack.json",
+    "instance.json",
+    ".minecraft",
+    "minecraft",
+    "mods",
+    "saves",
+    "config",
+];
+
+/// Exported zips often wrap everything in a single top-level folder
+/// ("MyInstance/…"). Descend while the current level has no known markers,
+/// no real files, and exactly one subdirectory.
+fn unwrap_single_folder(root: &Path) -> PathBuf {
+    let mut dir = root.to_path_buf();
+    for _ in 0..3 {
+        if ROOT_MARKERS.iter().any(|m| dir.join(m).exists()) {
+            break;
+        }
+        let Ok(entries) = fs::read_dir(&dir) else { break };
+        let mut sub_dirs = Vec::new();
+        let mut has_files = false;
+        for e in entries.flatten() {
+            let name = e.file_name().to_string_lossy().to_ascii_lowercase();
+            if e.path().is_dir() {
+                sub_dirs.push(e.path());
+            } else if name != ".ds_store" && name != "desktop.ini" && name != "thumbs.db" {
+                has_files = true;
+            }
+        }
+        if sub_dirs.len() == 1 && !has_files {
+            dir = sub_dirs.remove(0);
+        } else {
+            break;
+        }
+    }
+    dir
+}
+
+/// Guess the mod loader by probing the metadata files inside mod jars.
+/// A pack for Quilt may consist mostly of Fabric jars (Quilt loads them), so
+/// this can only distinguish what the jars themselves declare.
+fn detect_loader_from_mods(game_dir: &Path) -> Option<String> {
+    let probes: [(&str, &str); 4] = [
+        ("fabric.mod.json", "fabric"),
+        ("quilt.mod.json", "quilt"),
+        ("META-INF/neoforge.mods.toml", "neoforge"),
+        ("META-INF/mods.toml", "forge"),
+    ];
+    let mut votes = [0u32; 4];
+    let entries = fs::read_dir(game_dir.join("mods")).ok()?;
+    for jar in entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().map(|x| x == "jar").unwrap_or(false))
+        .take(64)
+    {
+        for (i, (entry, _)) in probes.iter().enumerate() {
+            if mods::read_zip_entry(&jar, entry).is_some() {
+                votes[i] += 1;
+            }
+        }
+    }
+    let best = (0..probes.len()).max_by_key(|&i| votes[i])?;
+    if votes[best] == 0 {
+        None
+    } else {
+        Some(probes[best].1.to_string())
+    }
+}
+
+/// Read the Minecraft version out of a world's level.dat (Data.Version.Name).
+fn mc_version_from_saves(game_dir: &Path) -> Option<String> {
+    #[derive(serde::Deserialize)]
+    struct Level {
+        #[serde(rename = "Data")]
+        data: Option<LevelData>,
+    }
+    #[derive(serde::Deserialize)]
+    struct LevelData {
+        #[serde(rename = "Version")]
+        version: Option<LevelVersion>,
+    }
+    #[derive(serde::Deserialize)]
+    struct LevelVersion {
+        #[serde(rename = "Name")]
+        name: Option<String>,
+    }
+
+    let entries = fs::read_dir(game_dir.join("saves")).ok()?;
+    for world in entries.flatten().map(|e| e.path()).filter(|p| p.is_dir()) {
+        let Ok(raw) = fs::read(world.join("level.dat")) else {
+            continue;
+        };
+        let mut bytes = Vec::new();
+        if GzDecoder::new(&raw[..]).read_to_end(&mut bytes).is_err() {
+            bytes = raw; // some tools write level.dat uncompressed
+        }
+        if let Ok(level) = fastnbt::from_bytes::<Level>(&bytes) {
+            if let Some(name) = level.data.and_then(|d| d.version).and_then(|v| v.name) {
+                if !name.is_empty() {
+                    return Some(name);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Exact Minecraft version pinned in a fabric.mod.json "depends" entry, if any
+/// jar declares one (ranges like ">=1.20" are ignored).
+fn mc_version_from_fabric_mods(game_dir: &Path) -> Option<String> {
+    let entries = fs::read_dir(game_dir.join("mods")).ok()?;
+    for jar in entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().map(|x| x == "jar").unwrap_or(false))
+        .take(32)
+    {
+        let Some(bytes) = mods::read_zip_entry(&jar, "fabric.mod.json") else {
+            continue;
+        };
+        let Ok(meta) = serde_json::from_slice::<Value>(&bytes) else {
+            continue;
+        };
+        let Some(dep) = meta["depends"]["minecraft"].as_str() else {
+            continue;
+        };
+        let pin = dep.trim().trim_start_matches('=').trim();
+        if pin.starts_with(|c: char| c.is_ascii_digit())
+            && pin.contains('.')
+            && pin.chars().all(|c| c.is_ascii_digit() || c == '.')
+        {
+            return Some(pin.to_string());
+        }
+    }
+    None
+}
+
+/// Latest release id from the Mojang manifest.
+async fn latest_release() -> Result<String, String> {
+    let manifest = get_json(MOJANG_MANIFEST).await?;
+    manifest["latest"]["release"]
+        .as_str()
+        .map(String::from)
+        .ok_or_else(|| "Mojang manifest has no latest release.".into())
+}
+
 async fn install_from_file_inner(
     app: &AppHandle,
     project_id: &str,
@@ -1346,6 +1499,8 @@ async fn install_from_file_inner(
     progress(app, project_id, "Extracting archive", 2.0);
     unzip(Path::new(file_path), temp)
         .map_err(|e| format!("Could not extract {}: {e}", file_path))?;
+    // Some exports wrap the pack in a top-level folder — detect the real root.
+    let root = unwrap_single_folder(temp);
     let staged_game_dir = stage_dir.join("minecraft");
     let pick_name = |fallback: Option<&str>| {
         name_opt
@@ -1356,7 +1511,7 @@ async fn install_from_file_inner(
     };
 
     // Modrinth .mrpack
-    if let Some(index) = fs::read_to_string(temp.join("modrinth.index.json"))
+    if let Some(index) = fs::read_to_string(root.join("modrinth.index.json"))
         .ok()
         .and_then(|s| serde_json::from_str::<Value>(&s).ok())
     {
@@ -1398,8 +1553,8 @@ async fn install_from_file_inner(
             );
         }
         progress(app, project_id, "Copying overrides", 32.0);
-        copy_dir_checked(&temp.join("overrides"), &staged_game_dir)?;
-        copy_dir_checked(&temp.join("client-overrides"), &staged_game_dir)?;
+        copy_dir_checked(&root.join("overrides"), &staged_game_dir)?;
+        copy_dir_checked(&root.join("client-overrides"), &staged_game_dir)?;
         progress(app, project_id, "Installing Minecraft…", 38.0);
         let url = mojang_url(&mc).await?;
         mc_install::install_minecraft(
@@ -1425,7 +1580,7 @@ async fn install_from_file_inner(
     }
 
     // CurseForge zip
-    if let Some(manifest) = fs::read_to_string(temp.join("manifest.json"))
+    if let Some(manifest) = fs::read_to_string(root.join("manifest.json"))
         .ok()
         .and_then(|s| serde_json::from_str::<Value>(&s).ok())
     {
@@ -1444,7 +1599,7 @@ async fn install_from_file_inner(
         download_and_audit_cf_mods(app, project_id, &files, &mods_dir, 10.0, 25.0).await?;
         progress(app, project_id, "Copying overrides", 37.0);
         let overrides = manifest["overrides"].as_str().unwrap_or("overrides");
-        copy_dir_checked(&temp.join(overrides), &staged_game_dir)?;
+        copy_dir_checked(&root.join(overrides), &staged_game_dir)?;
         progress(app, project_id, "Installing Minecraft…", 42.0);
         let url = mojang_url(&mc).await?;
         mc_install::install_minecraft(
@@ -1469,16 +1624,65 @@ async fn install_from_file_inner(
         return Ok(id);
     }
 
-    // Plain zip → copy into a fresh vanilla instance.
-    let name = name_opt
-        .filter(|n| !n.trim().is_empty())
-        .unwrap_or_else(|| "Imported Pack".into());
-    let mc = "1.21.1".to_string();
-    progress(app, project_id, "Staging import", 5.0);
+    // Plain zip — a Refract or MultiMC/Prism instance export, or a bare game
+    // folder. Detect the layout, loader and Minecraft version instead of
+    // assuming vanilla.
+    progress(app, project_id, "Detecting pack type", 4.0);
+
+    // Refract instance export: instance.json + minecraft/ at the root.
+    let refract = fs::read_to_string(root.join("instance.json"))
+        .ok()
+        .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+        .filter(|_| root.join("minecraft").is_dir());
+
+    let (name, mc, loader, lv, payload) = if let Some(inst) = refract {
+        (
+            pick_name(inst["name"].as_str()),
+            inst["minecraftVersion"].as_str().map(String::from),
+            inst["modLoader"].as_str().map(String::from),
+            inst["modLoaderVersion"]
+                .as_str()
+                .filter(|v| !v.is_empty())
+                .map(String::from),
+            root.join("minecraft"),
+        )
+    } else if let Some(meta) = external::parse_mmc_export(&root) {
+        // MultiMC/Prism instance export: instance.cfg + mmc-pack.json.
+        (
+            pick_name(Some(&meta.name)),
+            Some(meta.minecraft_version),
+            meta.mod_loader,
+            meta.mod_loader_version,
+            meta.game_dir,
+        )
+    } else {
+        // Bare game folder, possibly under a .minecraft/ or minecraft/ subdir.
+        let payload = [".minecraft", "minecraft"]
+            .iter()
+            .map(|s| root.join(s))
+            .find(|p| p.is_dir() && !root.join("mods").exists() && !root.join("saves").exists())
+            .unwrap_or_else(|| root.clone());
+        let stem = Path::new(file_path)
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string());
+        (
+            pick_name(stem.as_deref()),
+            mc_version_from_saves(&payload).or_else(|| mc_version_from_fabric_mods(&payload)),
+            detect_loader_from_mods(&payload),
+            None,
+            payload,
+        )
+    };
+    let mc = match mc {
+        Some(v) => v,
+        None => latest_release().await?,
+    };
+
+    progress(app, project_id, "Staging import", 8.0);
     fs::create_dir_all(&staged_game_dir)
         .map_err(|e| format!("Could not create staged game folder: {e}"))?;
     progress(app, project_id, "Copying files", 10.0);
-    copy_dir_checked(temp, &staged_game_dir)?;
+    copy_dir_checked(&payload, &staged_game_dir)?;
     progress(app, project_id, "Installing Minecraft…", 52.0);
     let url = mojang_url(&mc).await?;
     mc_install::install_minecraft(
@@ -1486,12 +1690,18 @@ async fn install_from_file_inner(
         stage_id.to_string(),
         mc.clone(),
         url,
-        None,
-        None,
+        loader.clone(),
+        lv.clone(),
     )
     .await?;
     progress(app, project_id, "Creating instance", 96.0);
-    let id = create_imported_instance_from_stage(&name, &mc, None, None, &staged_game_dir)?;
+    let id = create_imported_instance_from_stage(
+        &name,
+        &mc,
+        loader.as_deref(),
+        lv.as_deref(),
+        &staged_game_dir,
+    )?;
     progress(app, project_id, "Done", 100.0);
     done_ok(app, project_id, &id);
     Ok(id)
@@ -1547,5 +1757,94 @@ pub async fn ftb_install_modpack(
             done_err(&app, &format!("ftb:{pack_id}"), &e);
             Err(e)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    fn tmp_dir(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("refract-test-{tag}-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn write_jar(path: &Path, entries: &[(&str, &str)]) {
+        let file = fs::File::create(path).unwrap();
+        let mut zip = zip::ZipWriter::new(file);
+        let opts = zip::write::SimpleFileOptions::default();
+        for (name, content) in entries {
+            zip.start_file(*name, opts).unwrap();
+            zip.write_all(content.as_bytes()).unwrap();
+        }
+        zip.finish().unwrap();
+    }
+
+    #[test]
+    fn unwrap_descends_single_wrapper_folder_until_markers() {
+        let root = tmp_dir("unwrap");
+        // root/MyInstance/.minecraft/… — an export wrapped in one folder
+        let inner = root.join("MyInstance");
+        fs::create_dir_all(inner.join(".minecraft")).unwrap();
+        assert_eq!(unwrap_single_folder(&root), inner);
+
+        // A dir that already has markers is returned unchanged.
+        assert_eq!(unwrap_single_folder(&inner), inner);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn unwrap_stops_when_multiple_entries() {
+        let root = tmp_dir("unwrap-multi");
+        fs::create_dir_all(root.join("a")).unwrap();
+        fs::create_dir_all(root.join("b")).unwrap();
+        assert_eq!(unwrap_single_folder(&root), root);
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn detects_loader_from_jar_metadata() {
+        let game = tmp_dir("loader");
+        let mods = game.join("mods");
+        fs::create_dir_all(&mods).unwrap();
+        write_jar(&mods.join("sodium.jar"), &[("fabric.mod.json", "{}")]);
+        write_jar(&mods.join("lithium.jar"), &[("fabric.mod.json", "{}")]);
+        write_jar(
+            &mods.join("jei.jar"),
+            &[("META-INF/mods.toml", "modId=\"jei\"")],
+        );
+        assert_eq!(detect_loader_from_mods(&game), Some("fabric".into()));
+        let _ = fs::remove_dir_all(&game);
+    }
+
+    #[test]
+    fn no_loader_when_mods_folder_missing_or_vanilla() {
+        let game = tmp_dir("loader-none");
+        assert_eq!(detect_loader_from_mods(&game), None);
+        fs::create_dir_all(game.join("mods")).unwrap();
+        assert_eq!(detect_loader_from_mods(&game), None);
+        let _ = fs::remove_dir_all(&game);
+    }
+
+    #[test]
+    fn fabric_mc_pin_exact_only() {
+        let game = tmp_dir("mcpin");
+        let mods = game.join("mods");
+        fs::create_dir_all(&mods).unwrap();
+        // Range dep is ignored…
+        write_jar(
+            &mods.join("a.jar"),
+            &[("fabric.mod.json", r#"{"depends":{"minecraft":">=1.20"}}"#)],
+        );
+        assert_eq!(mc_version_from_fabric_mods(&game), None);
+        // …an exact pin wins.
+        write_jar(
+            &mods.join("b.jar"),
+            &[("fabric.mod.json", r#"{"depends":{"minecraft":"1.20.1"}}"#)],
+        );
+        assert_eq!(mc_version_from_fabric_mods(&game), Some("1.20.1".into()));
+        let _ = fs::remove_dir_all(&game);
     }
 }
