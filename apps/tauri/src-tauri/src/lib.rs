@@ -36,6 +36,27 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
             analytics::init();
+            // Some Linux WMs (notably Wayland compositors) ignore the initial
+            // size of frameless windows, so the app comes up at its minimum
+            // content size. Re-apply the configured size if that happened.
+            #[cfg(target_os = "linux")]
+            {
+                use tauri::Manager as _;
+                if let Some(win) = app.get_webview_window("main") {
+                    let scale = win.scale_factor().unwrap_or(1.0);
+                    let too_small = win
+                        .inner_size()
+                        .map(|s| {
+                            let l = s.to_logical::<f64>(scale);
+                            l.width < 1100.0 || l.height < 700.0
+                        })
+                        .unwrap_or(true);
+                    if too_small {
+                        let _ = win.set_size(tauri::LogicalSize::new(1280.0, 800.0));
+                        let _ = win.center();
+                    }
+                }
+            }
             // Quick Play desktop shortcut: relaunched with --play-instance,
             // start that instance right away (the UI comes up alongside it).
             if let Some((id, quick_play)) = shortcuts::parse_play_args() {
