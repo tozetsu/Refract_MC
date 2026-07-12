@@ -4,7 +4,7 @@ import type React from 'react'
 import { SearchIcon } from '@/components/ui/BlockIcons'
 import { Button } from '@/components/ui/Button'
 import { CardGridSkeleton, TextSkeleton } from '@/components/ui/Skeleton'
-import { api } from '@/lib/api'
+import { api, BlockedModError, formatInstallStats, type InstallStats } from '@/lib/api'
 import { htmlToText } from '@/lib/sanitize'
 import type { ModrinthProject, ModrinthVersion, ModrinthSortIndex, Instance, CFProject, CFFile, CFProjectDetail, ResolvedDep } from '@refract/core'
 import { useScrollLock } from '@/lib/use-scroll-lock'
@@ -322,7 +322,7 @@ interface DepsTarget {
   mainName: string
   mainKey: string                 // for the tile install spinner
   deps: ResolvedDep[]
-  install: () => Promise<void>     // installs the main mod itself
+  install: () => Promise<InstallStats | undefined>  // installs the main mod, returns measured stats
 }
 
 function DepsModal({ target, onClose, onConfirm, onSkip }: {
@@ -409,6 +409,82 @@ function DepsModal({ target, onClose, onConfirm, onSkip }: {
           <Button variant="primary" onClick={() => onConfirm(picked)} style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', padding: '0 24px', height: 36 }}>
             {total > 0 ? t.browse.depsInstallPlus(total) : t.browse.install}
           </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── BlockedModModal ──────────────────────────────────────────────────────────
+// Shown when a CurseForge author disabled API distribution: Refract opens the
+// file's CurseForge page in the browser and watches the Downloads folder for a
+// file matching the expected hash, then installs it like any other mod.
+
+function BlockedModModal({ target, onClose, onDone }: {
+  target: BlockedModError
+  onClose: () => void
+  onDone: (msg: string, ok: boolean) => void
+}) {
+  const t = useT()
+  useScrollLock()
+  const [waiting, setWaiting] = useState(false)
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
+
+  useEffect(() => {
+    return api.curseforge.onBlockedProgress(d => {
+      if (d.modId !== target.modId || d.fileId !== target.fileId) return
+      if (typeof d.secondsLeft === 'number') setSecondsLeft(d.secondsLeft)
+    })
+  }, [target])
+
+  async function start() {
+    setWaiting(true)
+    try {
+      const res = await api.curseforge.installBlocked(target.instanceId, target.modId, target.fileId, target.mod)
+      const speed = formatInstallStats(res.installStats)
+      onDone(speed ? t.browse.installedOkStats(target.displayName, speed) : t.browse.installedOk(target.displayName), true)
+    } catch (e) {
+      onDone(e instanceof Error ? e.message : t.browse.installFailed, false)
+    }
+  }
+
+  function cancel() {
+    if (waiting) void api.curseforge.blockedCancel(target.modId, target.fileId)
+    onClose()
+  }
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 91, background: 'rgba(0,0,0,.60)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={cancel}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--surface)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-lg)', width: 440, display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-floating)' }}
+      >
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--line)' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{t.browse.blockedTitle}</div>
+        </div>
+        <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <p style={{ fontSize: 12.5, color: 'var(--ink-2)', margin: 0, lineHeight: 1.55 }}>
+            {t.browse.blockedBody(target.displayName)}
+          </p>
+          {waiting && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'var(--surface-2)', border: '1px solid var(--border-r)', borderRadius: 'var(--radius-sm)' }}>
+              <div style={{ width: 8, height: 8, background: 'var(--accent)', flexShrink: 0 }} />
+              <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>
+                {secondsLeft != null ? t.browse.blockedWaiting(secondsLeft) : t.browse.blockedWaitingStart}
+              </span>
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '12px 18px', borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+          <Button variant="outline" onClick={cancel} style={{ fontSize: 12, color: 'var(--ink-3)', padding: '0 16px', height: 32 }}>{t.browse.blockedCancel}</Button>
+          {!waiting && (
+            <Button variant="primary" onClick={() => void start()} style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', padding: '0 20px', height: 36 }}>
+              {t.browse.blockedStart}
+            </Button>
+          )}
         </div>
       </div>
     </div>
@@ -891,6 +967,7 @@ function Browse() {
   const [installingId, setInstallingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
   const [depsTarget, setDepsTarget] = useState<DepsTarget | null>(null)
+  const [blockedTarget, setBlockedTarget] = useState<BlockedModError | null>(null)
 
   const searchRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -1087,21 +1164,30 @@ function Browse() {
   }
 
   // Install a single mod directly (no deps to resolve).
-  async function installOne(key: string, run: () => Promise<void>, name: string) {
+  async function refreshInstalledState() {
+    const nextInstances = await api.instance.list().catch(() => null)
+    if (!nextInstances) return
+    setInstances(nextInstances)
+    if (activeInstance) {
+      const nextActive = nextInstances.find(i => i.id === activeInstance.id) ?? activeInstance
+      setActiveInstance(nextActive)
+      await refreshActiveModStatus(activeInstance.id, nextActive)
+    }
+  }
+
+  function installedToast(name: string, stats: InstallStats | undefined) {
+    const speed = formatInstallStats(stats)
+    showToast(speed ? t.browse.installedOkStats(name, speed) : t.browse.installedOk(name), true)
+  }
+
+  async function installOne(key: string, run: () => Promise<InstallStats | undefined>, name: string) {
     setInstallingId(key)
     try {
-      await run()
-      showToast(t.browse.installedOk(name), true)
-      const nextInstances = await api.instance.list().catch(() => null)
-      if (nextInstances) {
-        setInstances(nextInstances)
-        if (activeInstance) {
-          const nextActive = nextInstances.find(i => i.id === activeInstance.id) ?? activeInstance
-          setActiveInstance(nextActive)
-          await refreshActiveModStatus(activeInstance.id, nextActive)
-        }
-      }
+      const stats = await run()
+      installedToast(name, stats)
+      await refreshInstalledState()
     } catch (e) {
+      if (e instanceof BlockedModError) { setBlockedTarget(e); return }
       showToast(e instanceof Error ? e.message : t.browse.installFailed, false)
     } finally {
       setInstallingId(null)
@@ -1117,11 +1203,11 @@ function Browse() {
     let deps: ResolvedDep[] = []
     try { deps = await api.mods.planDeps({ source: 'modrinth', instanceId, version }) } catch { /* resolve best-effort */ }
     const actionable = deps.some(d => (d.type === 'required' && !d.alreadyInstalled) || (d.type === 'optional' && !d.alreadyInstalled))
-    const install = () => api.modrinth.install(instanceId, mainProjectId, modName, version.id)
+    const install = async () => (await api.modrinth.install(instanceId, mainProjectId, modName, version.id)).installStats
     if (actionable) {
-      setDepsTarget({ instanceId, mainName: modName, mainKey: mainProjectId, deps, install: async () => { await install() } })
+      setDepsTarget({ instanceId, mainName: modName, mainKey: mainProjectId, deps, install })
     } else {
-      await installOne(mainProjectId, async () => { await install() }, modName)
+      await installOne(mainProjectId, install, modName)
     }
   }
 
@@ -1131,11 +1217,11 @@ function Browse() {
     let deps: ResolvedDep[] = []
     try { deps = await api.mods.planDeps({ source: 'curseforge', instanceId, file }) } catch { /* best-effort */ }
     const actionable = deps.some(d => !d.alreadyInstalled)
-    const install = () => api.curseforge.install(instanceId, file.modId, file.id, displayName)
+    const install = async () => (await api.curseforge.install(instanceId, file.modId, file.id, displayName)).installStats
     if (actionable) {
-      setDepsTarget({ instanceId, mainName: displayName, mainKey: key, deps, install: async () => { await install() } })
+      setDepsTarget({ instanceId, mainName: displayName, mainKey: key, deps, install })
     } else {
-      await installOne(key, async () => { await install() }, displayName)
+      await installOne(key, install, displayName)
     }
   }
 
@@ -1151,19 +1237,13 @@ function Browse() {
         if (d.source === 'modrinth' && d.projectId) await api.modrinth.install(instanceId, d.projectId, d.name, d.versionId)
         else if (d.source === 'curseforge' && d.modId != null && d.fileId != null) await api.curseforge.install(instanceId, d.modId, d.fileId, d.name)
       }
-      await install()
+      const stats = await install()
       const n = toInstall.length
-      showToast(n > 0 ? t.browse.depsInstalledOk(mainName, n) : t.browse.installedOk(mainName), true)
-      const nextInstances = await api.instance.list().catch(() => null)
-      if (nextInstances) {
-        setInstances(nextInstances)
-        if (activeInstance) {
-          const nextActive = nextInstances.find(i => i.id === activeInstance.id) ?? activeInstance
-          setActiveInstance(nextActive)
-          await refreshActiveModStatus(activeInstance.id, nextActive)
-        }
-      }
+      if (n > 0) showToast(t.browse.depsInstalledOk(mainName, n), true)
+      else installedToast(mainName, stats)
+      await refreshInstalledState()
     } catch (e) {
+      if (e instanceof BlockedModError) { setBlockedTarget(e); return }
       showToast(e instanceof Error ? e.message : t.browse.installFailed, false)
     } finally {
       setInstallingId(null)
@@ -1369,6 +1449,18 @@ function Browse() {
           onClose={() => setDepsTarget(null)}
           onConfirm={handleDepsConfirm}
           onSkip={handleDepsSkip}
+        />
+      )}
+
+      {blockedTarget && (
+        <BlockedModModal
+          target={blockedTarget}
+          onClose={() => setBlockedTarget(null)}
+          onDone={(msg, ok) => {
+            setBlockedTarget(null)
+            showToast(msg, ok)
+            void refreshInstalledState()
+          }}
         />
       )}
 

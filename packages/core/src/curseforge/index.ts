@@ -68,6 +68,8 @@ export interface CFFile {
   fileLength:    number
   downloadCount: number
   downloadUrl:   string | null
+  // algo: 1 = SHA-1, 2 = MD5
+  hashes?:       Array<{ value: string; algo: number }>
   gameVersions:  string[]
   releaseType:   number
   // relationType: 1=embedded, 2=optional, 3=required, 4=tool, 5=incompatible, 6=include

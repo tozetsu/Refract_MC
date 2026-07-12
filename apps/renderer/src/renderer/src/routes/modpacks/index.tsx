@@ -4,7 +4,7 @@ import type React from 'react'
 import { SearchIcon } from '@/components/ui/BlockIcons'
 import { Button } from '@/components/ui/Button'
 import { CardGridSkeleton, TextSkeleton } from '@/components/ui/Skeleton'
-import { api } from '@/lib/api'
+import { api, formatInstallStats } from '@/lib/api'
 import { htmlToText } from '@/lib/sanitize'
 import type { ModrinthProject, ModrinthVersion, ModrinthSortIndex, ModrinthProjectType, Instance, CFProject, CFFile, CFProjectDetail, FtbModpack } from '@refract/core'
 import { ftbIconUrl, ftbTargets } from '@refract/core'
@@ -1275,13 +1275,14 @@ function ContentBrowser() {
     const offProgress = api.modpack.onProgress(({ projectId, step, percent }) => {
       setProgress(prev => prev?.projectId === projectId ? { ...prev, step, percent } : prev)
     })
-    const offDone = api.modpack.onDone(({ projectId, instanceId, error }) => {
+    const offDone = api.modpack.onDone(({ projectId, instanceId, error, stats }) => {
       setProgress(null)
       setInstallingId(null)
       if (error) {
         showToast(t.content.installFailedWith(error), false)
       } else {
-        showToast(t.content.modpackInstalled, true)
+        const speed = formatInstallStats(stats)
+        showToast(speed ? t.content.modpackInstalledStats(speed) : t.content.modpackInstalled, true)
         if (instanceId) api.instance.list().then(setInstances).catch(() => {})
       }
     })

@@ -4,14 +4,13 @@
 //! separate step. Progress streams to the renderer over `mc://progress`,
 //! matching the renderer `mc:progress` payload shape.
 
-use crate::{instances, net, paths};
-use futures_util::future::join_all;
+use crate::{downloader, instances, net, paths};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::fs::{self, File};
-use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::path::Path;
+use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{AppHandle, Emitter};
 
 const RESOURCES: &str = "https://resources.download.minecraft.net";
@@ -115,19 +114,26 @@ fn emit(app: &AppHandle, instance_id: &str, step: &str, current: u64, total: u64
     );
 }
 
-async fn download_to(iid: &str, url: &str, dest: &Path, sha1: Option<&str>) -> Result<(), String> {
+async fn download_to(iid: &str, url: &str, dest: &Path, sha1: Option<&str>) -> Result<u64, String> {
     check_cancelled(iid)?;
     let expected = sha1.filter(|s| !s.is_empty()).map(net::ExpectedHash::Sha1);
-    let result = net::download_to(
-        &reqwest::Client::new(),
-        url,
-        dest,
-        net::MINECRAFT_HOSTS,
-        expected,
-    )
-    .await;
+    let result = net::download_to(url, dest, net::MINECRAFT_HOSTS, expected).await;
     check_cancelled(iid)?;
-    result
+    result?;
+    Ok(fs::metadata(dest).map(|m| m.len()).unwrap_or(0))
+}
+
+/// Cancel check shaped for the download engine's batch runner.
+fn cancel_check_for(iid: &str) -> downloader::CancelCheck {
+    let iid = iid.to_string();
+    Arc::new(move || check_cancelled(&iid))
+}
+
+/// Batch progress that re-emits over `mc://progress` under a fixed step label.
+fn batch_progress(app: &AppHandle, iid: &str, step: &'static str) -> downloader::ProgressFn {
+    let app = app.clone();
+    let iid = iid.to_string();
+    Arc::new(move |p: &downloader::BatchProgress| emit(&app, &iid, step, p.done, p.total))
 }
 
 async fn get_json(url: &str) -> Result<Value, String> {
@@ -217,6 +223,7 @@ async fn install_loader(
     mc: &str,
     loader: &str,
     requested: Option<&str>,
+    timer: &downloader::InstallTimer,
 ) -> Result<String, String> {
     let meta = if loader == "fabric" {
         FABRIC_META
@@ -257,35 +264,53 @@ async fn install_loader(
     .map_err(|e| e.to_string())?;
 
     let libs: Vec<Value> = profile["libraries"].as_array().cloned().unwrap_or_default();
-    let allowed: Vec<&Value> = libs.iter().filter(|l| library_allowed(l)).collect();
-    let total = (allowed.len() as u64).max(1);
     let libs_dir = paths::libraries_dir();
-    for (i, lib) in allowed.iter().enumerate() {
-        emit(app, iid, label, i as u64 + 1, total);
-        check_cancelled(iid)?;
-        if let (Some(path), Some(url)) = (
-            lib["downloads"]["artifact"]["path"].as_str(),
-            lib["downloads"]["artifact"]["url"].as_str(),
-        ) {
-            if !url.is_empty() {
-                let _ = download_to(
-                    iid,
-                    url,
-                    &libs_dir.join(path),
-                    lib["downloads"]["artifact"]["sha1"].as_str(),
+    let tasks: Vec<downloader::Task> = libs
+        .iter()
+        .filter(|l| library_allowed(l))
+        .filter_map(|lib| {
+            if let (Some(path), Some(url)) = (
+                lib["downloads"]["artifact"]["path"].as_str(),
+                lib["downloads"]["artifact"]["url"].as_str(),
+            ) {
+                if url.is_empty() {
+                    return None;
+                }
+                let hash = lib["downloads"]["artifact"]["sha1"]
+                    .as_str()
+                    .filter(|s| !s.is_empty())
+                    .map(|s| downloader::OwnedHash::Sha1(s.to_string()));
+                Some(
+                    downloader::Task::new(url, libs_dir.join(path), net::MINECRAFT_HOSTS)
+                        .hash(hash)
+                        .existing(downloader::Existing::ReuseIfValid),
                 )
-                .await;
-            }
-        } else if let (Some(name), Some(base)) = (lib["name"].as_str(), lib["url"].as_str()) {
-            let rel = maven_to_path(name);
-            let base = if base.ends_with('/') {
-                base.to_string()
+            } else if let (Some(name), Some(base)) = (lib["name"].as_str(), lib["url"].as_str()) {
+                let rel = maven_to_path(name);
+                let base = if base.ends_with('/') {
+                    base.to_string()
+                } else {
+                    format!("{base}/")
+                };
+                Some(downloader::Task::new(
+                    format!("{base}{rel}"),
+                    libs_dir.join(&rel),
+                    net::MINECRAFT_HOSTS,
+                ))
             } else {
-                format!("{base}/")
-            };
-            let _ = download_to(iid, &format!("{base}{rel}"), &libs_dir.join(&rel), None).await;
-        }
-    }
+                None
+            }
+        })
+        .collect();
+    // Per-lib failures stay non-fatal (matching the old behaviour).
+    let batch = downloader::run(
+        tasks,
+        downloader::LIBRARY_CONCURRENCY,
+        Some(cancel_check_for(iid)),
+        Some(batch_progress(app, iid, "Installing loader libraries")),
+    )
+    .await;
+    timer.add_batch(&batch);
     check_cancelled(iid)?;
     emit(app, iid, label, 1, 1);
     Ok(version)
@@ -306,7 +331,7 @@ async fn mojang_version_url(mc: &str) -> Result<String, String> {
 /// install pipeline, which re-downloads missing/corrupt files and re-persists
 /// isInstalled + the resolved loader version.
 #[tauri::command]
-pub async fn mc_repair(app: AppHandle, instance_id: String) -> Result<(), String> {
+pub async fn mc_repair(app: AppHandle, instance_id: String) -> Result<Value, String> {
     let inst = instances::get_instance_by_id(instance_id.clone())
         .ok_or(format!("Instance not found: {instance_id}"))?;
     let mc = inst
@@ -327,6 +352,9 @@ pub async fn mc_repair(app: AppHandle, instance_id: String) -> Result<(), String
     install_minecraft(app, instance_id, mc, url, loader, lv).await
 }
 
+/// Install (or repair) a Minecraft version + loader for an instance. Returns
+/// measured install stats `{ elapsedMs, bytes, files, mbps }` so callers can
+/// report real download speed.
 #[tauri::command]
 pub async fn install_minecraft(
     app: AppHandle,
@@ -335,9 +363,10 @@ pub async fn install_minecraft(
     version_url: String,
     mod_loader: Option<String>,
     mod_loader_version: Option<String>,
-) -> Result<(), String> {
+) -> Result<Value, String> {
     let iid = instance_id.as_str();
     let _guard = InstallGuard::new(iid)?;
+    let timer = downloader::InstallTimer::start();
 
     // 1. Version JSON
     emit(&app, iid, "Fetching version data", 0, 1);
@@ -356,39 +385,50 @@ pub async fn install_minecraft(
     // 2. Client jar
     emit(&app, iid, "Downloading client", 0, 1);
     if let Some(url) = vjson["downloads"]["client"]["url"].as_str() {
-        download_to(
+        let bytes = download_to(
             iid,
             url,
             &vdir.join(format!("{version_id}.jar")),
             vjson["downloads"]["client"]["sha1"].as_str(),
         )
         .await?;
+        timer.add(bytes, 1);
     }
     emit(&app, iid, "Downloading client", 1, 1);
 
-    // 3. Libraries (OS-filtered)
+    // 3. Libraries (OS-filtered), through the parallel engine; existing jars
+    // with a matching hash are reused. Per-lib failures stay non-fatal.
     let libs: Vec<Value> = vjson["libraries"].as_array().cloned().unwrap_or_default();
     let allowed: Vec<&Value> = libs.iter().filter(|l| library_allowed(l)).collect();
-    let total = allowed.len() as u64;
     let libs_dir = paths::libraries_dir();
-    for (i, lib) in allowed.iter().enumerate() {
-        emit(&app, iid, "Downloading libraries", i as u64 + 1, total);
-        check_cancelled(iid)?;
-        if let (Some(path), Some(url)) = (
-            lib["downloads"]["artifact"]["path"].as_str(),
-            lib["downloads"]["artifact"]["url"].as_str(),
-        ) {
-            if !url.is_empty() {
-                let _ = download_to(
-                    iid,
-                    url,
-                    &libs_dir.join(path),
-                    lib["downloads"]["artifact"]["sha1"].as_str(),
-                )
-                .await; // per-lib failure non-fatal
+    let lib_tasks: Vec<downloader::Task> = allowed
+        .iter()
+        .filter_map(|lib| {
+            let path = lib["downloads"]["artifact"]["path"].as_str()?;
+            let url = lib["downloads"]["artifact"]["url"].as_str()?;
+            if url.is_empty() {
+                return None;
             }
-        }
-    }
+            let hash = lib["downloads"]["artifact"]["sha1"]
+                .as_str()
+                .filter(|s| !s.is_empty())
+                .map(|s| downloader::OwnedHash::Sha1(s.to_string()));
+            Some(
+                downloader::Task::new(url, libs_dir.join(path), net::MINECRAFT_HOSTS)
+                    .hash(hash)
+                    .existing(downloader::Existing::ReuseIfValid),
+            )
+        })
+        .collect();
+    let batch = downloader::run(
+        lib_tasks,
+        downloader::LIBRARY_CONCURRENCY,
+        Some(cancel_check_for(iid)),
+        Some(batch_progress(&app, iid, "Downloading libraries")),
+    )
+    .await;
+    timer.add_batch(&batch);
+    check_cancelled(iid)?;
 
     // 4. Natives
     emit(&app, iid, "Extracting natives", 0, 1);
@@ -407,10 +447,8 @@ pub async fn install_minecraft(
             let art = &lib["downloads"]["classifiers"][&classifier];
             if let (Some(path), Some(url)) = (art["path"].as_str(), art["url"].as_str()) {
                 let jar = libs_dir.join(path);
-                if download_to(iid, url, &jar, art["sha1"].as_str())
-                    .await
-                    .is_ok()
-                {
+                if let Ok(bytes) = download_to(iid, url, &jar, art["sha1"].as_str()).await {
+                    timer.add(bytes, 1);
                     let _ = extract_natives(&jar, &natives_dir);
                 }
             }
@@ -440,37 +478,39 @@ pub async fn install_minecraft(
             .map_err(|e| e.to_string())
             .and_then(|s| serde_json::from_str(&s).map_err(|e| e.to_string()))?;
 
-        let objects: Vec<(String, String)> = index["objects"]
+        // Assets are content-addressed (path = its own SHA-1), so an existing
+        // file is trusted without re-hashing; the engine verifies new downloads.
+        let obj_dir = paths::assets_dir().join("objects");
+        let asset_tasks: Vec<downloader::Task> = index["objects"]
             .as_object()
             .map(|m| {
                 m.values()
                     .filter_map(|o| {
-                        o["hash"].as_str().and_then(|h| {
-                            h.get(..2).map(|prefix| (prefix.to_string(), h.to_string()))
-                        })
+                        let hash = o["hash"].as_str()?;
+                        let prefix = hash.get(..2)?;
+                        Some(
+                            downloader::Task::new(
+                                format!("{RESOURCES}/{prefix}/{hash}"),
+                                obj_dir.join(prefix).join(hash),
+                                net::MINECRAFT_HOSTS,
+                            )
+                            .hash(Some(downloader::OwnedHash::Sha1(hash.to_string())))
+                            .size(o["size"].as_u64())
+                            .existing(downloader::Existing::SkipIfExists),
+                        )
                     })
                     .collect()
             })
             .unwrap_or_default();
-        let obj_dir = paths::assets_dir().join("objects");
-        let total = objects.len() as u64;
-        let mut done = 0u64;
-        for chunk in objects.chunks(16) {
-            check_cancelled(iid)?;
-            join_all(chunk.iter().map(|(pre, hash)| {
-                let dest: PathBuf = obj_dir.join(pre).join(hash);
-                let url = format!("{RESOURCES}/{pre}/{hash}");
-                async move {
-                    if !dest.exists() {
-                        let _ = download_to(iid, &url, &dest, Some(hash)).await;
-                    }
-                }
-            }))
-            .await;
-            check_cancelled(iid)?;
-            done += chunk.len() as u64;
-            emit(&app, iid, "Downloading assets", done, total);
-        }
+        let batch = downloader::run(
+            asset_tasks,
+            downloader::ASSET_CONCURRENCY,
+            Some(cancel_check_for(iid)),
+            Some(batch_progress(&app, iid, "Downloading assets")),
+        )
+        .await;
+        timer.add_batch(&batch);
+        check_cancelled(iid)?;
     }
 
     // 6. Mod loader overlay. Forge/NeoForge use their installer processor runner.
@@ -485,6 +525,7 @@ pub async fn install_minecraft(
                     &version_id,
                     "fabric",
                     mod_loader_version.as_deref(),
+                    &timer,
                 )
                 .await?,
             )
@@ -498,6 +539,7 @@ pub async fn install_minecraft(
                     &version_id,
                     "quilt",
                     mod_loader_version.as_deref(),
+                    &timer,
                 )
                 .await?,
             )
@@ -525,5 +567,5 @@ pub async fn install_minecraft(
     let _ = instances::update_instance(instance_id.clone(), patch);
 
     emit(&app, iid, "Done", 1, 1);
-    Ok(())
+    Ok(timer.to_json())
 }

@@ -313,7 +313,14 @@
     "downloadedTip": "已下载 — 点击重新安装",
     "updateTip": "有可用更新",
     "incompatibleTip": "与 {{v}} 不兼容 — 点击仍然安装",
-    "byAuthor": "作者：{{name}}"
+    "byAuthor": "作者：{{name}}",
+    "installedOkStats": "{{name}} 已安装，用时 {{stats}}",
+    "blockedTitle": "需要手动下载",
+    "blockedBody": "{{name}} 的作者仅允许从 CurseForge 网站下载。Refract 将在浏览器中打开下载页面，监视“下载”文件夹中的文件，校验后自动安装。",
+    "blockedStart": "打开浏览器并安装",
+    "blockedWaitingStart": "等待浏览器下载…",
+    "blockedWaiting": "等待浏览器下载… 剩余 {{s}} 秒",
+    "blockedCancel": "取消"
   },
   "content": {
     "title": "内容浏览",
@@ -389,7 +396,8 @@
     "created": "创建时间",
     "downloadsWord": "下载量",
     "cfUnavailable": "CurseForge 不可用：{{error}}",
-    "followersWord": "关注者"
+    "followersWord": "关注者",
+    "modpackInstalledStats": "整合包已安装，用时 {{stats}} — 在实例库中查看。"
   },
   "news": {
     "kicker": "Minecraft",
@@ -713,7 +721,13 @@
     "changeImage": "点击更换图片",
     "stopBtn": "■ 停止",
     "playBtn": "▶ 开始游戏",
-    "edit": "编辑"
+    "edit": "编辑",
+    "verifyFiles": "校验文件",
+    "verifying": "校验中…",
+    "repairFiles": "修复",
+    "verifyAllOk": "已校验全部 {{n}} 个跟踪文件 — 未发现问题。",
+    "verifyIssues": "{{n}} 个文件缺失或损坏。",
+    "verifyRepaired": "已修复 {{total}} 个损坏文件中的 {{n}} 个。"
   },
   "skins": {
     "navLabel": "皮肤",

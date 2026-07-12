@@ -1,9 +1,11 @@
 mod activity;
 mod analytics;
 mod auth;
+mod cf;
 mod config;
 mod content;
 mod discord;
+mod downloader;
 mod external;
 mod forge;
 mod friends;
@@ -141,6 +143,9 @@ pub fn run() {
             mods::mods_install_local,
             mods::install_mod_file,
             mods::install_content_file,
+            mods::mods_verify,
+            cf::curseforge_install_blocked,
+            cf::curseforge_blocked_cancel,
             mods::export_mrpack,
             mods::check_mod_updates,
             mods::apply_mod_updates,

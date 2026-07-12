@@ -23,6 +23,9 @@ dirs = "5"
 # rustls avoids a native OpenSSL dependency on Windows; stream = chunked download.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json", "multipart"] }
 futures-util = "0.3"
+# Already in the tree via tauri/reqwest; direct dep for sleep in retry/backoff
+# and the Downloads-folder poll of the blocked-mod resolver.
+tokio = { version = "1", features = ["time"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = "0.4"
 # Production token storage: an iota_stronghold vault unlocked by a random master

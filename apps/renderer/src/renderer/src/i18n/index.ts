@@ -85,7 +85,10 @@ function build(l: Locale) {
       depsAlready:     (n: number)      => i(l.browse.depsAlready, { n }),
       depsInstallPlus: (n: number)      => i(l.browse.depsInstallPlus, { n }),
       searchFailed:    (message: string) => i(l.browse.searchFailed, { message }),
-      installedOk:     (name: string)   => i(l.browse.installedOk, { name }),
+      installedOk:      (name: string)                => i(l.browse.installedOk, { name }),
+      installedOkStats: (name: string, stats: string) => i(l.browse.installedOkStats, { name, stats }),
+      blockedBody:      (name: string)                => i(l.browse.blockedBody, { name }),
+      blockedWaiting:   (s: number)                   => i(l.browse.blockedWaiting, { s }),
       depsInstalledOk: (name: string, n: number) =>
         i(n === 1 ? l.browse.depsInstalledOkOne : l.browse.depsInstalledOk, { name, n }),
       cfUnavailable:   (error: string)  => i(l.browse.cfUnavailable, { error }),
@@ -106,6 +109,7 @@ function build(l: Locale) {
       installFailedWith:  (error: string)   => i(l.content.installFailedWith, { error }),
       searchFailed:       (message: string) => i(l.content.searchFailed, { message }),
       installedToInstance:(name: string)    => i(l.content.installedToInstance, { name }),
+      modpackInstalledStats:(stats: string) => i(l.content.modpackInstalledStats, { stats }),
       byAuthor:           (name: string)    => i(l.content.byAuthor, { name }),
       updatedDate:        (date: string)    => i(l.content.updatedDate, { date }),
       cfUnavailable:      (error: string)   => i(l.content.cfUnavailable, { error }),
@@ -174,6 +178,9 @@ function build(l: Locale) {
       selected:  (n: number) => i(l.instanceDetail.selected, { n }),
       updateAll: (n: number) => i(l.instanceDetail.updateAll, { n }),
       players:   (online: number, max: number) => i(l.instanceDetail.players, { online, max }),
+      verifyAllOk:    (n: number) => i(l.instanceDetail.verifyAllOk, { n }),
+      verifyIssues:   (n: number) => i(l.instanceDetail.verifyIssues, { n }),
+      verifyRepaired: (n: number, total: number) => i(l.instanceDetail.verifyRepaired, { n, total }),
     },
 
     skins: {

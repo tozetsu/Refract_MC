@@ -318,6 +318,7 @@ function createBrowserApi(): RefractAPI {
     },
     mods: {
       list:           async () => [],
+      verify:         async () => [],
       planDeps:       async () => [],
       toggle:         async () => { throw new Error('Mod management requires the desktop app.') },
       delete:         async () => { throw new Error('Mod management requires the desktop app.') },
@@ -333,6 +334,9 @@ function createBrowserApi(): RefractAPI {
       searchModpacks: async () => { throw new Error('CurseForge requires the desktop app.') },
       files:          async () => { throw new Error('CurseForge requires the desktop app.') },
       install:        async () => { throw new Error('CurseForge requires the desktop app.') },
+      installBlocked: async () => { throw new Error('CurseForge requires the desktop app.') },
+      blockedCancel:  async () => undefined,
+      onBlockedProgress: () => () => undefined,
       projectDetail:  async () => { throw new Error('CurseForge requires the desktop app.') },
       installModpack: async () => { throw new Error('CurseForge requires the desktop app.') },
     },
@@ -464,6 +468,34 @@ function scanJavaOnce(): ReturnType<RefractAPI['mc']['java']> {
     javaScanPromise.finally(() => { javaScanPromise = null })
   }
   return javaScanPromise
+}
+
+/** Measured download stats returned by Rust install commands and done events. */
+export type InstallStats = { elapsedMs: number; bytes: number; files: number; mbps: number }
+
+/** "installed in 3.2s (12.4 MB, 3.9 MB/s)" — the measured-speed toast suffix. */
+export function formatInstallStats(stats: InstallStats | undefined | null): string | null {
+  if (!stats || stats.bytes <= 0) return null
+  const secs = (stats.elapsedMs / 1000).toFixed(stats.elapsedMs < 10_000 ? 1 : 0)
+  const mb = (stats.bytes / (1024 * 1024)).toFixed(stats.bytes < 100 * 1024 * 1024 ? 1 : 0)
+  return `${secs}s (${mb} MB, ${stats.mbps.toFixed(1)} MB/s)`
+}
+
+/**
+ * Thrown by curseforge.install when the mod's author disabled API distribution.
+ * Carries everything needed to run the browser-download resolver instead.
+ */
+export class BlockedModError extends Error {
+  constructor(
+    public readonly instanceId: string,
+    public readonly modId: number,
+    public readonly fileId: number,
+    public readonly displayName: string,
+    public readonly mod: Record<string, unknown>,
+  ) {
+    super(`${displayName} must be downloaded from the CurseForge website.`)
+    this.name = 'BlockedModError'
+  }
 }
 
 type ResolvedDep = {
@@ -731,18 +763,33 @@ function createTauriApi(): RefractAPI {
         const files = await tinvoke('curseforge_files', { modId }) as Array<Record<string, unknown>>
         const file = files.find(f => f.id === fileId)
         if (!file) throw new Error(`CurseForge file ${fileId} not found`)
-        let url = file.downloadUrl as string | undefined
-        if (!url) url = await tinvoke('curseforge_download_url', { modId, fileId }) as string
-        if (!url) throw new Error(`No download URL available for ${displayName}`)
         const gameVersions = (file.gameVersions as string[] | undefined) ?? []
         const gameVersion = gameVersions.find(v => !/^(forge|fabric|neoforge|quilt)/i.test(v)) ?? instance.minecraftVersion
-        const mod = {
+        const sha1 = (file.hashes as Array<{ value: string; algo: number }> | undefined)?.find(h => h.algo === 1)?.value
+        let url = file.downloadUrl as string | undefined
+        if (!url) { try { url = await tinvoke('curseforge_download_url', { modId, fileId }) as string } catch { url = undefined } }
+        const mod: Record<string, unknown> = {
           projectId: `cf:${modId}`, versionId: String(fileId), name: displayName,
           fileName: file.fileName as string, fileSize: file.fileLength as number,
           loader: instance.modLoader ?? 'unknown', gameVersion, installedAt: new Date().toISOString(),
+          sha1, downloadUrl: url,
         }
-        return tinvoke('install_mod_file', { instanceId, url, fileName: file.fileName, mod })
+        // Author disabled API distribution — hand the caller a structured error
+        // so the UI can run the browser-download resolver.
+        if (!url) throw new BlockedModError(instanceId, modId, fileId, displayName, mod)
+        return tinvoke('install_mod_file', { instanceId, url, fileName: file.fileName, mod, sha1 })
       }) as RefractAPI['curseforge']['install'],
+      // Blocked-mod resolver: Rust opens the CurseForge page in the browser and
+      // watches Downloads for the matching file. Progress over cf://blocked.
+      installBlocked: ((instanceId: string, modId: number, fileId: number, mod: Record<string, unknown>) =>
+        tinvoke('curseforge_install_blocked', { instanceId, modId, fileId, mod })) as RefractAPI['curseforge']['installBlocked'],
+      blockedCancel: ((modId: number, fileId: number) =>
+        tinvoke('curseforge_blocked_cancel', { modId, fileId })) as RefractAPI['curseforge']['blockedCancel'],
+      onBlockedProgress: ((cb: (data: { modId: number; fileId: number; step: string; secondsLeft?: number }) => void) => {
+        let off: (() => void) | undefined
+        void listen<{ modId: number; fileId: number; step: string; secondsLeft?: number }>('cf://blocked', e => cb(e.payload)).then(u => { off = u })
+        return () => off?.()
+      }) as RefractAPI['curseforge']['onBlockedProgress'],
       installModpack: ((name: string, modId: number, fileId: number) =>
         tinvoke('curseforge_install_modpack', { name, modId, fileId })) as RefractAPI['curseforge']['installModpack'],
     },
@@ -811,9 +858,9 @@ function createTauriApi(): RefractAPI {
         void listen<{ projectId: string; step: string; percent: number }>('modpack://progress', e => cb(e.payload)).then(u => { off = u })
         return () => off?.()
       }) as RefractAPI['modpack']['onProgress'],
-      onDone: ((cb: (data: { projectId: string; instanceId?: string; error?: string }) => void) => {
+      onDone: ((cb: (data: { projectId: string; instanceId?: string; error?: string; stats?: InstallStats }) => void) => {
         let off: (() => void) | undefined
-        void listen<{ projectId: string; instanceId?: string; error?: string }>('modpack://done', e => cb(e.payload)).then(u => { off = u })
+        void listen<{ projectId: string; instanceId?: string; error?: string; stats?: InstallStats }>('modpack://done', e => cb(e.payload)).then(u => { off = u })
         return () => off?.()
       }) as RefractAPI['modpack']['onDone'],
     },
@@ -835,6 +882,8 @@ function createTauriApi(): RefractAPI {
           projectId, versionId: target.id, name: projectName, fileName: file.filename, fileSize: file.size,
           loader: target.loaders[0] ?? 'unknown', gameVersion: target.game_versions[0] ?? instance.minecraftVersion,
           installedAt: new Date().toISOString(),
+          // Recorded for later verification/repair (mods_verify).
+          sha512: file.hashes?.sha512, sha1: file.hashes?.sha1, downloadUrl: file.url,
         }
         return tinvoke('install_mod_file', { instanceId, url: file.url, fileName: file.filename, mod, sha512: file.hashes?.sha512, sha1: file.hashes?.sha1 })
       }) as RefractAPI['modrinth']['install'],
@@ -869,6 +918,7 @@ function createTauriApi(): RefractAPI {
           projectId, versionId: target.id, name: projectName, fileName: file.filename, fileSize: file.size,
           loader: target.loaders[0] ?? 'unknown', gameVersion: target.game_versions[0] ?? instance.minecraftVersion,
           installedAt: new Date().toISOString(), contentType,
+          sha512: file.hashes?.sha512, sha1: file.hashes?.sha1, downloadUrl: file.url,
         }
         await tinvoke('install_content_file', { instanceId, url: file.url, fileName: file.filename, contentType, mod, sha512: file.hashes?.sha512, sha1: file.hashes?.sha1 })
       }) as RefractAPI['modrinth']['contentInstall'],
@@ -879,6 +929,7 @@ function createTauriApi(): RefractAPI {
     mods: {
       ...base.mods,
       list: ((instanceId: string) => tinvoke('mods_list', { instanceId })) as RefractAPI['mods']['list'],
+      verify: ((instanceId: string, repair?: boolean) => tinvoke('mods_verify', { instanceId, repair })) as RefractAPI['mods']['verify'],
       toggle: ((instanceId: string, filename: string, type: string) => tinvoke('mods_toggle', { instanceId, filename, type })) as RefractAPI['mods']['toggle'],
       delete: ((instanceId: string, filename: string, type: string) => tinvoke('mods_delete', { instanceId, filename, type })) as RefractAPI['mods']['delete'],
       installLocal: ((instanceId: string, srcPath: string) => tinvoke('mods_install_local', { instanceId, srcPath })) as RefractAPI['mods']['installLocal'],

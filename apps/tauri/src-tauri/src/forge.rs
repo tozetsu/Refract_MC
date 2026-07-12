@@ -66,14 +66,7 @@ async fn get_text(url: &str) -> Result<String, String> {
 
 async fn download_to(url: &str, dest: &Path, sha1: Option<&str>) -> Result<(), String> {
     let expected = sha1.map(net::ExpectedHash::Sha1);
-    net::download_to(
-        &reqwest::Client::new(),
-        url,
-        dest,
-        net::MINECRAFT_HOSTS,
-        expected,
-    )
-    .await
+    net::download_to(url, dest, net::MINECRAFT_HOSTS, expected).await
 }
 
 /// `<version>…</version>` values from a maven-metadata.xml.

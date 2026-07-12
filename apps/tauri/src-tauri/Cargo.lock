@@ -3488,6 +3488,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-process",
  "tauri-plugin-updater",
+ "tokio",
  "uuid",
  "windows-sys 0.61.2",
  "zeroize",

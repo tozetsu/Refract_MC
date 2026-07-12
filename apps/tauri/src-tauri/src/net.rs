@@ -1,6 +1,4 @@
-use sha1::Sha1;
-use sha2::{Digest, Sha512};
-use std::fs;
+use crate::downloader;
 use std::path::Path;
 
 pub const MINECRAFT_HOSTS: &[&str] = &[
@@ -78,43 +76,19 @@ pub fn validate_url_any(url: &str, allowed_host_groups: &[&[&str]]) -> Result<()
     Err(last.unwrap_or_else(|| format!("No trusted hosts configured for {url}")))
 }
 
-fn verify(bytes: &[u8], expected: ExpectedHash<'_>) -> Result<(), String> {
-    match expected {
-        ExpectedHash::Sha1(want) => {
-            let got = hex::encode(Sha1::digest(bytes));
-            if !got.eq_ignore_ascii_case(want) {
-                return Err(format!("SHA-1 mismatch: expected {want}, got {got}"));
-            }
-        }
-        ExpectedHash::Sha512(want) => {
-            let got = hex::encode(Sha512::digest(bytes));
-            if !got.eq_ignore_ascii_case(want) {
-                return Err("SHA-512 mismatch for downloaded file".into());
-            }
-        }
-    }
-    Ok(())
-}
-
+/// Download `url` to `dest` through the shared engine: pooled client, streamed
+/// body, hash verification, atomic rename, bounded retries.
 pub async fn download_to(
-    client: &reqwest::Client,
     url: &str,
     dest: &Path,
-    allowed_hosts: &[&str],
+    allowed_hosts: &'static [&'static str],
     expected_hash: Option<ExpectedHash<'_>>,
 ) -> Result<(), String> {
-    validate_url(url, allowed_hosts)?;
-    let res = client.get(url).send().await.map_err(|e| e.to_string())?;
-    validate_url(res.url().as_str(), allowed_hosts)?;
-    if !res.status().is_success() {
-        return Err(format!("HTTP {} for {url}", res.status()));
-    }
-    let bytes = res.bytes().await.map_err(|e| e.to_string())?;
-    if let Some(expected) = expected_hash {
-        verify(&bytes, expected)?;
-    }
-    if let Some(parent) = dest.parent() {
-        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-    }
-    fs::write(dest, &bytes).map_err(|e| e.to_string())
+    let hash = expected_hash.map(|h| match h {
+        ExpectedHash::Sha1(want) => downloader::OwnedHash::Sha1(want.to_string()),
+        ExpectedHash::Sha512(want) => downloader::OwnedHash::Sha512(want.to_string()),
+    });
+    downloader::fetch(&downloader::Task::new(url, dest.to_path_buf(), allowed_hosts).hash(hash))
+        .await
+        .map(|_| ())
 }

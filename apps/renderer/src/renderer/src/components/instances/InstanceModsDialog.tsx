@@ -120,6 +120,9 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
   const [selectedMods, setSelectedMods]  = useState<Set<string>>(new Set())
   const [lightbox, setLightbox]          = useState<ScreenshotEntry | null>(null)
   const [modSearch, setModSearch]        = useState('')
+  const [verifying, setVerifying]        = useState(false)
+  const [verifyMsg, setVerifyMsg]        = useState<string | null>(null)
+  const [verifyIssues, setVerifyIssues]  = useState(0)
 
   const load = useCallback(async () => {
     if (!instance) return
@@ -176,6 +179,30 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
     try { setProfiles(await api.mods.profilesList(instance.id) as ModProfile[]) }
     catch { /* ignore */ }
   }, [instance])
+
+  // Audit recorded installs against the files on disk (hash + existence); with
+  // repair=true, missing/corrupt files are re-downloaded from the recorded URL.
+  const handleVerify = useCallback(async (repair: boolean) => {
+    if (!instance || verifying) return
+    setVerifying(true)
+    try {
+      const results = await api.mods.verify(instance.id, repair)
+      const bad = results.filter(r => r.status === 'missing' || r.status === 'corrupt')
+      setVerifyIssues(bad.length)
+      if (repair) {
+        const repaired = results.filter(r => r.repaired).length
+        setVerifyMsg(td.verifyRepaired(repaired, repaired + bad.length))
+        await load()
+      } else {
+        setVerifyMsg(bad.length === 0 ? td.verifyAllOk(results.length) : td.verifyIssues(bad.length))
+      }
+    } catch (e) {
+      setVerifyMsg(e instanceof Error ? e.message : String(e))
+      setVerifyIssues(0)
+    } finally {
+      setVerifying(false)
+    }
+  }, [instance, verifying, load, td])
 
   // Track which tabs have already been loaded this session — avoids re-fetching on tab revisit
   const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set())
@@ -506,6 +533,18 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                 {updatingAll ? td.updating : td.updateAll(updatesAvailable.length)}
               </Button>
             )}
+            {isContentTab && (tab === 'mod' || tab === 'all') && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleVerify(false)}
+                disabled={verifying}
+                title="Check every tracked file against its recorded hash"
+                style={{ fontSize: 11 }}
+              >
+                {verifying ? td.verifying : td.verifyFiles}
+              </Button>
+            )}
             {isContentTab && (
               <Button
                 variant="primary"
@@ -571,6 +610,33 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
             </button>
           ))}
         </div>
+
+        {/* Verify result strip */}
+        {verifyMsg && (tab === 'mod' || tab === 'all') && (
+          <div className="detail-strip" style={{ minHeight: 34, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 8, height: 8, flexShrink: 0, background: verifyIssues > 0 ? 'var(--lava)' : 'var(--grass)' }} />
+            <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{verifyMsg}</span>
+            {verifyIssues > 0 && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => void handleVerify(true)}
+                disabled={verifying}
+                style={{ fontSize: 11, marginLeft: 'auto' }}
+              >
+                {verifying ? td.verifying : td.repairFiles}
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => { setVerifyMsg(null); setVerifyIssues(0) }}
+              style={{ color: 'var(--ink-4)', fontSize: 13, marginLeft: verifyIssues > 0 ? 0 : 'auto' }}
+            >
+              ✕
+            </Button>
+          </div>
+        )}
 
         {/* Mod profiles strip */}
         {isContentTab && (tab === 'mod' || tab === 'all') && (

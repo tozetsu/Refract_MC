@@ -4,7 +4,7 @@
 //! curseforge_* proxy commands); this module owns the filesystem + instance.json
 //! writes.
 
-use crate::{instances, net};
+use crate::{downloader, instances, net};
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -36,7 +36,7 @@ static UPDATE_CACHE: LazyLock<Mutex<HashMap<String, (Instant, u64, Vec<ModUpdate
 const UPDATE_TTL: Duration = Duration::from_secs(300);
 
 /// Game dir for an instance: its external dir if set, else <instance>/minecraft.
-fn game_dir(instance_id: &str) -> PathBuf {
+pub(crate) fn game_dir(instance_id: &str) -> PathBuf {
     if let Some(inst) = instances::get_instance_by_id(instance_id.to_string()) {
         if let Some(ext) = inst.get("externalGameDir").and_then(Value::as_str) {
             if !ext.is_empty() {
@@ -56,18 +56,52 @@ fn subdir_for(kind: &str) -> &'static str {
     }
 }
 
-async fn download_to(
+async fn download_verified(
     url: &str,
     dest: &Path,
-    allowed_hosts: &[&str],
+    allowed_hosts: &'static [&'static str],
     sha512: Option<&str>,
     sha1: Option<&str>,
-) -> Result<(), String> {
-    let expected = sha512
-        .filter(|s| !s.is_empty())
-        .map(net::ExpectedHash::Sha512)
-        .or_else(|| sha1.filter(|s| !s.is_empty()).map(net::ExpectedHash::Sha1));
-    net::download_to(&reqwest::Client::new(), url, dest, allowed_hosts, expected).await
+) -> Result<downloader::Outcome, String> {
+    downloader::fetch(
+        &downloader::Task::new(url, dest.to_path_buf(), allowed_hosts)
+            .hash(downloader::OwnedHash::from_options(sha512, sha1))
+            .existing(downloader::Existing::ReuseIfValid),
+    )
+    .await
+}
+
+/// Prepend `record` to the instance's mods list, deduped by projectId (and
+/// contentType when the record carries one).
+pub(crate) fn record_instance_mod(instance_id: &str, record: Value) -> Result<(), String> {
+    let project_id = record
+        .get("projectId")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let content_type = record
+        .get("contentType")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let inst =
+        instances::get_instance_by_id(instance_id.to_string()).ok_or("instance not found")?;
+    let mut mods: Vec<Value> = inst
+        .get("mods")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    mods.retain(|m| {
+        let same_project = m.get("projectId").and_then(Value::as_str) == Some(project_id.as_str());
+        match &content_type {
+            Some(ct) => {
+                !(same_project
+                    && m.get("contentType").and_then(Value::as_str) == Some(ct.as_str()))
+            }
+            None => !same_project,
+        }
+    });
+    mods.insert(0, record);
+    instances::update_instance(instance_id.to_string(), json!({ "mods": mods })).map(|_| ())
 }
 
 #[derive(Serialize)]
@@ -367,7 +401,8 @@ pub fn mods_install_local(instance_id: String, src_path: String) -> Result<Strin
 
 /// Download a mod file into the instance's mods dir and record it in
 /// instance.json (prepended, deduped by projectId). The `mod` value is the
-/// InstalledMod the renderer built from Modrinth/CurseForge metadata.
+/// InstalledMod the renderer built from Modrinth/CurseForge metadata. Returns
+/// `{ mod, installStats }` — the record plus the measured download stats.
 #[tauri::command]
 pub async fn install_mod_file(
     instance_id: String,
@@ -377,6 +412,7 @@ pub async fn install_mod_file(
     sha512: Option<String>,
     sha1: Option<String>,
 ) -> Result<Value, String> {
+    let timer = downloader::InstallTimer::start();
     let mods_dir = game_dir(&instance_id).join("mods");
     let safe = Path::new(&file_name)
         .file_name()
@@ -393,7 +429,7 @@ pub async fn install_mod_file(
     } else {
         net::MODRINTH_HOSTS
     };
-    download_to(
+    let outcome = download_verified(
         &url,
         &mods_dir.join(&safe),
         allowed_hosts,
@@ -401,17 +437,10 @@ pub async fn install_mod_file(
         sha1.as_deref(),
     )
     .await?;
+    timer.add(outcome.bytes, 1);
 
-    let inst = instances::get_instance_by_id(instance_id.clone()).ok_or("instance not found")?;
-    let mut mods: Vec<Value> = inst
-        .get("mods")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    mods.retain(|m| m.get("projectId").and_then(Value::as_str) != Some(project_id.as_str()));
-    mods.insert(0, r#mod.clone());
-    instances::update_instance(instance_id, json!({ "mods": mods }))?;
-    Ok(r#mod)
+    record_instance_mod(&instance_id, r#mod.clone())?;
+    Ok(json!({ "mod": r#mod, "installStats": timer.to_json() }))
 }
 
 #[tauri::command]
@@ -474,7 +503,7 @@ pub async fn install_content_file(
         return Err(format!("{safe} is already downloaded for this instance."));
     }
 
-    download_to(
+    download_verified(
         &url,
         &dest,
         net::MODRINTH_HOSTS,
@@ -485,19 +514,7 @@ pub async fn install_content_file(
 
     if let Some(mod_record) = r#mod {
         if !project_id.is_empty() {
-            let inst =
-                instances::get_instance_by_id(instance_id.clone()).ok_or("instance not found")?;
-            let mut mods: Vec<Value> = inst
-                .get("mods")
-                .and_then(Value::as_array)
-                .cloned()
-                .unwrap_or_default();
-            mods.retain(|m| {
-                !(m.get("projectId").and_then(Value::as_str) == Some(project_id.as_str())
-                    && m.get("contentType").and_then(Value::as_str) == Some(content_type.as_str()))
-            });
-            mods.insert(0, mod_record);
-            instances::update_instance(instance_id, json!({ "mods": mods }))?;
+            record_instance_mod(&instance_id, mod_record)?;
         }
     }
     Ok(safe)
@@ -819,52 +836,186 @@ pub async fn apply_mod_updates(
     instance_id: String,
     updates: Vec<ApplyModUpdate>,
 ) -> Result<Vec<ApplyModUpdateResult>, String> {
+    use futures_util::StreamExt;
     let game_root = game_dir(&instance_id);
-    let mut results = Vec::new();
-    for update in updates {
-        let result = async {
-            let dir = game_root.join(subdir_for(update.content_type.as_deref().unwrap_or("mod")));
-            let new_name = Path::new(&update.new_filename)
-                .file_name()
-                .ok_or("invalid new filename")?
-                .to_string_lossy()
-                .to_string();
-            let old_name = Path::new(&update.filename)
-                .file_name()
-                .ok_or("invalid filename")?
-                .to_string_lossy()
-                .to_string();
-            net::download_to(
-                &reqwest::Client::new(),
-                &update.download_url,
-                &dir.join(&new_name),
-                net::MODRINTH_HOSTS,
-                None,
-            )
-            .await?;
-            let old_path = dir.join(&old_name);
-            let new_path = dir.join(&new_name);
-            if old_path.exists() && old_path != new_path {
-                fs::remove_file(old_path).map_err(|e| e.to_string())?;
-            }
-            Ok::<(), String>(())
-        }
-        .await;
+    let results: Vec<ApplyModUpdateResult> = futures_util::stream::iter(updates.into_iter().map(
+        |update| {
+            let game_root = game_root.clone();
+            async move {
+                let result = async {
+                    let dir =
+                        game_root.join(subdir_for(update.content_type.as_deref().unwrap_or("mod")));
+                    let new_name = Path::new(&update.new_filename)
+                        .file_name()
+                        .ok_or("invalid new filename")?
+                        .to_string_lossy()
+                        .to_string();
+                    let old_name = Path::new(&update.filename)
+                        .file_name()
+                        .ok_or("invalid filename")?
+                        .to_string_lossy()
+                        .to_string();
+                    net::download_to(
+                        &update.download_url,
+                        &dir.join(&new_name),
+                        net::MODRINTH_HOSTS,
+                        None,
+                    )
+                    .await?;
+                    let old_path = dir.join(&old_name);
+                    let new_path = dir.join(&new_name);
+                    if old_path.exists() && old_path != new_path {
+                        fs::remove_file(old_path).map_err(|e| e.to_string())?;
+                    }
+                    Ok::<(), String>(())
+                }
+                .await;
 
-        match result {
-            Ok(()) => results.push(ApplyModUpdateResult {
-                filename: update.filename,
-                success: true,
-                error: None,
-            }),
-            Err(error) => results.push(ApplyModUpdateResult {
-                filename: update.filename,
-                success: false,
-                error: Some(error),
-            }),
-        }
-    }
+                match result {
+                    Ok(()) => ApplyModUpdateResult {
+                        filename: update.filename,
+                        success: true,
+                        error: None,
+                    },
+                    Err(error) => ApplyModUpdateResult {
+                        filename: update.filename,
+                        success: false,
+                        error: Some(error),
+                    },
+                }
+            }
+        },
+    ))
+    .buffer_unordered(downloader::MOD_CONCURRENCY)
+    .collect()
+    .await;
     Ok(results)
+}
+
+// ── install verification ─────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+pub struct VerifyEntry {
+    #[serde(rename = "projectId")]
+    project_id: String,
+    name: String,
+    #[serde(rename = "fileName")]
+    file_name: String,
+    /// "ok" | "missing" | "corrupt" | "unverifiable" (no hash recorded)
+    status: String,
+    /// Set when repair was requested and this entry needed one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    repaired: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// Audit every recorded install against the files on disk: existence, then hash
+/// (sha512/sha1 recorded at install time). With `repair`, re-download missing or
+/// corrupt files from the recorded URL. Records without hashes get an existence
+/// check only ("unverifiable" when present).
+#[tauri::command]
+pub async fn mods_verify(
+    instance_id: String,
+    repair: Option<bool>,
+) -> Result<Vec<VerifyEntry>, String> {
+    let repair = repair.unwrap_or(false);
+    let inst = instances::get_instance_by_id(instance_id.clone()).ok_or("instance not found")?;
+    let records: Vec<Value> = inst
+        .get("mods")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let game_root = game_dir(&instance_id);
+
+    let mut out = Vec::new();
+    for record in records {
+        let field = |k: &str| record.get(k).and_then(Value::as_str).map(str::to_string);
+        let Some(file_name) = field("fileName") else {
+            continue;
+        };
+        let Some(safe) = Path::new(&file_name)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+        else {
+            continue;
+        };
+        let project_id = field("projectId").unwrap_or_default();
+        let name = field("name").unwrap_or_else(|| safe.clone());
+        let content_type = field("contentType").unwrap_or_else(|| "mod".into());
+        let dir = game_root.join(subdir_for(&content_type));
+        // A disabled file still counts as installed.
+        let path = [dir.join(&safe), dir.join(format!("{safe}.disabled"))]
+            .into_iter()
+            .find(|p| p.is_file());
+        let expected = downloader::OwnedHash::from_options(
+            field("sha512").as_deref(),
+            field("sha1").as_deref(),
+        );
+
+        let status = match (&path, &expected) {
+            (None, _) => "missing",
+            (Some(_), None) => "unverifiable",
+            (Some(p), Some(hash)) => {
+                let p = p.clone();
+                let hash = hash.clone();
+                let ok = tauri::async_runtime::spawn_blocking(move || {
+                    downloader::file_matches(&p, &hash)
+                })
+                .await
+                .unwrap_or(false);
+                if ok {
+                    "ok"
+                } else {
+                    "corrupt"
+                }
+            }
+        };
+
+        let mut entry = VerifyEntry {
+            project_id,
+            name,
+            file_name: safe.clone(),
+            status: status.into(),
+            repaired: None,
+            error: None,
+        };
+
+        if repair && (status == "missing" || status == "corrupt") {
+            match field("downloadUrl") {
+                Some(url) => {
+                    // A corrupt file may be a .disabled one — repair in place.
+                    let dest = path.clone().unwrap_or_else(|| dir.join(&safe));
+                    let hosts = if entry.project_id.starts_with("cf:") {
+                        net::CURSEFORGE_HOSTS
+                    } else {
+                        net::MODRINTH_HOSTS
+                    };
+                    let result = downloader::fetch(
+                        &downloader::Task::new(&url, dest, hosts).hash(expected.clone()),
+                    )
+                    .await;
+                    match result {
+                        Ok(_) => {
+                            entry.repaired = Some(true);
+                            entry.status = "ok".into();
+                        }
+                        Err(e) => {
+                            entry.repaired = Some(false);
+                            entry.error = Some(e);
+                        }
+                    }
+                }
+                None => {
+                    entry.repaired = Some(false);
+                    entry.error =
+                        Some("No download URL recorded — reinstall this file from Browse.".into());
+                }
+            }
+        }
+        out.push(entry);
+    }
+    Ok(out)
 }
 
 // ── .mrpack export ───────────────────────────────────────────────────────────

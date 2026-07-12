@@ -5,20 +5,18 @@
 //! finalizes. Progress streams over `modpack://progress`; completion (with the
 //! new instance id, or an error) over `modpack://done`.
 
-use crate::{config, external, instances, mc_install, mods, net, paths};
+use crate::cf::{self, CfRequiredFile};
+use crate::{config, downloader, external, instances, mc_install, mods, net, paths};
 use flate2::read::GzDecoder;
 use serde::Serialize;
 use serde_json::{json, Value};
-use sha1::{Digest as Sha1Digest, Sha1};
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::thread;
-use std::time::{Duration, Instant};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 
-const UA: &str = "Refract/1.0 (github.com/ShevRuslan1)";
 const FTB: &str = "https://api.modpacks.ch/public";
 const MOJANG_MANIFEST: &str = "https://launchermeta.mojang.com/mc/game/version_manifest_v2.json";
 
@@ -38,6 +36,9 @@ struct ModpackDone {
     instance_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
+    /// Measured install stats: { elapsedMs, bytes, files, mbps }.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stats: Option<Value>,
 }
 
 fn progress(app: &AppHandle, project_id: &str, step: &str, percent: f64) {
@@ -51,13 +52,14 @@ fn progress(app: &AppHandle, project_id: &str, step: &str, percent: f64) {
     );
 }
 
-fn done_ok(app: &AppHandle, project_id: &str, instance_id: &str) {
+fn done_ok(app: &AppHandle, project_id: &str, instance_id: &str, stats: Option<Value>) {
     let _ = app.emit(
         "modpack://done",
         ModpackDone {
             project_id: project_id.to_string(),
             instance_id: Some(instance_id.to_string()),
             error: None,
+            stats,
         },
     );
 }
@@ -69,23 +71,21 @@ fn done_err(app: &AppHandle, project_id: &str, error: &str) {
             project_id: project_id.to_string(),
             instance_id: None,
             error: Some(error.to_string()),
+            stats: None,
         },
     );
 }
 
 // ── shared helpers ───────────────────────────────────────────────────────────
 
-fn client() -> reqwest::Client {
-    reqwest::Client::builder()
-        .user_agent(UA)
-        .build()
-        .unwrap_or_default()
-}
-
 async fn get_json(url: &str) -> Result<Value, String> {
     let allowed_hosts = &[net::MINECRAFT_HOSTS, net::MODRINTH_HOSTS, net::FTB_HOSTS];
     net::validate_url_any(url, allowed_hosts)?;
-    let res = client().get(url).send().await.map_err(|e| e.to_string())?;
+    let res = downloader::http()
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     net::validate_url_any(res.url().as_str(), allowed_hosts)?;
     if !res.status().is_success() {
         return Err(format!("HTTP {} for {url}", res.status()));
@@ -126,7 +126,7 @@ fn modrinth_project_image(project: &Value) -> Option<String> {
 
 async fn curseforge_project_image(mod_id: i64) -> Option<String> {
     let key = config::curseforge_api_key()?;
-    let res = client()
+    let res = downloader::http()
         .get(format!("https://api.curseforge.com/v1/mods/{mod_id}"))
         .header("x-api-key", key)
         .header("Accept", "application/json")
@@ -173,335 +173,10 @@ fn set_instance_image(id: &str, image: Option<String>) {
 async fn download_to(
     url: &str,
     dest: &Path,
-    allowed_hosts: &[&str],
+    allowed_hosts: &'static [&'static str],
     expected_hash: Option<net::ExpectedHash<'_>>,
 ) -> Result<(), String> {
-    net::download_to(&client(), url, dest, allowed_hosts, expected_hash).await
-}
-
-async fn cf_file_name(project: u64, file: u64, cd: &str, final_url: &str) -> String {
-    if let Some(name) = filename_from_disposition(cd) {
-        return name;
-    }
-
-    if let Some(key) = config::curseforge_api_key() {
-        let url = format!("https://api.curseforge.com/v1/mods/{project}/files/{file}");
-        if let Ok(res) = client()
-            .get(url)
-            .header("x-api-key", key)
-            .header("Accept", "application/json")
-            .send()
-            .await
-        {
-            if res.status().is_success() {
-                if let Ok(body) = res.json::<Value>().await {
-                    if let Some(name) = body["data"]["fileName"].as_str() {
-                        if !name.trim().is_empty() {
-                            return name.to_string();
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    reqwest::Url::parse(final_url)
-        .ok()
-        .and_then(|url| {
-            url.path_segments()
-                .and_then(|mut segments| segments.next_back().map(str::to_string))
-        })
-        .filter(|name| name.contains('.'))
-        .unwrap_or_else(|| format!("{project}-{file}.jar"))
-}
-
-#[derive(Clone, Debug)]
-struct CfRequiredFile {
-    project: u64,
-    file: u64,
-    file_name: Option<String>,
-    sha1: Option<String>,
-}
-
-fn safe_filename(name: &str) -> String {
-    Path::new(name)
-        .file_name()
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_else(|| "mod.jar".to_string())
-        .chars()
-        .map(|c| {
-            if c.is_alphanumeric() || c == '.' || c == '_' || c == '-' {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect()
-}
-
-fn cf_display_name(file: &CfRequiredFile) -> String {
-    file.file_name
-        .clone()
-        .unwrap_or_else(|| format!("{}:{}", file.project, file.file))
-}
-
-fn sha1_file(path: &Path) -> Result<String, String> {
-    let mut file =
-        File::open(path).map_err(|e| format!("Could not open {}: {e}", path.display()))?;
-    let mut hasher = Sha1::new();
-    let mut buf = [0u8; 64 * 1024];
-    loop {
-        let n = file
-            .read(&mut buf)
-            .map_err(|e| format!("Could not read {}: {e}", path.display()))?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buf[..n]);
-    }
-    Ok(hex::encode(hasher.finalize()))
-}
-
-async fn cf_required_file(project: u64, file: u64) -> CfRequiredFile {
-    let mut out = CfRequiredFile {
-        project,
-        file,
-        file_name: None,
-        sha1: None,
-    };
-    let Some(key) = config::curseforge_api_key() else {
-        return out;
-    };
-    let url = format!("https://api.curseforge.com/v1/mods/{project}/files/{file}");
-    let Ok(res) = client()
-        .get(url)
-        .header("x-api-key", key)
-        .header("Accept", "application/json")
-        .send()
-        .await
-    else {
-        return out;
-    };
-    if !res.status().is_success() {
-        return out;
-    }
-    let Ok(body) = res.json::<Value>().await else {
-        return out;
-    };
-    let data = &body["data"];
-    out.file_name = data["fileName"]
-        .as_str()
-        .filter(|s| !s.trim().is_empty())
-        .map(str::to_string);
-    out.sha1 = data["hashes"].as_array().and_then(|hashes| {
-        hashes.iter().find_map(|h| {
-            let value = h["value"].as_str()?.trim();
-            let algo = h["algo"].as_i64();
-            if algo == Some(1) || value.len() == 40 {
-                Some(value.to_string())
-            } else {
-                None
-            }
-        })
-    });
-    out
-}
-
-async fn cf_required_files(files: &[Value]) -> Vec<CfRequiredFile> {
-    let mut out = Vec::new();
-    for f in files {
-        if let (Some(project), Some(file)) = (f["projectID"].as_u64(), f["fileID"].as_u64()) {
-            out.push(cf_required_file(project, file).await);
-        }
-    }
-    out
-}
-
-fn cf_file_present(mods_dir: &Path, required: &CfRequiredFile) -> bool {
-    if let Some(want) = required.sha1.as_deref() {
-        let Ok(entries) = fs::read_dir(mods_dir) else {
-            return false;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_file()
-                && sha1_file(&path)
-                    .map(|got| got.eq_ignore_ascii_case(want))
-                    .unwrap_or(false)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    required
-        .file_name
-        .as_deref()
-        .map(|name| mods_dir.join(safe_filename(name)).exists())
-        .unwrap_or(false)
-}
-
-fn audit_cf_manifest(mods_dir: &Path, required: &[CfRequiredFile]) -> Vec<CfRequiredFile> {
-    required
-        .iter()
-        .filter(|file| !cf_file_present(mods_dir, file))
-        .cloned()
-        .collect()
-}
-
-/// Download a CurseForge file via the public CDN (works for redistributable
-/// mods); filename comes from Content-Disposition, then CF metadata.
-async fn download_cf_cdn(
-    project: u64,
-    file: u64,
-    dest_dir: &Path,
-    expected_sha1: Option<&str>,
-    preferred_name: Option<&str>,
-) -> Result<PathBuf, String> {
-    let url = format!("https://www.curseforge.com/api/v1/mods/{project}/files/{file}/download");
-    net::validate_url(&url, net::CURSEFORGE_HOSTS)?;
-    let res = client().get(&url).send().await.map_err(|e| e.to_string())?;
-    net::validate_url(res.url().as_str(), net::CURSEFORGE_HOSTS)?;
-    if !res.status().is_success() {
-        return Err(format!("HTTP {}", res.status()));
-    }
-    let cd = res
-        .headers()
-        .get("content-disposition")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-    let name = if let Some(name) = preferred_name {
-        name.to_string()
-    } else if let Some(name) = filename_from_disposition(&cd) {
-        name
-    } else {
-        cf_file_name(project, file, &cd, res.url().as_str()).await
-    };
-    let safe = safe_filename(&name);
-    let bytes = res.bytes().await.map_err(|e| e.to_string())?;
-    fs::create_dir_all(dest_dir).map_err(|e| e.to_string())?;
-    let dest = dest_dir.join(safe);
-    fs::write(&dest, &bytes).map_err(|e| e.to_string())?;
-    if let Some(want) = expected_sha1.filter(|s| !s.is_empty()) {
-        let got = sha1_file(&dest)?;
-        if !got.eq_ignore_ascii_case(want) {
-            let _ = fs::remove_file(&dest);
-            return Err(format!(
-                "SHA-1 mismatch for {}: expected {want}, got {got}",
-                dest.display()
-            ));
-        }
-    }
-    Ok(dest)
-}
-
-fn filename_from_disposition(cd: &str) -> Option<String> {
-    // filename*=UTF-8''name  or  filename="name"
-    let lower = cd.to_lowercase();
-    let idx = lower.find("filename")?;
-    let after = &cd[idx + "filename".len()..];
-    let eq = after.find('=')?;
-    let mut val = after[eq + 1..]
-        .trim()
-        .trim_start_matches("UTF-8''")
-        .trim_matches('"')
-        .to_string();
-    if let Some(semi) = val.find(';') {
-        val.truncate(semi);
-    }
-    let val = val.trim().trim_matches('"').to_string();
-    Path::new(&val)
-        .file_name()
-        .map(|s| s.to_string_lossy().to_string())
-}
-
-fn downloads_dirs() -> Vec<PathBuf> {
-    let mut dirs = Vec::new();
-    if let Some(dir) = dirs::download_dir() {
-        dirs.push(dir);
-    }
-    if let Some(home) = dirs::home_dir() {
-        let fallback = home.join("Downloads");
-        if !dirs.iter().any(|dir| dir == &fallback) {
-            dirs.push(fallback);
-        }
-    }
-    dirs
-}
-
-fn find_downloaded_cf_file(required: &CfRequiredFile) -> Option<PathBuf> {
-    let want_sha1 = required.sha1.as_deref();
-    let want_name = required.file_name.as_deref().map(safe_filename);
-    for dir in downloads_dirs() {
-        let Ok(entries) = fs::read_dir(dir) else {
-            continue;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !path.is_file() {
-                continue;
-            }
-            let name = path
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or_default();
-            if name.ends_with(".crdownload") || name.ends_with(".part") || name.ends_with(".tmp") {
-                continue;
-            }
-            if let Some(want) = want_sha1 {
-                if sha1_file(&path)
-                    .map(|got| got.eq_ignore_ascii_case(want))
-                    .unwrap_or(false)
-                {
-                    return Some(path);
-                }
-            } else if want_name.as_deref() == Some(name) {
-                return Some(path);
-            }
-        }
-    }
-    None
-}
-
-fn open_cf_download(project: u64, file: u64) -> Result<(), String> {
-    let url = format!("https://www.curseforge.com/api/v1/mods/{project}/files/{file}/download");
-
-    #[cfg(target_os = "windows")]
-    let mut cmd = {
-        let mut cmd = Command::new("explorer");
-        cmd.arg(&url);
-        cmd
-    };
-
-    #[cfg(target_os = "macos")]
-    let mut cmd = {
-        let mut cmd = Command::new("open");
-        cmd.arg(&url);
-        cmd
-    };
-
-    #[cfg(all(unix, not(target_os = "macos")))]
-    let mut cmd = {
-        let mut cmd = Command::new("xdg-open");
-        cmd.arg(&url);
-        cmd
-    };
-
-    cmd.spawn().map_err(|e| e.to_string())?;
-    Ok(())
-}
-
-fn wait_for_downloaded_cf_file(required: &CfRequiredFile) -> Option<PathBuf> {
-    let deadline = Instant::now() + Duration::from_secs(120);
-    while Instant::now() < deadline {
-        if let Some(path) = find_downloaded_cf_file(required) {
-            return Some(path);
-        }
-        thread::sleep(Duration::from_secs(1));
-    }
-    None
+    net::download_to(url, dest, allowed_hosts, expected_hash).await
 }
 
 async fn resolve_blocked_cf_files(
@@ -522,10 +197,20 @@ async fn resolve_blocked_cf_files(
             ),
             48.0,
         );
-        let found = find_downloaded_cf_file(required).or_else(|| {
-            let _ = open_cf_download(required.project, required.file);
-            wait_for_downloaded_cf_file(required)
-        });
+        let already = {
+            let probe = required.clone();
+            tauri::async_runtime::spawn_blocking(move || cf::find_downloaded_cf_file(&probe))
+                .await
+                .ok()
+                .flatten()
+        };
+        let found = match already {
+            Some(path) => Some(path),
+            None => {
+                let _ = cf::open_cf_download(required.project, required.file);
+                cf::wait_for_downloaded_cf_file(required, Duration::from_secs(120), |_| {}).await
+            }
+        };
         let Some(src) = found else {
             unresolved.push(required.clone());
             continue;
@@ -533,8 +218,12 @@ async fn resolve_blocked_cf_files(
         let name = required
             .file_name
             .as_deref()
-            .map(safe_filename)
-            .or_else(|| src.file_name().and_then(|s| s.to_str()).map(safe_filename))
+            .map(cf::safe_filename)
+            .or_else(|| {
+                src.file_name()
+                    .and_then(|s| s.to_str())
+                    .map(cf::safe_filename)
+            })
             .unwrap_or_else(|| format!("{}-{}.jar", required.project, required.file));
         if fs::create_dir_all(mods_dir).is_err() || fs::copy(&src, mods_dir.join(name)).is_err() {
             unresolved.push(required.clone());
@@ -550,12 +239,14 @@ async fn download_and_audit_cf_mods(
     mods_dir: &Path,
     base_percent: f64,
     span_percent: f64,
+    timer: &downloader::InstallTimer,
 ) -> Result<(), String> {
-    let required = cf_required_files(manifest_files).await;
+    use futures_util::StreamExt;
+    let required = cf::cf_required_files(manifest_files).await;
     let unverifiable = required
         .iter()
         .filter(|file| file.sha1.is_none())
-        .map(cf_display_name)
+        .map(cf::cf_display_name)
         .take(8)
         .collect::<Vec<_>>();
     if !unverifiable.is_empty() {
@@ -565,32 +256,52 @@ async fn download_and_audit_cf_mods(
             unverifiable.join(", ")
         ));
     }
+    // CDN downloads run through a bounded pool; per-file failures stay non-fatal
+    // here because the audit + blocked-file resolver below decide what's missing.
     let total = required.len().max(1);
-    for (i, file) in required.iter().enumerate() {
-        let _ = download_cf_cdn(
-            file.project,
-            file.file,
-            mods_dir,
-            file.sha1.as_deref(),
-            file.file_name.as_deref(),
-        )
+    let counter = AtomicU64::new(0);
+    // Futures are collected eagerly — a lazy `Map` over borrowed items trips
+    // rustc's higher-ranked lifetime check inside tauri::command futures.
+    let futs: Vec<_> = required
+        .iter()
+        .map(|file| {
+            let counter = &counter;
+            async move {
+                let result = cf::download_cf_cdn(
+                    file.project,
+                    file.file,
+                    mods_dir,
+                    file.sha1.as_deref(),
+                    file.file_name.as_deref(),
+                )
+                .await;
+                let done = counter.fetch_add(1, Ordering::Relaxed) + 1;
+                progress(
+                    app,
+                    project_id,
+                    &format!("Downloading mods ({done}/{total})"),
+                    base_percent + (done as f64 / total as f64) * span_percent,
+                );
+                result.ok()
+            }
+        })
+        .collect();
+    let outcomes: Vec<Option<PathBuf>> = futures_util::stream::iter(futs)
+        .buffer_unordered(downloader::MOD_CONCURRENCY)
+        .collect()
         .await;
-        progress(
-            app,
-            project_id,
-            &format!("Downloading mods ({}/{})", i + 1, total),
-            base_percent + (i as f64 / total as f64) * span_percent,
-        );
+    for path in outcomes.into_iter().flatten() {
+        timer.add(fs::metadata(&path).map(|m| m.len()).unwrap_or(0), 1);
     }
 
-    let missing = audit_cf_manifest(mods_dir, &required);
+    let missing = cf::audit_cf_manifest(mods_dir, &required);
     if missing.is_empty() {
         return Ok(());
     }
 
     let unresolved = resolve_blocked_cf_files(app, project_id, mods_dir, &missing).await;
     let still_missing = if unresolved.is_empty() {
-        audit_cf_manifest(mods_dir, &required)
+        cf::audit_cf_manifest(mods_dir, &required)
     } else {
         unresolved
     };
@@ -600,7 +311,7 @@ async fn download_and_audit_cf_mods(
 
     let names = still_missing
         .iter()
-        .map(cf_display_name)
+        .map(cf::cf_display_name)
         .take(8)
         .collect::<Vec<_>>()
         .join(", ");
@@ -780,13 +491,22 @@ async fn finalize(
     source: &str,
     proj: &str,
     ver: &str,
+    timer: &downloader::InstallTimer,
 ) {
     let _ = instances::update_instance(
         instance_id.to_string(),
         json!({ "isInstalled": true, "modpackSource": source, "modpackProjectId": proj, "modpackVersionId": ver }),
     );
     progress(app, project_id, "Done", 100.0);
-    done_ok(app, project_id, instance_id);
+    done_ok(app, project_id, instance_id, Some(timer.to_json()));
+}
+
+/// Fold the stats returned by `install_minecraft` into a modpack-level timer.
+fn absorb_mc_stats(timer: &downloader::InstallTimer, stats: &Value) {
+    timer.add(
+        stats.get("bytes").and_then(Value::as_u64).unwrap_or(0),
+        stats.get("files").and_then(Value::as_u64).unwrap_or(0),
+    );
 }
 
 // ── Modrinth (.mrpack) ───────────────────────────────────────────────────────
@@ -870,6 +590,7 @@ async fn install_modrinth(
     version_id: Option<String>,
     existing: Option<String>,
 ) -> Result<String, String> {
+    let timer = downloader::InstallTimer::start();
     progress(app, &project_id, "Fetching version info", 2.0);
     let versions: Vec<Value> = get_json(&format!(
         "https://api.modrinth.com/v2/project/{project_id}/version"
@@ -948,6 +669,7 @@ async fn install_modrinth(
         &game_dir,
         &mc0,
         loader0.as_deref(),
+        &timer,
     )
     .await;
     let _ = fs::remove_file(&mrpack);
@@ -961,6 +683,7 @@ async fn install_modrinth(
         "modrinth",
         &project_id,
         version["id"].as_str().unwrap_or(""),
+        &timer,
     )
     .await;
     Ok(id)
@@ -979,6 +702,7 @@ async fn install_modrinth_inner(
     game_dir: &Path,
     mc0: &str,
     loader0: Option<&str>,
+    timer: &downloader::InstallTimer,
 ) -> Result<(), String> {
     progress(app, project_id, "Downloading modpack archive", 10.0);
     let archive_hash = archive_sha512
@@ -990,6 +714,7 @@ async fn install_modrinth_inner(
                 .map(net::ExpectedHash::Sha1)
         });
     download_to(archive_url, mrpack, net::MODRINTH_HOSTS, archive_hash).await?;
+    timer.add(fs::metadata(mrpack).map(|m| m.len()).unwrap_or(0), 1);
 
     progress(app, project_id, "Extracting archive", 27.0);
     unzip(mrpack, temp)?;
@@ -1008,27 +733,11 @@ async fn install_modrinth_inner(
     );
 
     let files: Vec<Value> = index["files"].as_array().cloned().unwrap_or_default();
-    let client_files: Vec<&Value> = files
-        .iter()
-        .filter(|f| f["env"]["client"].as_str() != Some("unsupported"))
-        .collect();
-    let total = client_files.len().max(1);
-    for (i, f) in client_files.iter().enumerate() {
-        if let (Some(path), Some(url)) = (f["path"].as_str(), f["downloads"][0].as_str()) {
-            if let Some(dest) = safe_join(game_dir, path) {
-                let expected = f["hashes"]["sha512"]
-                    .as_str()
-                    .map(net::ExpectedHash::Sha512)
-                    .or_else(|| f["hashes"]["sha1"].as_str().map(net::ExpectedHash::Sha1));
-                download_to(url, &dest, net::MODRINTH_HOSTS, expected).await?;
-            }
-        }
-        progress(
-            app,
-            project_id,
-            &format!("Downloading mod files ({}/{})", i + 1, total),
-            30.0 + (i as f64 / total as f64) * 15.0,
-        );
+    let tasks = mrpack_tasks(&files, game_dir);
+    let batch = run_mod_file_batch(app, project_id, tasks, 30.0, 15.0).await;
+    timer.add_batch(&batch);
+    if let Some(error) = batch.error_summary("mod files") {
+        return Err(error);
     }
 
     progress(app, project_id, "Copying overrides", 46.0);
@@ -1037,8 +746,61 @@ async fn install_modrinth_inner(
 
     progress(app, project_id, "Installing Minecraft…", 50.0);
     let url = mojang_url(&mc).await?;
-    mc_install::install_minecraft(app.clone(), id.to_string(), mc, url, loader, loader_version)
-        .await
+    let stats =
+        mc_install::install_minecraft(app.clone(), id.to_string(), mc, url, loader, loader_version)
+            .await?;
+    absorb_mc_stats(timer, &stats);
+    Ok(())
+}
+
+/// Build verified download tasks from a Modrinth index's client-supported files.
+fn mrpack_tasks(files: &[Value], game_dir: &Path) -> Vec<downloader::Task> {
+    files
+        .iter()
+        .filter(|f| f["env"]["client"].as_str() != Some("unsupported"))
+        .filter_map(|f| {
+            let path = f["path"].as_str()?;
+            let url = f["downloads"][0].as_str()?;
+            let dest = safe_join(game_dir, path)?;
+            let hash = downloader::OwnedHash::from_options(
+                f["hashes"]["sha512"].as_str(),
+                f["hashes"]["sha1"].as_str(),
+            );
+            Some(
+                downloader::Task::new(url, dest, net::MODRINTH_HOSTS)
+                    .hash(hash)
+                    .existing(downloader::Existing::ReuseIfValid),
+            )
+        })
+        .collect()
+}
+
+/// Run a batch of modpack file downloads with `modpack://progress` mapping into
+/// the [base, base+span] percent window.
+async fn run_mod_file_batch(
+    app: &AppHandle,
+    project_id: &str,
+    tasks: Vec<downloader::Task>,
+    base_percent: f64,
+    span_percent: f64,
+) -> downloader::BatchResult {
+    let app = app.clone();
+    let project_id = project_id.to_string();
+    downloader::run(
+        tasks,
+        downloader::MOD_CONCURRENCY,
+        None,
+        Some(std::sync::Arc::new(move |p: &downloader::BatchProgress| {
+            let mb = p.bytes as f64 / (1024.0 * 1024.0);
+            progress(
+                &app,
+                &project_id,
+                &format!("Downloading mod files ({}/{}, {mb:.0} MB)", p.done, p.total),
+                base_percent + (p.done as f64 / p.total.max(1) as f64) * span_percent,
+            );
+        })),
+    )
+    .await
 }
 
 // ── CurseForge (zip manifest) ────────────────────────────────────────────────
@@ -1073,6 +835,7 @@ async fn install_curseforge(
     existing: Option<String>,
 ) -> Result<String, String> {
     let project_id = format!("cf:{mod_id}");
+    let timer = downloader::InstallTimer::start();
     progress(app, &project_id, "Fetching modpack file", 2.0);
     // Resolve the modpack zip URL (downloadUrl, else the authenticated endpoint).
     let archive_url = match crate::content::curseforge_download_url(mod_id, file_id).await {
@@ -1095,6 +858,7 @@ async fn install_curseforge(
         &zip_path,
         &temp,
         existing,
+        &timer,
     )
     .await;
     let _ = fs::remove_file(&zip_path);
@@ -1114,9 +878,11 @@ async fn install_curseforge_inner(
     zip_path: &Path,
     temp: &Path,
     existing: Option<String>,
+    timer: &downloader::InstallTimer,
 ) -> Result<String, String> {
     progress(app, project_id, "Downloading modpack archive", 8.0);
     download_to(archive_url, zip_path, net::CURSEFORGE_HOSTS, None).await?;
+    timer.add(fs::metadata(zip_path).map(|m| m.len()).unwrap_or(0), 1);
     progress(app, project_id, "Extracting archive", 20.0);
     unzip(zip_path, temp)?;
 
@@ -1147,7 +913,7 @@ async fn install_curseforge_inner(
     fs::create_dir_all(&mods_dir).ok();
 
     let files: Vec<Value> = manifest["files"].as_array().cloned().unwrap_or_default();
-    download_and_audit_cf_mods(app, project_id, &files, &mods_dir, 26.0, 22.0).await?;
+    download_and_audit_cf_mods(app, project_id, &files, &mods_dir, 26.0, 22.0, timer).await?;
 
     progress(app, project_id, "Copying overrides", 48.0);
     let overrides = manifest["overrides"].as_str().unwrap_or("overrides");
@@ -1155,7 +921,10 @@ async fn install_curseforge_inner(
 
     progress(app, project_id, "Installing Minecraft…", 50.0);
     let url = mojang_url(&mc).await?;
-    mc_install::install_minecraft(app.clone(), id.clone(), mc, url, loader, loader_version).await?;
+    let stats =
+        mc_install::install_minecraft(app.clone(), id.clone(), mc, url, loader, loader_version)
+            .await?;
+    absorb_mc_stats(timer, &stats);
 
     finalize(
         app,
@@ -1164,6 +933,7 @@ async fn install_curseforge_inner(
         "curseforge",
         &mod_id.to_string(),
         &file_id.to_string(),
+        timer,
     )
     .await;
     Ok(id)
@@ -1197,6 +967,7 @@ async fn install_ftb(
     existing: Option<String>,
 ) -> Result<String, String> {
     let project_id = format!("ftb:{pack_id}");
+    let timer = downloader::InstallTimer::start();
     progress(app, &project_id, "Fetching version info", 2.0);
     let version = get_json(&format!("{FTB}/modpack/{pack_id}/{version_id}")).await?;
     let (mc, loader, loader_version) = ftb_targets(&version);
@@ -1230,52 +1001,86 @@ async fn install_ftb(
                 .collect()
         })
         .unwrap_or_default();
+    // Each FTB file is either a direct URL (with an optional mirror) or a
+    // CurseForge project/file pair — a bounded pool downloads them concurrently.
+    // Per-file failures stay non-fatal (matching the old behaviour).
+    use futures_util::StreamExt;
     let total = files.len().max(1);
-    for (i, f) in files.iter().enumerate() {
-        let rel = format!(
-            "{}/{}",
-            f["path"]
-                .as_str()
-                .unwrap_or("")
-                .trim_start_matches("./")
-                .trim_start_matches('/'),
-            f["name"].as_str().unwrap_or("")
-        )
-        .replace("//", "/");
-        if let Some(dest) = safe_join(&game_dir, &rel) {
-            let dest_dir = dest
-                .parent()
-                .map(Path::to_path_buf)
-                .unwrap_or(game_dir.clone());
-            if let Some(url) = f["url"].as_str().filter(|s| !s.is_empty()) {
-                let expected = f["sha1"].as_str().map(net::ExpectedHash::Sha1);
-                if download_to(url, &dest, net::FTB_HOSTS, expected)
-                    .await
-                    .is_err()
-                {
-                    if let Some(mirror) = f["mirrors"][0].as_str() {
-                        let expected = f["sha1"].as_str().map(net::ExpectedHash::Sha1);
-                        let _ = download_to(mirror, &dest, net::FTB_HOSTS, expected).await;
+    let counter = AtomicU64::new(0);
+    // Eagerly collected for the same higher-ranked-lifetime reason as the CF pool.
+    let futs: Vec<_> = files.iter().map(|f| {
+        let game_dir = game_dir.clone();
+        let project_id = project_id.clone();
+        let counter = &counter;
+        async move {
+            let rel = format!(
+                "{}/{}",
+                f["path"]
+                    .as_str()
+                    .unwrap_or("")
+                    .trim_start_matches("./")
+                    .trim_start_matches('/'),
+                f["name"].as_str().unwrap_or("")
+            )
+            .replace("//", "/");
+            let mut got: u64 = 0;
+            if let Some(dest) = safe_join(&game_dir, &rel) {
+                let dest_dir = dest
+                    .parent()
+                    .map(Path::to_path_buf)
+                    .unwrap_or(game_dir.clone());
+                if let Some(url) = f["url"].as_str().filter(|s| !s.is_empty()) {
+                    let expected = f["sha1"].as_str().map(net::ExpectedHash::Sha1);
+                    let mut ok = download_to(url, &dest, net::FTB_HOSTS, expected).await.is_ok();
+                    if !ok {
+                        if let Some(mirror) = f["mirrors"][0].as_str() {
+                            let expected = f["sha1"].as_str().map(net::ExpectedHash::Sha1);
+                            ok = download_to(mirror, &dest, net::FTB_HOSTS, expected)
+                                .await
+                                .is_ok();
+                        }
+                    }
+                    if ok {
+                        got = fs::metadata(&dest).map(|m| m.len()).unwrap_or(0);
+                    }
+                } else if let (Some(p), Some(fl)) = (
+                    f["curseforge"]["project"].as_u64(),
+                    f["curseforge"]["file"].as_u64(),
+                ) {
+                    if let Ok(path) =
+                        cf::download_cf_cdn(p, fl, &dest_dir, f["sha1"].as_str(), None).await
+                    {
+                        got = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
                     }
                 }
-            } else if let (Some(p), Some(fl)) = (
-                f["curseforge"]["project"].as_u64(),
-                f["curseforge"]["file"].as_u64(),
-            ) {
-                let _ = download_cf_cdn(p, fl, &dest_dir, f["sha1"].as_str(), None).await;
             }
+            let done = counter.fetch_add(1, Ordering::Relaxed) + 1;
+            progress(
+                app,
+                &project_id,
+                &format!("Downloading files ({done}/{total})"),
+                6.0 + (done as f64 / total as f64) * 42.0,
+            );
+            got
         }
-        progress(
-            app,
-            &project_id,
-            &format!("Downloading files ({}/{})", i + 1, total),
-            6.0 + (i as f64 / total as f64) * 42.0,
-        );
+    })
+    .collect();
+    let bytes: Vec<u64> = futures_util::stream::iter(futs)
+        .buffer_unordered(downloader::MOD_CONCURRENCY)
+        .collect()
+        .await;
+    for got in bytes {
+        if got > 0 {
+            timer.add(got, 1);
+        }
     }
 
     progress(app, &project_id, "Installing Minecraft…", 50.0);
     let url = mojang_url(&mc).await?;
-    mc_install::install_minecraft(app.clone(), id.clone(), mc, url, loader, loader_version).await?;
+    let stats =
+        mc_install::install_minecraft(app.clone(), id.clone(), mc, url, loader, loader_version)
+            .await?;
+    absorb_mc_stats(&timer, &stats);
 
     finalize(
         app,
@@ -1284,6 +1089,7 @@ async fn install_ftb(
         "ftb",
         &pack_id.to_string(),
         &version_id.to_string(),
+        &timer,
     )
     .await;
     Ok(id)
@@ -1496,6 +1302,7 @@ async fn install_from_file_inner(
     stage_dir: &Path,
     name_opt: Option<String>,
 ) -> Result<String, String> {
+    let timer = downloader::InstallTimer::start();
     progress(app, project_id, "Extracting archive", 2.0);
     unzip(Path::new(file_path), temp)
         .map_err(|e| format!("Could not extract {}: {e}", file_path))?;
@@ -1524,40 +1331,18 @@ async fn install_from_file_inner(
             .map_err(|e| format!("Could not create staged mods folder: {e}"))?;
 
         let files: Vec<Value> = index["files"].as_array().cloned().unwrap_or_default();
-        let client: Vec<&Value> = files
-            .iter()
-            .filter(|f| f["env"]["client"].as_str() != Some("unsupported"))
-            .collect();
-        let total = client.len().max(1);
-        for (i, f) in client.iter().enumerate() {
-            let path = f["path"]
-                .as_str()
-                .ok_or_else(|| format!("Modrinth file entry #{i} has no path."))?;
-            let url = f["downloads"][0]
-                .as_str()
-                .ok_or_else(|| format!("Modrinth file {path} has no download URL."))?;
-            let dest = safe_join(&staged_game_dir, path)
-                .ok_or_else(|| format!("Modrinth file path escapes the game directory: {path}"))?;
-            let expected = f["hashes"]["sha512"]
-                .as_str()
-                .map(net::ExpectedHash::Sha512)
-                .or_else(|| f["hashes"]["sha1"].as_str().map(net::ExpectedHash::Sha1));
-            download_to(url, &dest, net::MODRINTH_HOSTS, expected)
-                .await
-                .map_err(|e| format!("Could not download Modrinth file {path} from {url}: {e}"))?;
-            progress(
-                app,
-                project_id,
-                &format!("Downloading mod files ({}/{})", i + 1, total),
-                10.0 + (i as f64 / total as f64) * 20.0,
-            );
+        let tasks = mrpack_tasks(&files, &staged_game_dir);
+        let batch = run_mod_file_batch(app, project_id, tasks, 10.0, 20.0).await;
+        timer.add_batch(&batch);
+        if let Some(error) = batch.error_summary("mod files") {
+            return Err(error);
         }
         progress(app, project_id, "Copying overrides", 32.0);
         copy_dir_checked(&root.join("overrides"), &staged_game_dir)?;
         copy_dir_checked(&root.join("client-overrides"), &staged_game_dir)?;
         progress(app, project_id, "Installing Minecraft…", 38.0);
         let url = mojang_url(&mc).await?;
-        mc_install::install_minecraft(
+        let stats = mc_install::install_minecraft(
             app.clone(),
             stage_id.to_string(),
             mc.clone(),
@@ -1566,6 +1351,7 @@ async fn install_from_file_inner(
             lv.clone(),
         )
         .await?;
+        absorb_mc_stats(&timer, &stats);
         progress(app, project_id, "Creating instance", 96.0);
         let id = create_imported_instance_from_stage(
             &name,
@@ -1575,7 +1361,7 @@ async fn install_from_file_inner(
             &staged_game_dir,
         )?;
         progress(app, project_id, "Done", 100.0);
-        done_ok(app, project_id, &id);
+        done_ok(app, project_id, &id, Some(timer.to_json()));
         return Ok(id);
     }
 
@@ -1596,13 +1382,13 @@ async fn install_from_file_inner(
             .map_err(|e| format!("Could not create staged mods folder: {e}"))?;
 
         let files: Vec<Value> = manifest["files"].as_array().cloned().unwrap_or_default();
-        download_and_audit_cf_mods(app, project_id, &files, &mods_dir, 10.0, 25.0).await?;
+        download_and_audit_cf_mods(app, project_id, &files, &mods_dir, 10.0, 25.0, &timer).await?;
         progress(app, project_id, "Copying overrides", 37.0);
         let overrides = manifest["overrides"].as_str().unwrap_or("overrides");
         copy_dir_checked(&root.join(overrides), &staged_game_dir)?;
         progress(app, project_id, "Installing Minecraft…", 42.0);
         let url = mojang_url(&mc).await?;
-        mc_install::install_minecraft(
+        let stats = mc_install::install_minecraft(
             app.clone(),
             stage_id.to_string(),
             mc.clone(),
@@ -1611,6 +1397,7 @@ async fn install_from_file_inner(
             lv.clone(),
         )
         .await?;
+        absorb_mc_stats(&timer, &stats);
         progress(app, project_id, "Creating instance", 96.0);
         let id = create_imported_instance_from_stage(
             &name,
@@ -1620,7 +1407,7 @@ async fn install_from_file_inner(
             &staged_game_dir,
         )?;
         progress(app, project_id, "Done", 100.0);
-        done_ok(app, project_id, &id);
+        done_ok(app, project_id, &id, Some(timer.to_json()));
         return Ok(id);
     }
 
@@ -1685,7 +1472,7 @@ async fn install_from_file_inner(
     copy_dir_checked(&payload, &staged_game_dir)?;
     progress(app, project_id, "Installing Minecraft…", 52.0);
     let url = mojang_url(&mc).await?;
-    mc_install::install_minecraft(
+    let stats = mc_install::install_minecraft(
         app.clone(),
         stage_id.to_string(),
         mc.clone(),
@@ -1694,6 +1481,7 @@ async fn install_from_file_inner(
         lv.clone(),
     )
     .await?;
+    absorb_mc_stats(&timer, &stats);
     progress(app, project_id, "Creating instance", 96.0);
     let id = create_imported_instance_from_stage(
         &name,
@@ -1703,7 +1491,7 @@ async fn install_from_file_inner(
         &staged_game_dir,
     )?;
     progress(app, project_id, "Done", 100.0);
-    done_ok(app, project_id, &id);
+    done_ok(app, project_id, &id, Some(timer.to_json()));
     Ok(id)
 }
 

@@ -231,7 +231,7 @@ declare global {
         search: (query: string, gameVersion?: string, loader?: string, category?: string, limit?: number, offset?: number) => Promise<import('@refract/core').ModrinthSearchResult>
         searchContent: (opts: import('@refract/core').ModrinthSearchOptions) => Promise<import('@refract/core').ModrinthSearchResult>
         versions: (projectId: string, gameVersion?: string, loader?: string) => Promise<import('@refract/core').ModrinthVersion[]>
-        install: (instanceId: string, projectId: string, projectName: string, versionId?: string) => Promise<import('@refract/core').InstalledMod>
+        install: (instanceId: string, projectId: string, projectName: string, versionId?: string) => Promise<{ mod: import('@refract/core').InstalledMod; installStats?: import('@/lib/api').InstallStats }>
         uninstall: (instanceId: string, projectId: string) => Promise<void>
         gameVersions: () => Promise<import('@refract/core').ModrinthGameVersion[]>
         contentInstall: (instanceId: string, projectId: string, projectName: string, contentType: string, versionId?: string) => Promise<void>
@@ -245,10 +245,11 @@ declare global {
         checkUpdate: (instanceId: string) => Promise<{ hasUpdate: boolean; latestVersionId: string; latestName: string } | null>
         update: (instanceId: string) => Promise<void>
         onProgress: (cb: (data: { projectId: string; step: string; percent: number }) => void) => () => void
-        onDone: (cb: (data: { projectId: string; instanceId?: string; error?: string }) => void) => () => void
+        onDone: (cb: (data: { projectId: string; instanceId?: string; error?: string; stats?: import('@/lib/api').InstallStats }) => void) => () => void
       }
       mods: {
         list:           (instanceId: string) => Promise<Array<{ filename: string; displayName: string; type: 'mod' | 'resourcepack' | 'shader' | 'datapack'; enabled: boolean; sizeKb: number; iconDataUrl?: string }>>
+        verify:         (instanceId: string, repair?: boolean) => Promise<Array<{ projectId: string; name: string; fileName: string; status: 'ok' | 'missing' | 'corrupt' | 'unverifiable'; repaired?: boolean; error?: string }>>
         planDeps:       (payload: unknown) => Promise<import('@refract/core').ResolvedDep[]>
         toggle:         (instanceId: string, filename: string, type: string) => Promise<void>
         delete:         (instanceId: string, filename: string, type: string) => Promise<void>
@@ -285,8 +286,8 @@ declare global {
         cancelInstall: (instanceId?: string) => Promise<void>
         java: () => Promise<import('@refract/core').JavaInstallation[]>
         isRunning: (instanceId: string) => Promise<boolean>
-        install: (instanceId: string, versionId: string, versionUrl: string, modLoader?: string, modLoaderVersion?: string) => Promise<void>
-        repair: (instanceId: string) => Promise<void>
+        install: (instanceId: string, versionId: string, versionUrl: string, modLoader?: string, modLoaderVersion?: string) => Promise<import('@/lib/api').InstallStats>
+        repair: (instanceId: string) => Promise<import('@/lib/api').InstallStats>
         launch: (instanceId: string, quickPlay?: { kind: 'server'; address: string } | { kind: 'world'; name: string }, offline?: boolean) => Promise<void>
         stop: (instanceId: string) => Promise<void>
         crashReport: (instanceId: string) => Promise<{ text: string; filename: string; path: string; modifiedAt: number } | null>
@@ -311,7 +312,10 @@ declare global {
         searchMods:     (query?: string, gameVersion?: string, loader?: string, pageSize?: number, index?: number) => Promise<import('@refract/core').CFSearchResult>
         searchModpacks: (query?: string, gameVersion?: string, pageSize?: number, index?: number) => Promise<import('@refract/core').CFSearchResult>
         files:          (modId: number, gameVersion?: string, loader?: string) => Promise<import('@refract/core').CFFile[]>
-        install:        (instanceId: string, modId: number, fileId: number, displayName: string) => Promise<void>
+        install:        (instanceId: string, modId: number, fileId: number, displayName: string) => Promise<{ mod: unknown; installStats?: import('@/lib/api').InstallStats }>
+        installBlocked: (instanceId: string, modId: number, fileId: number, mod: Record<string, unknown>) => Promise<{ mod: unknown; installStats?: import('@/lib/api').InstallStats }>
+        blockedCancel:  (modId: number, fileId: number) => Promise<void>
+        onBlockedProgress: (cb: (data: { modId: number; fileId: number; step: string; secondsLeft?: number }) => void) => () => void
         installModpack: (name: string, modId: number, fileId: number) => Promise<import('@refract/core').Instance>
       }
       ftb: {
