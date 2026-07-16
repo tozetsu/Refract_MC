@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.1
+
+### Updates
+
+* Fixed release finalization so the auto-updater manifest points to the stable installer assets.
+* Added parallel downloads, post-install verification, and automatic resolution for blocked mod dependencies.
+* Improved the startup loader, install dialog selection, pagination behavior, theme corner radii, and button hover feedback.
+* Refined the Simplified Chinese translation for the latest content-management messages.
+
 ## 1.3.0
 ### Playing
 
