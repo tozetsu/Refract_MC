@@ -111,6 +111,7 @@ curl -fsSL https://refractmc.net/install.sh | sh
 | Linux — AppImage      | [Download `.AppImage`](https://github.com/RefractMC/Refract_MC/releases/latest/download/Refract-Linux-x86_64.AppImage) |
 | Linux — Debian/Ubuntu | [Download `.deb`](https://github.com/RefractMC/Refract_MC/releases/latest/download/Refract-Linux-amd64.deb)            |
 | Linux — Fedora        | [Download `.rpm`](https://github.com/RefractMC/Refract_MC/releases/latest/download/Refract-Linux-x86_64.rpm)           |
+| Linux — Arch/AUR      | [`yay -S refract-launcher-bin`](https://aur.archlinux.org/packages/refract-launcher-bin)                               |
 | Other packages        | [View the latest release](https://github.com/RefractMC/Refract_MC/releases/latest)                                     |
 
 

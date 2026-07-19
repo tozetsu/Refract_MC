@@ -118,6 +118,10 @@ Output (under `src-tauri/target/release/bundle/`, depending on OS):
 - macOS: `dmg/*.dmg`, `macos/*.app.tar.gz`, plus `.sig` files
 - Linux: `appimage/*.AppImage`, `deb/*.deb`, `rpm/*.rpm`, plus `.sig` files
 
+Release assets also include stable, version-independent download names. The RPM
+alias is always `Refract-Linux-x86_64.rpm`, so website and package download
+links continue to work across future releases.
+
 ## 4. Publish to GitHub Releases
 
 The `Release (Tauri)` workflow uploads platform installers and the generated
@@ -155,6 +159,25 @@ The generated manifest should contain every supported updater platform:
 The app's endpoint is `…/releases/latest/download/latest.json`, so the release
 with the manifest must be the **latest** release. On next launch the app compares
 its version to `latest.json`, shows the banner, and updates on click.
+
+## 5. Publish to the Arch User Repository
+
+Arch users install the prebuilt package as `refract-launcher-bin`. Its source
+files live in `packaging/aur`; the `Publish AUR package` workflow refreshes the
+version, RPM checksum, and `.SRCINFO`, then pushes them to the AUR. It runs when
+a stable GitHub release is published, not while the release is still a draft.
+It can also be rerun manually with an existing published tag.
+
+The AUR requires a dedicated SSH key registered to an AUR account:
+
+1. Generate a dedicated Ed25519 key with `ssh-keygen -t ed25519 -f aur-refract`.
+2. Add `aur-refract.pub` to the AUR account under **My Account → SSH Public Key**.
+3. Add the full private key as the `AUR_SSH_PRIVATE_KEY` GitHub Actions secret.
+
+The first successful push creates the `refract-launcher-bin` package. Later
+stable releases update that same AUR repository automatically. The workflow
+pins the SSH host fingerprint published by Arch and refuses drafts and
+prereleases, so the package never points at private release assets.
 
 ## #26 - upgrading existing installs to the Tauri build
 

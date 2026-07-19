@@ -1,0 +1,126 @@
+name: Publish AUR package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Published release tag to package (for example, v1.3.1)'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aur-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish refract-launcher-bin
+    if: github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate release and prepare package metadata
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          VERSION="${RELEASE_TAG#v}"
+          mkdir aur-package
+
+          release_state="$(gh release view "$RELEASE_TAG" \
+            --json isDraft,isPrerelease \
+            --jq '[.isDraft, .isPrerelease] | @tsv')"
+          if [[ "$release_state" != $'false\tfalse' ]]; then
+            echo "AUR packages may only target published, non-prerelease releases." >&2
+            exit 1
+          fi
+
+          gh release download "$RELEASE_TAG" \
+            --pattern Refract-Linux-x86_64.rpm \
+            --dir aur-package
+
+          RPM="aur-package/Refract-Linux-x86_64.rpm"
+          SHA256="$(sha256sum "$RPM" | cut -d ' ' -f 1)"
+          cp packaging/aur/PKGBUILD aur-package/PKGBUILD
+          sed -i -E "s/^pkgver=.*/pkgver=${VERSION}/" aur-package/PKGBUILD
+          sed -i -E "s/^sha256sums_x86_64=.*/sha256sums_x86_64=('${SHA256}')/" aur-package/PKGBUILD
+
+          rm "$RPM"
+
+          docker run --rm \
+            --user 1001:1001 \
+            --env HOME=/tmp \
+            --volume "$PWD/aur-package:/pkg" \
+            archlinux:base-devel \
+            bash -lc 'cd /pkg && makepkg --printsrcinfo' \
+            > aur-package/.SRCINFO
+
+          grep -F "pkgver = ${VERSION}" aur-package/.SRCINFO
+          grep -F "sha256sums_x86_64 = ${SHA256}" aur-package/.SRCINFO
+
+      - name: Configure pinned AUR SSH access
+        run: |
+          set -euo pipefail
+
+          if [[ -z "$AUR_SSH_PRIVATE_KEY" ]]; then
+            echo "The AUR_SSH_PRIVATE_KEY repository secret is not configured." >&2
+            exit 1
+          fi
+
+          install -dm700 "$HOME/.ssh"
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > "$HOME/.ssh/aur"
+          chmod 600 "$HOME/.ssh/aur"
+
+          ssh-keyscan -t ed25519 aur.archlinux.org > "$HOME/.ssh/known_hosts"
+          host_fingerprint="$(ssh-keygen -lf "$HOME/.ssh/known_hosts" -E sha256 | awk '{print $2}')"
+          expected_fingerprint='SHA256:RFzBCUItH9LZS0cKB5UE6ceAYhBD5C8GeOBip8Z11+4'
+          if [[ "$host_fingerprint" != "$expected_fingerprint" ]]; then
+            echo "AUR SSH host fingerprint did not match the fingerprint published by Arch." >&2
+            exit 1
+          fi
+
+          cat >> "$HOME/.ssh/config" <<'EOF'
+          Host aur.archlinux.org
+            User aur
+            IdentityFile ~/.ssh/aur
+            IdentitiesOnly yes
+          EOF
+          chmod 600 "$HOME/.ssh/config" "$HOME/.ssh/known_hosts"
+
+      - name: Publish package to the AUR
+        run: |
+          set -euo pipefail
+
+          git -c init.defaultBranch=master clone \
+            ssh://aur@aur.archlinux.org/refract-launcher-bin.git \
+            aur-repository
+
+          cp aur-package/PKGBUILD aur-repository/PKGBUILD
+          cp aur-package/.SRCINFO aur-repository/.SRCINFO
+          cp packaging/aur/LICENSE aur-repository/LICENSE
+
+          cd aur-repository
+          git config user.name "RefractMC Release Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO LICENSE
+
+          if git diff --cached --quiet; then
+            echo "AUR package is already current for $RELEASE_TAG."
+            exit 0
+          fi
+
+          git commit -m "Update to ${RELEASE_TAG#v}"
+          git push origin HEAD:master

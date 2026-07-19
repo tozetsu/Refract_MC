@@ -190,7 +190,19 @@ jobs:
 
               cp "$BUNDLE/deb/Refract_${VERSION}_amd64.deb" \
                  "Refract-Linux-amd64.deb"
-              gh release upload "$TAG" "Refract-Linux-x86_64.AppImage" "Refract-Linux-amd64.deb" --clobber
+
+              rpm_files=("$BUNDLE"/rpm/*.rpm)
+              if [[ ${#rpm_files[@]} -ne 1 || ! -f "${rpm_files[0]}" ]]; then
+                echo "Expected exactly one RPM bundle, found ${#rpm_files[@]}" >&2
+                exit 1
+              fi
+              cp "${rpm_files[0]}" "Refract-Linux-x86_64.rpm"
+
+              gh release upload "$TAG" \
+                "Refract-Linux-x86_64.AppImage" \
+                "Refract-Linux-amd64.deb" \
+                "Refract-Linux-x86_64.rpm" \
+                --clobber
               ;;
           esac
 
@@ -215,12 +227,13 @@ jobs:
           gh release download "$TAG" --pattern latest.json
 
           jq --arg base "$BASE" '
-            del(.platforms["windows-x86_64-msi"], .platforms["linux-x86_64-rpm"])
+            del(.platforms["windows-x86_64-msi"])
             | if .platforms["windows-x86_64"]        then .platforms["windows-x86_64"].url        = $base + "/Refract-Windows-x64.exe"       else . end
             | if .platforms["windows-x86_64-nsis"]   then .platforms["windows-x86_64-nsis"].url   = $base + "/Refract-Windows-x64.exe"       else . end
             | if .platforms["linux-x86_64"]          then .platforms["linux-x86_64"].url          = $base + "/Refract-Linux-x86_64.AppImage" else . end
             | if .platforms["linux-x86_64-appimage"] then .platforms["linux-x86_64-appimage"].url = $base + "/Refract-Linux-x86_64.AppImage" else . end
             | if .platforms["linux-x86_64-deb"]      then .platforms["linux-x86_64-deb"].url      = $base + "/Refract-Linux-amd64.deb"       else . end
+            | if .platforms["linux-x86_64-rpm"]      then .platforms["linux-x86_64-rpm"].url      = $base + "/Refract-Linux-x86_64.rpm"      else . end
           ' latest.json > latest.fixed.json
           mv latest.fixed.json latest.json
 
