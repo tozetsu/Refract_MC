@@ -26,13 +26,13 @@ All launcher UI strings live here as JSON files, one per language.
 
 1. **Copy** the root `README.md` to `docs/README.<lang>.md`, using the [BCP 47 language tag](https://en.wikipedia.org/wiki/IETF_language_tag) for your language (e.g. `docs/README.zh-CN.md`).
 2. **Translate** the content. Keep links, badges, code blocks, and brand names intact. Prefix repo-relative paths with `../` — the file lives one level deeper (e.g. `LICENSE` → `../LICENSE`). Absolute URLs are unchanged.
-3. **Add a language link** to the root `README.md`, right below the tagline. Use the language's [endonym](https://en.wikipedia.org/wiki/Endonym_and_exonym) (its name in that language) as the link text, prefixed with a `🌐` glyph — e.g. `简体中文` for Simplified Chinese:
+3. **Add a language link** to the root `README.md`, right below the tagline. Precede the link(s) with a single `🌐` glyph marking the language switcher. Use each language's [endonym](https://en.wikipedia.org/wiki/Endonym_and_exonym) (its name in that language) as the link text, separated by `|` — e.g. `简体中文` for Simplified Chinese, `Українська` for Ukrainian. If a language link is already present, append the new link into the same `<p>` block rather than adding another one:
    ```html
    <p align="center">
-     🌐 <a href="docs/README.zh-CN.md">简体中文</a>
+     🌐 <a href="docs/README.zh-CN.md">简体中文</a> | <a href="docs/README.uk.md">Українська</a>
    </p>
    ```
-4. **Add a link back** to the root `README.md` at the top of the translated file:
+4. **Add a link back** to the root `README.md` in the translated file, placed in the same position as the language link in the root `README.md` (right below the tagline). Only link back to `English` — do not cross-link to sibling translations:
    ```html
    <p align="center">
      🌐 <a href="../README.md">English</a>
