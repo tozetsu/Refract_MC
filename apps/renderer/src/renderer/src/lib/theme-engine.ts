@@ -9,9 +9,12 @@ class ThemeEngine {
   private customStyleTag: HTMLStyleElement | null = null
 
   apply(theme: ThemeDefinition): void {
-    document.documentElement.dataset.theme = theme.id
-    document.documentElement.dataset.hasThemeBg = theme.backgroundImage ? 'true' : 'false'
-    document.documentElement.dataset.themeGradients = theme.disableGradients ? 'off' : 'on'
+    const root = document.documentElement
+    root.dataset.theme = theme.id
+    root.dataset.hasThemeBg = theme.backgroundImage ? 'true' : 'false'
+    root.dataset.themeGradients = theme.disableGradients ? 'off' : 'on'
+    if (theme.id === 'dark' || theme.id === 'light') root.style.colorScheme = theme.id
+    else root.style.removeProperty('color-scheme')
     this.applyColors(theme.colors)
     this.applyBackground(theme)
     this.applyLayout({ ...DEFAULT_LAYOUT, ...theme.layout })
@@ -64,7 +67,10 @@ class ThemeEngine {
     if (c['checker-2'])  root.style.setProperty('--checker-2', c['checker-2'])
 
     const accent = c.accent
-    if (accent) root.style.setProperty('--accent-tint', `color-mix(in srgb, ${accent} 18%, transparent)`)
+    if (accent) {
+      root.style.setProperty('--accent-tint', `color-mix(in srgb, ${accent} 18%, transparent)`)
+      root.style.accentColor = accent
+    }
     if (c['accent-hover']) root.style.setProperty('--accent-hover', c['accent-hover'])
   }
 
