@@ -19,8 +19,7 @@ pub fn parse_play_args() -> Option<(String, Option<QuickPlay>)> {
     let quick_play = if let Some(name) = get("--play-world") {
         Some(QuickPlay::World { name })
     } else {
-        get("--play-server")
-            .map(|address| QuickPlay::Server { address })
+        get("--play-server").map(|address| QuickPlay::Server { address })
     };
     Some((id, quick_play))
 }

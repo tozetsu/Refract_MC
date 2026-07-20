@@ -416,11 +416,10 @@ pub async fn wait_for_downloaded_cf_file(
             return None;
         }
         let probe = required.clone();
-        let found =
-            tauri::async_runtime::spawn_blocking(move || find_downloaded_cf_file(&probe))
-                .await
-                .ok()
-                .flatten();
+        let found = tauri::async_runtime::spawn_blocking(move || find_downloaded_cf_file(&probe))
+            .await
+            .ok()
+            .flatten();
         if let Some(path) = found {
             return Some(path);
         }
@@ -473,7 +472,13 @@ pub async fn curseforge_install_blocked(
     };
 
     if found.is_none() {
-        emit_blocked(&app, mod_id, file_id, "browser-opened", Some(BLOCKED_WAIT_SECS));
+        emit_blocked(
+            &app,
+            mod_id,
+            file_id,
+            "browser-opened",
+            Some(BLOCKED_WAIT_SECS),
+        );
         open_cf_download(mod_id, file_id)?;
         found = wait_for_downloaded_cf_file(
             &required,
@@ -498,7 +503,8 @@ pub async fn curseforge_install_blocked(
         .or_else(|| src.file_name().and_then(|s| s.to_str()).map(safe_filename))
         .unwrap_or_else(|| format!("{mod_id}-{file_id}.jar"));
     let dest = mods_dir.join(&name);
-    fs::copy(&src, &dest).map_err(|e| format!("Could not copy {display} into the instance: {e}"))?;
+    fs::copy(&src, &dest)
+        .map_err(|e| format!("Could not copy {display} into the instance: {e}"))?;
 
     // The Downloads-folder match was by hash when one is known; re-check the
     // copy so a torn copy can't be recorded as installed.

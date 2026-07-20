@@ -918,7 +918,14 @@ pub async fn launch_minecraft(
         // Record the session so playtime totals and the daily streak update.
         crate::instances::record_playtime(id_exit.clone(), started.elapsed().as_secs());
         if let Some(post) = post_cmd {
-            let _ = run_hook(&app_exit, &id_exit, "post-exit", &post, &game_dir, &hook_env);
+            let _ = run_hook(
+                &app_exit,
+                &id_exit,
+                "post-exit",
+                &post,
+                &game_dir,
+                &hook_env,
+            );
         }
         let _ = app_exit.emit(
             "mc://exit",

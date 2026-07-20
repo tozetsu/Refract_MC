@@ -94,8 +94,7 @@ pub(crate) fn record_instance_mod(instance_id: &str, record: Value) -> Result<()
         let same_project = m.get("projectId").and_then(Value::as_str) == Some(project_id.as_str());
         match &content_type {
             Some(ct) => {
-                !(same_project
-                    && m.get("contentType").and_then(Value::as_str) == Some(ct.as_str()))
+                !(same_project && m.get("contentType").and_then(Value::as_str) == Some(ct.as_str()))
             }
             None => !same_project,
         }
@@ -838,8 +837,8 @@ pub async fn apply_mod_updates(
 ) -> Result<Vec<ApplyModUpdateResult>, String> {
     use futures_util::StreamExt;
     let game_root = game_dir(&instance_id);
-    let results: Vec<ApplyModUpdateResult> = futures_util::stream::iter(updates.into_iter().map(
-        |update| {
+    let results: Vec<ApplyModUpdateResult> =
+        futures_util::stream::iter(updates.into_iter().map(|update| {
             let game_root = game_root.clone();
             async move {
                 let result = async {
@@ -884,11 +883,10 @@ pub async fn apply_mod_updates(
                     },
                 }
             }
-        },
-    ))
-    .buffer_unordered(downloader::MOD_CONCURRENCY)
-    .collect()
-    .await;
+        }))
+        .buffer_unordered(downloader::MOD_CONCURRENCY)
+        .collect()
+        .await;
     Ok(results)
 }
 
@@ -1119,7 +1117,11 @@ pub async fn export_mrpack(
         }
     }
     // Config and client settings travel as overrides.
-    collect_override_files(&game_root.join("config"), "overrides/config", &mut overrides);
+    collect_override_files(
+        &game_root.join("config"),
+        "overrides/config",
+        &mut overrides,
+    );
     for extra in ["options.txt", "servers.dat"] {
         let p = game_root.join(extra);
         if p.is_file() {

@@ -55,7 +55,10 @@ impl OwnedHash {
         sha512
             .filter(non_empty)
             .map(|s| OwnedHash::Sha512(s.to_string()))
-            .or_else(|| sha1.filter(non_empty).map(|s| OwnedHash::Sha1(s.to_string())))
+            .or_else(|| {
+                sha1.filter(non_empty)
+                    .map(|s| OwnedHash::Sha1(s.to_string()))
+            })
     }
 }
 
@@ -174,11 +177,7 @@ fn transient(status: reqwest::StatusCode) -> bool {
 /// unverified file at the final path.
 async fn attempt(task: &Task) -> Result<u64, (bool, String)> {
     let net_err = |e: reqwest::Error| (true, e.to_string());
-    let res = http()
-        .get(&task.url)
-        .send()
-        .await
-        .map_err(net_err)?;
+    let res = http().get(&task.url).send().await.map_err(net_err)?;
     net::validate_url(res.url().as_str(), task.hosts).map_err(|e| (false, e))?;
     let status = res.status();
     if !status.is_success() {
@@ -247,16 +246,25 @@ pub async fn fetch(task: &Task) -> Result<Outcome, String> {
 
     if task.dest.is_file() {
         match task.existing {
-            Existing::SkipIfExists => return Ok(Outcome { bytes: 0, reused: true }),
+            Existing::SkipIfExists => {
+                return Ok(Outcome {
+                    bytes: 0,
+                    reused: true,
+                })
+            }
             Existing::ReuseIfValid => {
                 if let Some(expected) = task.hash.clone() {
                     let path = task.dest.clone();
-                    let valid =
-                        tauri::async_runtime::spawn_blocking(move || file_matches(&path, &expected))
-                            .await
-                            .unwrap_or(false);
+                    let valid = tauri::async_runtime::spawn_blocking(move || {
+                        file_matches(&path, &expected)
+                    })
+                    .await
+                    .unwrap_or(false);
                     if valid {
-                        return Ok(Outcome { bytes: 0, reused: true });
+                        return Ok(Outcome {
+                            bytes: 0,
+                            reused: true,
+                        });
                     }
                 }
             }
@@ -270,7 +278,12 @@ pub async fn fetch(task: &Task) -> Result<Outcome, String> {
             tokio::time::sleep(Duration::from_millis(BACKOFF_BASE_MS << (i - 1))).await;
         }
         match attempt(task).await {
-            Ok(bytes) => return Ok(Outcome { bytes, reused: false }),
+            Ok(bytes) => {
+                return Ok(Outcome {
+                    bytes,
+                    reused: false,
+                })
+            }
             Err((retryable, e)) => {
                 last = e;
                 if !retryable {
@@ -333,8 +346,8 @@ pub async fn run(
     let bytes = Arc::new(AtomicU64::new(0));
     let last_emit = Arc::new(Mutex::new(Instant::now() - PROGRESS_INTERVAL));
 
-    let results: Vec<Result<Outcome, Failure>> = futures_util::stream::iter(
-        tasks.into_iter().map(|task| {
+    let results: Vec<Result<Outcome, Failure>> =
+        futures_util::stream::iter(tasks.into_iter().map(|task| {
             let cancel = cancel.clone();
             let on_progress = on_progress.clone();
             let done = done.clone();
@@ -342,7 +355,10 @@ pub async fn run(
             let last_emit = last_emit.clone();
             async move {
                 if let Some(check) = &cancel {
-                    check().map_err(|e| Failure { url: task.url.clone(), error: e })?;
+                    check().map_err(|e| Failure {
+                        url: task.url.clone(),
+                        error: e,
+                    })?;
                 }
                 let outcome = fetch(&task).await.map_err(|error| Failure {
                     url: task.url.clone(),
@@ -361,16 +377,19 @@ pub async fn run(
                         }
                     };
                     if due {
-                        emit(&BatchProgress { done: d, total, bytes: b });
+                        emit(&BatchProgress {
+                            done: d,
+                            total,
+                            bytes: b,
+                        });
                     }
                 }
                 Ok(outcome)
             }
-        }),
-    )
-    .buffer_unordered(concurrency.max(1))
-    .collect()
-    .await;
+        }))
+        .buffer_unordered(concurrency.max(1))
+        .collect()
+        .await;
 
     let mut out = BatchResult {
         downloaded: 0,
@@ -481,12 +500,19 @@ mod tests {
             .collect();
 
         let result = tauri::async_runtime::block_on(run(tasks, 4, None, None));
-        assert!(result.failures.is_empty(), "failures: {:?}", result.failures.first().map(|f| &f.error));
+        assert!(
+            result.failures.is_empty(),
+            "failures: {:?}",
+            result.failures.first().map(|f| &f.error)
+        );
         assert_eq!(result.downloaded, 2);
         assert!(result.bytes > 0);
         for h in &assets {
             assert!(dir.join(h).is_file());
-            assert!(!dir.join(format!("{h}.part")).exists(), "no .part leftovers");
+            assert!(
+                !dir.join(format!("{h}.part")).exists(),
+                "no .part leftovers"
+            );
         }
 
         // Second run: everything must be reused via hash verification.
@@ -509,7 +535,11 @@ mod tests {
         // Corrupt one file: ReuseIfValid must detect and re-download it.
         fs::write(dir.join(assets[0]), b"corrupted").unwrap();
         let task = Task::new(
-            format!("https://resources.download.minecraft.net/{}/{}", &assets[0][..2], assets[0]),
+            format!(
+                "https://resources.download.minecraft.net/{}/{}",
+                &assets[0][..2],
+                assets[0]
+            ),
             dir.join(assets[0]),
             crate::net::MINECRAFT_HOSTS,
         )
@@ -517,11 +547,18 @@ mod tests {
         .existing(Existing::ReuseIfValid);
         let repaired = tauri::async_runtime::block_on(fetch(&task)).unwrap();
         assert!(!repaired.reused);
-        assert!(file_matches(&dir.join(assets[0]), &OwnedHash::Sha1(assets[0].to_string())));
+        assert!(file_matches(
+            &dir.join(assets[0]),
+            &OwnedHash::Sha1(assets[0].to_string())
+        ));
 
         // A wrong expected hash must fail and leave no file at the final path.
         let bad = Task::new(
-            format!("https://resources.download.minecraft.net/{}/{}", &assets[1][..2], assets[1]),
+            format!(
+                "https://resources.download.minecraft.net/{}/{}",
+                &assets[1][..2],
+                assets[1]
+            ),
             dir.join("bad.bin"),
             crate::net::MINECRAFT_HOSTS,
         )

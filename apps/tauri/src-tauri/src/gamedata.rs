@@ -168,8 +168,7 @@ pub fn copy_game_options(
 pub async fn mc_import_world(instance_id: String, zip_path: String) -> Result<String, String> {
     let saves = instances::game_dir(&instance_id).join("saves");
     tauri::async_runtime::spawn_blocking(move || -> Result<String, String> {
-        let file =
-            fs::File::open(&zip_path).map_err(|e| format!("Couldn't open archive: {e}"))?;
+        let file = fs::File::open(&zip_path).map_err(|e| format!("Couldn't open archive: {e}"))?;
         let mut zip =
             zip::ZipArchive::new(file).map_err(|_| "Not a valid zip archive.".to_string())?;
 
@@ -296,13 +295,15 @@ fn tail_for_mclogs(text: &str) -> String {
 #[tauri::command]
 pub async fn mc_upload_log(instance_id: String, source: String) -> Result<String, String> {
     let path = match source.as_str() {
-        "latest" => instances::game_dir(&instance_id).join("logs").join("latest.log"),
+        "latest" => instances::game_dir(&instance_id)
+            .join("logs")
+            .join("latest.log"),
         "crash" => latest_crash_report_path(&instance_id).ok_or("No crash report found.")?,
         "launcher" => crate::paths::data_dir().join("logs").join("refract.log"),
         other => return Err(format!("Unknown log source: {other}")),
     };
-    let text = fs::read_to_string(&path)
-        .map_err(|_| format!("Log file not found: {}", path.display()))?;
+    let text =
+        fs::read_to_string(&path).map_err(|_| format!("Log file not found: {}", path.display()))?;
     if text.trim().is_empty() {
         return Err("The log file is empty.".into());
     }

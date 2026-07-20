@@ -1008,63 +1008,67 @@ async fn install_ftb(
     let total = files.len().max(1);
     let counter = AtomicU64::new(0);
     // Eagerly collected for the same higher-ranked-lifetime reason as the CF pool.
-    let futs: Vec<_> = files.iter().map(|f| {
-        let game_dir = game_dir.clone();
-        let project_id = project_id.clone();
-        let counter = &counter;
-        async move {
-            let rel = format!(
-                "{}/{}",
-                f["path"]
-                    .as_str()
-                    .unwrap_or("")
-                    .trim_start_matches("./")
-                    .trim_start_matches('/'),
-                f["name"].as_str().unwrap_or("")
-            )
-            .replace("//", "/");
-            let mut got: u64 = 0;
-            if let Some(dest) = safe_join(&game_dir, &rel) {
-                let dest_dir = dest
-                    .parent()
-                    .map(Path::to_path_buf)
-                    .unwrap_or(game_dir.clone());
-                if let Some(url) = f["url"].as_str().filter(|s| !s.is_empty()) {
-                    let expected = f["sha1"].as_str().map(net::ExpectedHash::Sha1);
-                    let mut ok = download_to(url, &dest, net::FTB_HOSTS, expected).await.is_ok();
-                    if !ok {
-                        if let Some(mirror) = f["mirrors"][0].as_str() {
-                            let expected = f["sha1"].as_str().map(net::ExpectedHash::Sha1);
-                            ok = download_to(mirror, &dest, net::FTB_HOSTS, expected)
-                                .await
-                                .is_ok();
+    let futs: Vec<_> = files
+        .iter()
+        .map(|f| {
+            let game_dir = game_dir.clone();
+            let project_id = project_id.clone();
+            let counter = &counter;
+            async move {
+                let rel = format!(
+                    "{}/{}",
+                    f["path"]
+                        .as_str()
+                        .unwrap_or("")
+                        .trim_start_matches("./")
+                        .trim_start_matches('/'),
+                    f["name"].as_str().unwrap_or("")
+                )
+                .replace("//", "/");
+                let mut got: u64 = 0;
+                if let Some(dest) = safe_join(&game_dir, &rel) {
+                    let dest_dir = dest
+                        .parent()
+                        .map(Path::to_path_buf)
+                        .unwrap_or(game_dir.clone());
+                    if let Some(url) = f["url"].as_str().filter(|s| !s.is_empty()) {
+                        let expected = f["sha1"].as_str().map(net::ExpectedHash::Sha1);
+                        let mut ok = download_to(url, &dest, net::FTB_HOSTS, expected)
+                            .await
+                            .is_ok();
+                        if !ok {
+                            if let Some(mirror) = f["mirrors"][0].as_str() {
+                                let expected = f["sha1"].as_str().map(net::ExpectedHash::Sha1);
+                                ok = download_to(mirror, &dest, net::FTB_HOSTS, expected)
+                                    .await
+                                    .is_ok();
+                            }
+                        }
+                        if ok {
+                            got = fs::metadata(&dest).map(|m| m.len()).unwrap_or(0);
+                        }
+                    } else if let (Some(p), Some(fl)) = (
+                        f["curseforge"]["project"].as_u64(),
+                        f["curseforge"]["file"].as_u64(),
+                    ) {
+                        if let Ok(path) =
+                            cf::download_cf_cdn(p, fl, &dest_dir, f["sha1"].as_str(), None).await
+                        {
+                            got = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
                         }
                     }
-                    if ok {
-                        got = fs::metadata(&dest).map(|m| m.len()).unwrap_or(0);
-                    }
-                } else if let (Some(p), Some(fl)) = (
-                    f["curseforge"]["project"].as_u64(),
-                    f["curseforge"]["file"].as_u64(),
-                ) {
-                    if let Ok(path) =
-                        cf::download_cf_cdn(p, fl, &dest_dir, f["sha1"].as_str(), None).await
-                    {
-                        got = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-                    }
                 }
+                let done = counter.fetch_add(1, Ordering::Relaxed) + 1;
+                progress(
+                    app,
+                    &project_id,
+                    &format!("Downloading files ({done}/{total})"),
+                    6.0 + (done as f64 / total as f64) * 42.0,
+                );
+                got
             }
-            let done = counter.fetch_add(1, Ordering::Relaxed) + 1;
-            progress(
-                app,
-                &project_id,
-                &format!("Downloading files ({done}/{total})"),
-                6.0 + (done as f64 / total as f64) * 42.0,
-            );
-            got
-        }
-    })
-    .collect();
+        })
+        .collect();
     let bytes: Vec<u64> = futures_util::stream::iter(futs)
         .buffer_unordered(downloader::MOD_CONCURRENCY)
         .collect()
@@ -1164,7 +1168,9 @@ fn unwrap_single_folder(root: &Path) -> PathBuf {
         if ROOT_MARKERS.iter().any(|m| dir.join(m).exists()) {
             break;
         }
-        let Ok(entries) = fs::read_dir(&dir) else { break };
+        let Ok(entries) = fs::read_dir(&dir) else {
+            break;
+        };
         let mut sub_dirs = Vec::new();
         let mut has_files = false;
         for e in entries.flatten() {

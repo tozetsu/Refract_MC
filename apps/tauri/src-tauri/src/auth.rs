@@ -587,11 +587,7 @@ pub async fn auth_validate(uuid: String) -> bool {
     let ty = accounts()
         .into_iter()
         .find(|a| a.get("uuid").and_then(Value::as_str) == Some(uuid.as_str()))
-        .and_then(|a| {
-            a.get("type")
-                .and_then(Value::as_str)
-                .map(|s| s.to_string())
-        });
+        .and_then(|a| a.get("type").and_then(Value::as_str).map(|s| s.to_string()));
     match ty.as_deref() {
         Some("microsoft") | Some("yggdrasil") => mc_token(&uuid).await.is_ok(),
         _ => true,
