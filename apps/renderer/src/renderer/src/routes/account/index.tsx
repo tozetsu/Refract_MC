@@ -41,10 +41,10 @@ export const Route = createFileRoute('/account/')({
   component: Account,
 })
 
-function accountBadge(type: SafeAccount['type']) {
-  if (type === 'microsoft') return { label: 'MICROSOFT', color: 'var(--diamond)' }
-  if (type === 'offline') return { label: 'GUEST', color: 'var(--gold)' }
-  return { label: 'YGGDRASIL', color: 'var(--ender)' }
+function accountBadge(type: SafeAccount['type'], t: T) {
+  if (type === 'microsoft') return { label: t.account.microsoftBadge, color: 'var(--diamond)' }
+  if (type === 'offline') return { label: t.account.guestBadge, color: 'var(--gold)' }
+  return { label: t.account.yggdrasilBadge, color: 'var(--ender)' }
 }
 
 function accessText(account: SafeAccount, t: T) {
@@ -166,13 +166,13 @@ function Account() {
         if (cancelled) return
         setDevice(null)
         setLoginExpiresAt(null)
-        setLoginMessage(`Signed in as ${account.username}.`)
+        setLoginMessage(t.account.signedInAs(account.username))
         await refresh()
       } catch (err) {
         if (cancelled) return
         const message = err instanceof Error ? err.message : String(err)
         if (isPendingDeviceLogin(message)) {
-          setLoginMessage('Waiting for Microsoft to confirm sign-in...')
+          setLoginMessage(t.account.waitingForMicrosoft)
           return
         }
         setDevice(null)
@@ -180,9 +180,9 @@ function Account() {
         setLoginMessage(null)
         setError(
           isExpiredDeviceLogin(message)
-            ? 'The Microsoft sign-in code expired. Start sign-in again to get a fresh code.'
+            ? t.account.signInCodeExpired
             : isDeclinedDeviceLogin(message)
-              ? 'Microsoft sign-in was declined.'
+              ? t.account.signInDeclined
               : message
         )
       } finally {
@@ -195,7 +195,7 @@ function Account() {
       cancelled = true
       window.clearInterval(id)
     }
-  }, [device])
+  }, [device, t])
 
   async function run<T>(label: string, action: () => Promise<T>) {
     setBusy(label)
@@ -222,10 +222,10 @@ function Account() {
   async function openMicrosoftVerification(url: string) {
     try {
       await api.external.open(url)
-      setLoginMessage('Browser opened. Complete Microsoft sign-in, then Refract will continue automatically.')
+      setLoginMessage(t.account.browserOpened)
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
-      setLoginMessage('Open the Microsoft sign-in link below in your browser, then Refract will continue automatically.')
+      setLoginMessage(t.account.openSignInLink)
     }
   }
 
@@ -237,12 +237,12 @@ function Account() {
       const account = await api.auth.microsoftComplete(device.deviceCode)
       setDevice(null)
       setLoginExpiresAt(null)
-      setLoginMessage(`Signed in as ${account.username}.`)
+      setLoginMessage(t.account.signedInAs(account.username))
       await refresh()
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       if (isPendingDeviceLogin(message)) {
-        setLoginMessage('Microsoft has not confirmed sign-in yet. Finish in the browser, then this page will update.')
+        setLoginMessage(t.account.signInNotConfirmed)
       } else {
         setError(message)
       }
@@ -260,7 +260,7 @@ function Account() {
   async function copyUserCode() {
     if (!device) return
     await navigator.clipboard?.writeText(device.userCode)
-    setLoginMessage('Code copied. Finish sign-in in the Microsoft browser window.')
+    setLoginMessage(t.account.codeCopied)
   }
 
   async function createOffline() {
@@ -307,7 +307,7 @@ function Account() {
     try {
       await api.auth.setCape(uuid, capeId)
       setCapes(prev => prev.map(c => ({ ...c, state: c.id === capeId ? 'ACTIVE' : 'INACTIVE' })))
-      setCapeMsg({ ok: true, text: capeId ? 'Cape activated.' : 'Cape hidden.' })
+      setCapeMsg({ ok: true, text: capeId ? t.account.capeActivated : t.account.capeHidden })
     } catch (e) {
       setCapeMsg({ ok: false, text: e instanceof Error ? e.message : String(e) })
     } finally {
@@ -384,7 +384,7 @@ function Account() {
               <div style={{ marginTop:16, padding:14, background:'var(--bg)', border:'1px solid var(--accent)', borderRadius:'var(--radius-md)' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'center', color:'var(--ink-3)', fontSize:12, marginBottom:8 }}>
                   <span>{t.account.enterCodeAt}</span>
-                  <span style={{ color:'var(--gold)', fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{secondsRemaining > 0 ? `${secondsRemaining}s left` : t.account.codeExpired}</span>
+                  <span style={{ color:'var(--gold)', fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{secondsRemaining > 0 ? t.account.secondsLeft(secondsRemaining) : t.account.codeExpired}</span>
                 </div>
                 <div style={{ fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', color:'var(--ink)', fontSize:26, letterSpacing:'.12em', lineHeight:1, fontWeight:600 }}>
                   {device.userCode}
@@ -467,7 +467,7 @@ function Account() {
 
           <div style={{ background:'var(--surface-2)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)', padding:16 }}>
             <h2 style={{ margin:'0 0 4px', color:'var(--ink)', fontSize:16, fontWeight:600 }}>{t.account.yggdrasilSection}</h2>
-            <div style={{ color:'var(--ender)', fontSize:11, fontWeight:600, letterSpacing:'.08em', marginBottom:8 }}>YGGDRASIL</div>
+            <div style={{ color:'var(--ender)', fontSize:11, fontWeight:600, letterSpacing:'.08em', marginBottom:8 }}>{t.account.yggdrasilBadge}</div>
             <p style={{ margin:'0 0 12px', color:'var(--ink-3)', fontSize:13, lineHeight:1.5 }}>
               {t.account.yggdrasilDesc}
             </p>
@@ -520,7 +520,7 @@ function Account() {
           {accounts.length === 0 ? (
             <p style={{ color:'var(--ink-3)', fontSize:13, margin:4 }}>{t.account.noAccounts}</p>
           ) : accounts.map((account) => {
-            const badge = accountBadge(account.type)
+            const badge = accountBadge(account.type, t)
             const isActive = active?.uuid === account.uuid
             return (
               <div
@@ -537,7 +537,7 @@ function Account() {
                 <div style={{ display:'flex', justifyContent:'space-between', gap:10, alignItems:'start' }}>
                   <div style={{ display:'flex', gap:10, alignItems:'start', minWidth:0, flex:1 }}>
                     <div
-                      title="Click to change avatar"
+                      title={t.account.changeAvatar}
                       onClick={() => { setPickingFor(account.uuid); avatarInputRef.current?.click() }}
                       style={{
                         width:42, height:42, borderRadius:'var(--radius-sm)', overflow:'hidden', flexShrink:0,
@@ -572,7 +572,7 @@ function Account() {
                         <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                           <div style={{ color:'var(--ink)', fontWeight:700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{account.username}</div>
                           {account.type === 'offline' && (
-                            <Button variant="ghost" size="icon" type="button" title="Rename" onClick={() => startRename(account)} style={{ width:20, height:20, color:'var(--ink-4)', fontSize:13 }}>✎</Button>
+                            <Button variant="ghost" size="icon" type="button" title={t.account.rename} onClick={() => startRename(account)} style={{ width:20, height:20, color:'var(--ink-4)', fontSize:13 }}>✎</Button>
                           )}
                         </div>
                       )}
@@ -622,7 +622,7 @@ function Account() {
                     }}
                     style={{ height:30, fontSize:12 }}
                   >
-                    Skin
+                    {t.account.skin}
                   </Button>
                   {account.type === 'microsoft' && (
                     <Button
@@ -642,7 +642,7 @@ function Account() {
                       }}
                       style={{ height:30, fontSize:12 }}
                     >
-                      Cape
+                      {t.account.cape}
                     </Button>
                   )}
                   <Button
@@ -659,19 +659,19 @@ function Account() {
                 {/* Cape panel */}
                 {capeTarget === account.uuid && (
                   <div style={{ marginTop:8, padding:12, background:'var(--bg)', border:'1px solid var(--border-r)', borderRadius:'var(--radius-md)', display:'flex', flexDirection:'column', gap:10 }}>
-                    <div style={{ fontSize:11, fontWeight:600, color:'var(--ink-3)', letterSpacing:'.10em' }}>CAPES</div>
+                    <div style={{ fontSize:11, fontWeight:600, color:'var(--ink-3)', letterSpacing:'.10em' }}>{t.account.capes}</div>
                     {capesLoading ? (
-                      <div style={{ color:'var(--ink-4)', fontSize:12 }}>Loading capes…</div>
+                      <div style={{ color:'var(--ink-4)', fontSize:12 }}>{t.account.loadingCapes}</div>
                     ) : capes.length === 0 ? (
                       <div style={{ color:'var(--ink-4)', fontSize:12, lineHeight:1.5 }}>
-                        No capes on this account. Capes are earned through special Minecraft events.
+                        {t.account.noCapes}
                       </div>
                     ) : (
                       <div style={{ display:'flex', gap:8, overflowX:'auto', paddingBottom:2 }}>
                         {/* Hide cape option */}
                         <button
                           type="button"
-                          title="Hide cape"
+                          title={t.account.hideCape}
                           disabled={capeUpdating}
                           onClick={() => void handleSetCape(account.uuid, null)}
                           style={{
@@ -688,7 +688,7 @@ function Account() {
                             display:'flex', alignItems:'center', justifyContent:'center',
                             color:'var(--ink-4)', fontSize:18,
                           }}>—</div>
-                          <span style={{ fontSize:9, color:'var(--ink-3)', whiteSpace:'nowrap' }}>None</span>
+                          <span style={{ fontSize:9, color:'var(--ink-3)', whiteSpace:'nowrap' }}>{t.account.none}</span>
                         </button>
 
                         {capes.map(cape => (
@@ -758,7 +758,7 @@ function Account() {
                             }}
                             style={{ flex:1, height:32, fontSize:12 }}
                           >
-                            {skinPath ? '✓ ' + skinPath.split(/[/\\]/).pop() : 'Browse PNG…'}
+                            {skinPath ? '✓ ' + skinPath.split(/[/\\]/).pop() : t.account.browsePng}
                           </Button>
                           {account.type === 'microsoft' && (
                             <select
@@ -766,8 +766,8 @@ function Account() {
                               onChange={e => setSkinVariant(e.target.value as 'classic' | 'slim')}
                               style={{ height:32, background:'var(--bg)', border:'1px solid var(--border-r)', color:'var(--ink)', padding:'0 8px', borderRadius:'var(--radius-md)', cursor:'pointer', fontSize:12 }}
                             >
-                              <option value="classic">Classic (Steve)</option>
-                              <option value="slim">Slim (Alex)</option>
+                              <option value="classic">{t.skins.classicSteve}</option>
+                              <option value="slim">{t.skins.slimAlex}</option>
                             </select>
                           )}
                         </div>

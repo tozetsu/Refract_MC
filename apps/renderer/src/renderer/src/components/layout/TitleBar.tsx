@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { Bell } from 'lucide-react'
 import { api } from '@/lib/api'
+import { useT, type T } from '@/i18n'
 
 const LAST_SEEN_KEY = 'refract.notifications.lastSeen'
 
-function timeAgo(ts: number): string {
+function timeAgo(ts: number, t: T['titleBar']): string {
   const s = Math.floor((Date.now() - ts) / 1000)
-  if (s < 60)   return 'just now'
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`
-  return `${Math.floor(s / 86400)}d ago`
+  if (s < 60) return t.justNow
+  if (s < 3600) return t.minutesAgo(Math.floor(s / 60))
+  if (s < 86400) return t.hoursAgo(Math.floor(s / 3600))
+  return t.daysAgo(Math.floor(s / 86400))
 }
 
 function WinBtn({ onClick, danger, children }: { onClick: () => void; danger?: boolean; children: React.ReactNode }) {
@@ -40,6 +41,7 @@ type ActivityEntry = { id: string; label: string; ts: number }
 type UpdateState = { version: string; phase: 'pending' | 'downloading' | 'ready'; percent: number }
 
 export function TitleBar() {
+  const t = useT()
   const [isMaximized, setIsMaximized] = useState(false)
   const [open, setOpen] = useState(false)
   const [entries, setEntries] = useState<ActivityEntry[]>([])
@@ -117,12 +119,12 @@ export function TitleBar() {
         }}>
           {update.phase === 'ready' ? (
             <>
-              <span style={{ fontSize: 10, color: 'var(--grass)', fontWeight: 600 }}>v{update.version} downloaded</span>
+              <span style={{ fontSize: 10, color: 'var(--grass)', fontWeight: 600 }}>{t.titleBar.versionDownloaded(update.version)}</span>
               <button onClick={() => api.updater.install()} style={{ height: 16, padding: '0 6px', fontSize: 10, fontWeight: 700, background: 'var(--grass)', color: '#000', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', lineHeight: 1 }}>
-                Restart now
+                {t.titleBar.restartNow}
               </button>
-              <button onClick={() => setUpdate(null)} title="Restart later" style={{ height: 16, padding: '0 6px', fontSize: 10, fontWeight: 700, background: 'transparent', color: 'var(--ink-4)', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', lineHeight: 1 }}>
-                Later
+              <button onClick={() => setUpdate(null)} title={t.titleBar.restartLater} style={{ height: 16, padding: '0 6px', fontSize: 10, fontWeight: 700, background: 'transparent', color: 'var(--ink-4)', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', lineHeight: 1 }}>
+                {t.titleBar.later}
               </button>
             </>
           ) : update.phase === 'downloading' ? (
@@ -135,11 +137,11 @@ export function TitleBar() {
             </>
           ) : (
             <>
-              <span style={{ fontSize: 10, color: 'var(--ink-3)', fontWeight: 600 }}>v{update.version} available</span>
+              <span style={{ fontSize: 10, color: 'var(--ink-3)', fontWeight: 600 }}>{t.titleBar.versionAvailable(update.version)}</span>
               <button onClick={() => api.updater.download()} style={{ height: 16, padding: '0 6px', fontSize: 10, fontWeight: 700, background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', lineHeight: 1 }}>
-                Update
+                {t.titleBar.update}
               </button>
-              <button onClick={() => setUpdate(null)} title="Stay on current version" style={{ height: 16, width: 16, fontSize: 12, background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button onClick={() => setUpdate(null)} title={t.titleBar.stayCurrent} style={{ height: 16, width: 16, fontSize: 12, background: 'none', border: 'none', color: 'var(--ink-4)', cursor: 'pointer', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 ✕
               </button>
             </>
@@ -151,8 +153,8 @@ export function TitleBar() {
       <div className="no-drag-region" style={{ position: 'relative', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }} ref={panelRef}>
         <button
           onClick={togglePanel}
-          title="Activity"
-          aria-label="Activity"
+          title={t.titleBar.activity}
+          aria-label={t.titleBar.activity}
           onMouseEnter={() => setBellHover(true)}
           onMouseLeave={() => setBellHover(false)}
           style={{
@@ -192,7 +194,7 @@ export function TitleBar() {
           }}>
             <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink-2)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
-                Activity
+                {t.titleBar.activity}
               </span>
               {entries.length > 0 && (
                 <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 10, color: 'var(--ink-4)' }}>
@@ -203,7 +205,7 @@ export function TitleBar() {
             <div style={{ maxHeight: 280, overflowY: 'auto' }}>
               {entries.length === 0 ? (
                 <div style={{ margin: 12, minHeight: 76, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--border-r)', borderRadius: 'var(--radius-md)', fontSize: 12, color: 'var(--ink-4)', textAlign: 'center' }}>
-                  No recent activity
+                  {t.titleBar.noRecentActivity}
                 </div>
               ) : entries.slice(0, 20).map((entry, index) => (
                 <div key={entry.id} style={{
@@ -219,7 +221,7 @@ export function TitleBar() {
                     {entry.label}
                   </span>
                   <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 10, color: 'var(--ink-4)', flexShrink: 0 }}>
-                    {timeAgo(entry.ts)}
+                    {timeAgo(entry.ts, t.titleBar)}
                   </span>
                 </div>
               ))}

@@ -67,7 +67,7 @@ function SkinsPage_() {
     const p = await api.skins.browse()
     if (!p) return
     setNewPath(p)
-    if (!newName) setNewName(p.split(/[/\\]/).pop()?.replace(/\.png$/i, '') ?? 'My Skin')
+    if (!newName) setNewName(p.split(/[/\\]/).pop()?.replace(/\.png$/i, '') ?? t.skins.defaultName)
     const dataUrl = await api.skins.fileToDataUrl(p).catch(() => null)
     setNewUrl(dataUrl ?? null)
   }

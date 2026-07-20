@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/Button'
+import { useT } from '@/i18n'
 
 interface Props {
   instanceId: string
@@ -10,7 +11,8 @@ interface Props {
 }
 
 export function InstallProgress({ instanceId, instanceName, onDone, onError }: Props) {
-  const [step, setStep] = useState('Starting…')
+  const t = useT()
+  const [step, setStep] = useState(t.home.starting)
   const [percent, setPercent] = useState(0)
   const [cancelling, setCancelling] = useState(false)
 
@@ -49,13 +51,13 @@ export function InstallProgress({ instanceId, instanceName, onDone, onError }: P
         display: 'flex', flexDirection: 'column', gap: 16,
       }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)', letterSpacing: '.04em' }}>
-          Installing Minecraft
+          {t.home.installingMinecraft}
         </div>
         <div style={{ fontSize: 13, color: 'var(--ink-2)', fontWeight: 600 }}>{instanceName}</div>
 
         <div>
           <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 8 }}>
-            {cancelling ? 'Cancelling…' : step}
+            {cancelling ? t.home.cancelling : step}
           </div>
           <div style={{
             height: 8,
@@ -78,7 +80,7 @@ export function InstallProgress({ instanceId, instanceName, onDone, onError }: P
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ fontSize: 11, color: 'var(--ink-4)', lineHeight: 1.4 }}>
-            {cancelling ? 'Finishing current operation…' : 'This may take a few minutes depending on your connection.'}
+            {cancelling ? t.home.finishingOperation : t.home.installMayTake}
           </div>
           <Button
             variant="secondary"
@@ -87,7 +89,7 @@ export function InstallProgress({ instanceId, instanceName, onDone, onError }: P
             disabled={cancelling}
             style={{ flexShrink: 0 }}
           >
-            {cancelling ? 'Cancelling…' : 'Cancel'}
+            {cancelling ? t.home.cancelling : t.home.cancel}
           </Button>
         </div>
       </div>

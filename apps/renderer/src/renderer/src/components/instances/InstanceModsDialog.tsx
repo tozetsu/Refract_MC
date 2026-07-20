@@ -4,7 +4,7 @@ import { api, onExportProgress, pickModFiles, supportsFilePicker, type QuickPlay
 import { compressImage } from '@/lib/image'
 import { getFilePath } from '@/lib/file-path'
 import type { Instance } from '@refract/core'
-import { useT } from '@/i18n'
+import { useT, type T } from '@/i18n'
 import { Button } from '@/components/ui/Button'
 import { RowsSkeleton } from '@/components/ui/Skeleton'
 
@@ -51,14 +51,14 @@ interface Props {
   onEdit?: () => void
 }
 
-function formatDate(ts: number): string {
+function formatDate(ts: number, t: T['instanceDetail']): string {
   const d = new Date(ts)
   const now = Date.now()
   const diff = now - ts
   const days = Math.floor(diff / 86400_000)
-  if (days === 0) return 'Today'
-  if (days === 1) return 'Yesterday'
-  if (days < 7) return `${days} days ago`
+  if (days === 0) return t.today
+  if (days === 1) return t.yesterday
+  if (days < 7) return t.daysAgo(days)
   return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
@@ -112,6 +112,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
   const [exporting, setExporting]        = useState(false)
   const [importingWorld, setImportingWorld] = useState(false)
   const [exportMsg, setExportMsg]        = useState<string | null>(null)
+  const [exportError, setExportError]    = useState(false)
   const [exportPct, setExportPct]        = useState<number | null>(null)
   const [updatingAll, setUpdatingAll]    = useState(false)
   const [profiles, setProfiles]          = useState<ModProfile[]>([])
@@ -386,6 +387,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
     if (!instance || exporting) return
     setExporting(true)
     setExportMsg(null)
+    setExportError(false)
     setExportPct(0)
     const off = onExportProgress((p) => {
       if (p.id === instance.id) setExportPct(Math.round(p.percent))
@@ -394,9 +396,10 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
       const path = format === 'mrpack'
         ? await api.instance.exportMrpack(instance.id, instance.name)
         : await api.instance.export(instance.id)
-      if (path) setExportMsg(`Exported to ${path}`)
+      if (path) setExportMsg(td.exportedTo(path))
     } catch (e) {
-      setExportMsg(`Export failed: ${e instanceof Error ? e.message : String(e)}`)
+      setExportError(true)
+      setExportMsg(td.exportFailed(e instanceof Error ? e.message : String(e)))
     } finally {
       off()
       setExporting(false)
@@ -427,7 +430,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
         <div className="detail-header">
           {/* Instance icon — click to change */}
           <div
-            title="Click to change image"
+            title={td.changeImage}
             onClick={() => iconInputRef.current?.click()}
             onMouseEnter={() => setIconHover(true)}
             onMouseLeave={() => setIconHover(false)}
@@ -494,7 +497,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
               size="sm"
               onClick={() => handleExport('zip')}
               disabled={exporting}
-              title="Export instance as ZIP"
+              title={td.exportZipTip}
               style={{ fontSize: 11 }}
             >
               {exporting ? td.exporting : td.exportZip}
@@ -504,7 +507,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
               size="sm"
               onClick={() => handleExport('mrpack')}
               disabled={exporting}
-              title="Share as a Modrinth modpack (.mrpack) — importable in any launcher"
+              title={td.exportMrpackTip}
               style={{ fontSize: 11 }}
             >
               {exporting ? td.exporting : td.exportMrpack}
@@ -539,7 +542,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                 size="sm"
                 onClick={() => void handleVerify(false)}
                 disabled={verifying}
-                title="Check every tracked file against its recorded hash"
+                title={td.verifyFilesTip}
                 style={{ fontSize: 11 }}
               >
                 {verifying ? td.verifying : td.verifyFiles}
@@ -562,7 +565,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                 size="sm"
                 onClick={handleImportWorld}
                 disabled={importingWorld}
-                title="Import a world from a zip backup"
+                title={td.importWorldTip}
                 style={{ fontSize: 11 }}
               >
                 {importingWorld ? td.importingWorld : td.importWorld}
@@ -650,7 +653,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                   variant="outline"
                   size="sm"
                   onClick={() => handleApplyProfile(p.id)}
-                  title={`Apply "${p.name}" — ${p.enabledFiles.length} mods enabled`}
+                  title={td.applyProfileTip(p.name, p.enabledFiles.length)}
                   className="glow-hover"
                   style={{
                     fontSize: 11, padding: '2px 8px',
@@ -667,7 +670,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                   variant="danger"
                   size="sm"
                   onClick={() => handleDeleteProfile(p.id)}
-                  title="Delete profile"
+                  title={td.deleteProfileTip}
                   style={{
                     fontSize: 10, padding: '2px 5px',
                     background: 'var(--surface-2)', border: '1px solid var(--border-r)',
@@ -691,7 +694,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
                     if (e.key === 'Enter') handleSaveProfile()
                     if (e.key === 'Escape') { setSavingProfile(false); setNewProfileName('') }
                   }}
-                  placeholder="Profile name…"
+                  placeholder={td.profileNamePlaceholder}
                   style={{
                     height: 22, padding: '0 7px', fontSize: 11, width: 120,
                     background: 'var(--bg)', border: '1px solid var(--accent)',
@@ -761,7 +764,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
 
         {/* Export message */}
         {exportMsg && (
-          <div style={{ padding: '6px 16px', fontSize: 11, color: exportMsg.startsWith('Export failed') ? 'var(--lava)' : 'var(--grass)', background: 'var(--bg)', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
+          <div style={{ padding: '6px 16px', fontSize: 11, color: exportError ? 'var(--lava)' : 'var(--grass)', background: 'var(--bg)', borderBottom: '1px solid var(--line)', flexShrink: 0 }}>
             {exportMsg}
           </div>
         )}
@@ -774,7 +777,7 @@ export function InstanceModsDialog({ instance, open, onOpenChange, onUpdateAppli
               className="detail-search"
               value={modSearch}
               onChange={e => setModSearch(e.target.value)}
-              placeholder="Search mods…"
+              placeholder={td.searchModsPlaceholder}
             />
           </div>
         )}
@@ -938,7 +941,7 @@ function ShortcutButton({ onCreate }: { onCreate: () => Promise<unknown> }) {
       variant="outline"
       size="sm"
       disabled={state === 'busy'}
-      title="Create a desktop shortcut that launches straight into this"
+      title={t.instanceDetail.shortcutTip}
       onClick={async () => {
         if (state === 'busy') return
         setState('busy')
@@ -977,7 +980,7 @@ function ServerRow({ server, onJoin, onShortcut }: { server: ServerEntry; onJoin
         {server.icon ? <img src={`data:image/png;base64,${server.icon}`} alt="" style={{ width: '100%', height: '100%', imageRendering: 'pixelated' }} /> : '🖥'}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{server.name || 'Unknown Server'}</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{server.name || t.instanceDetail.unknownServer}</div>
         <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2, display: 'flex', gap: 8, alignItems: 'center' }}>
           <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{server.ip}</span>
           {ping === 'loading' && <span style={{ color: 'var(--ink-4)', fontStyle: 'italic' }}>{t.instanceDetail.pinging}</span>}
@@ -1010,7 +1013,7 @@ function ServerRow({ server, onJoin, onShortcut }: { server: ServerEntry; onJoin
           variant="primary"
           size="sm"
           onClick={onJoin}
-          title="Launch the game straight into this server"
+          title={t.instanceDetail.quickPlayServerTip}
           style={{ fontSize: 11 }}
         >
           {t.instanceDetail.join}
@@ -1046,7 +1049,7 @@ function WorldRow({ world, isBusy, onDelete, onBackup, onPlay, onShortcut }: { w
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{world.name}</div>
         <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2, display: 'flex', gap: 10 }}>
-          <span>{formatDate(world.lastModified)}</span>
+          <span>{formatDate(world.lastModified, td)}</span>
           {world.sizeKb > 0 && <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{formatSize(world.sizeKb)}</span>}
         </div>
       </div>
@@ -1058,7 +1061,7 @@ function WorldRow({ world, isBusy, onDelete, onBackup, onPlay, onShortcut }: { w
             size="sm"
             onClick={onPlay}
             disabled={isBusy}
-            title="Launch the game straight into this world (MC 1.20+)"
+            title={td.quickPlayWorldTip}
             style={{ fontSize: 11, padding: '3px 10px' }}
           >
             {td.play}
@@ -1078,7 +1081,7 @@ function WorldRow({ world, isBusy, onDelete, onBackup, onPlay, onShortcut }: { w
         {confirm ? (
           <div style={{ display: 'flex', gap: 5 }}>
             <Button variant="danger" size="sm" onClick={() => { setConfirm(false); onDelete() }} disabled={isBusy} style={{ fontSize: 11, padding: '3px 10px' }}>{td.delete}</Button>
-            <Button variant="secondary" size="sm" onClick={() => setConfirm(false)} style={{ fontSize: 11, padding: '3px 10px' }}>Cancel</Button>
+            <Button variant="secondary" size="sm" onClick={() => setConfirm(false)} style={{ fontSize: 11, padding: '3px 10px' }}>{td.cancel}</Button>
           </div>
         ) : (
           <Button
@@ -1099,6 +1102,7 @@ function WorldRow({ world, isBusy, onDelete, onBackup, onPlay, onShortcut }: { w
 }
 
 function ScreenshotThumb({ shot, onClick }: { shot: ScreenshotEntry; onClick: () => void }) {
+  const t = useT()
   const [hover, setHover] = useState(false)
   return (
     <div
@@ -1122,7 +1126,7 @@ function ScreenshotThumb({ shot, onClick }: { shot: ScreenshotEntry; onClick: ()
           position: 'absolute', inset: 0, background: 'rgba(0,0,0,.55)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6,
         }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#fff', letterSpacing: '.10em' }}>OPEN</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#fff', letterSpacing: '.10em' }}>{t.instanceDetail.open}</div>
           <div style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 9, color: 'rgba(255,255,255,.6)', textAlign: 'center', lineHeight: 1.3, wordBreak: 'break-all' }}>{shot.sizeKb} KB</div>
         </div>
       )}
@@ -1130,11 +1134,14 @@ function ScreenshotThumb({ shot, onClick }: { shot: ScreenshotEntry; onClick: ()
   )
 }
 
-const UPDATE_TYPE_LABEL: Record<string, string> = {
-  mod: 'Mod', resourcepack: 'Resource Pack', shader: 'Shader', datapack: 'Datapack',
-}
-
 function UpdateRow({ entry }: { entry: ModUpdateEntry }) {
+  const t = useT()
+  const updateTypeLabel: Record<string, string> = {
+    mod: t.instanceDetail.typeMod,
+    resourcepack: t.instanceDetail.typeResourcePack,
+    shader: t.instanceDetail.typeShader,
+    datapack: t.instanceDetail.typeDatapack,
+  }
   const displayName = entry.filename.replace(/\.(jar|zip)(\.disabled)?$/, '').replace(/-\d.*$/, '')
   const typeColor = (TYPE_COLOR as Record<string, string>)[entry.contentType] ?? 'var(--ink-4)'
   return (
@@ -1151,16 +1158,16 @@ function UpdateRow({ entry }: { entry: ModUpdateEntry }) {
         <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6 }}>
           {entry.contentType && entry.contentType !== 'mod' && (
             <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: typeColor, border: `1px solid ${typeColor}`, borderRadius: 'var(--radius-sm)', padding: '0 4px', flexShrink: 0 }}>
-              {UPDATE_TYPE_LABEL[entry.contentType] ?? entry.contentType}
+              {updateTypeLabel[entry.contentType] ?? entry.contentType}
             </span>
           )}
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</span>
         </div>
         <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 1 }}>
           {entry.hasUpdate ? (
-            <span>Update available — <span style={{ color: 'var(--gold)', fontWeight: 600 }}>{entry.latestVersionName}</span></span>
+            <span>{t.instanceDetail.updateAvailable} - <span style={{ color: 'var(--gold)', fontWeight: 600 }}>{entry.latestVersionName}</span></span>
           ) : (
-            <span style={{ color: 'var(--grass)' }}>Up to date</span>
+            <span style={{ color: 'var(--grass)' }}>{t.instanceDetail.upToDate}</span>
           )}
         </div>
       </div>
@@ -1172,7 +1179,7 @@ function UpdateRow({ entry }: { entry: ModUpdateEntry }) {
           color: 'var(--gold)',
           border: '1px solid var(--gold)',
         }}>
-          UPDATE
+          {t.instanceDetail.update}
         </div>
       )}
     </div>
@@ -1187,6 +1194,7 @@ function ContentRow({ entry, isBusy, selected, onSelect, onToggle, onDelete }: {
   onToggle: () => void
   onDelete: () => void
 }) {
+  const t = useT()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const color = TYPE_COLOR[entry.type]
   const isFolder = !entry.filename.includes('.')
@@ -1235,12 +1243,12 @@ function ContentRow({ entry, isBusy, selected, onSelect, onToggle, onDelete }: {
         </div>
         <div style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 1, display: 'flex', gap: 6, alignItems: 'center' }}>
           <span style={{ color, fontWeight: 600, textTransform: 'uppercase', fontSize: 9, letterSpacing: '.04em' }}>
-            {entry.type === 'resourcepack' ? 'Resource Pack' : entry.type === 'datapack' ? 'Datapack' : entry.type === 'shader' ? 'Shader' : 'Mod'}
+            {entry.type === 'resourcepack' ? t.instanceDetail.typeResourcePack : entry.type === 'datapack' ? t.instanceDetail.typeDatapack : entry.type === 'shader' ? t.instanceDetail.typeShader : t.instanceDetail.typeMod}
           </span>
           {entry.sizeKb > 0 && (
             <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{entry.sizeKb >= 1024 ? `${(entry.sizeKb / 1024).toFixed(1)} MB` : `${entry.sizeKb} KB`}</span>
           )}
-          {!entry.enabled && <span style={{ color: 'var(--gold)' }}>disabled</span>}
+          {!entry.enabled && <span style={{ color: 'var(--gold)' }}>{t.instanceDetail.disabled}</span>}
         </div>
       </div>
 
@@ -1249,7 +1257,7 @@ function ContentRow({ entry, isBusy, selected, onSelect, onToggle, onDelete }: {
         <button
           onClick={onToggle}
           disabled={isBusy}
-          title={entry.enabled ? 'Disable' : 'Enable'}
+          title={entry.enabled ? t.instanceDetail.disable : t.instanceDetail.enable}
           style={{
             width: 36, height: 20, flexShrink: 0,
             background: entry.enabled ? color : 'var(--surface-3)',
@@ -1284,7 +1292,7 @@ function ContentRow({ entry, isBusy, selected, onSelect, onToggle, onDelete }: {
             disabled={isBusy}
             style={{ fontSize: 11, padding: '2px 8px' }}
           >
-            Delete
+            {t.instanceDetail.delete}
           </Button>
           <Button
             variant="secondary"
@@ -1292,7 +1300,7 @@ function ContentRow({ entry, isBusy, selected, onSelect, onToggle, onDelete }: {
             onClick={() => setConfirmDelete(false)}
             style={{ fontSize: 11, padding: '2px 8px' }}
           >
-            Cancel
+            {t.instanceDetail.cancel}
           </Button>
         </div>
       ) : (
@@ -1301,7 +1309,7 @@ function ContentRow({ entry, isBusy, selected, onSelect, onToggle, onDelete }: {
           size="icon"
           onClick={() => setConfirmDelete(true)}
           disabled={isBusy}
-          title="Delete"
+          title={t.instanceDetail.delete}
           style={{
             width: 24, height: 24, flexShrink: 0,
             background: 'none', border: '1px solid transparent',
@@ -1366,23 +1374,24 @@ function TypeIcon({ type, color }: { type: ContentType; color: string }) {
 }
 
 function PlaytimeChart({ log }: { log: Record<string, number> }) {
+  const t = useT()
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date()
     d.setDate(d.getDate() - (6 - i))
     const key = d.toISOString().split('T')[0]
     const mins = Math.round((log[key] ?? 0) / 60)
-    const label = i === 6 ? 'Today' : d.toLocaleDateString([], { weekday: 'short' })
+    const label = i === 6 ? t.instanceDetail.today : d.toLocaleDateString([], { weekday: 'short' })
     return { key, mins, label, isToday: i === 6 }
   })
   const max = Math.max(...days.map(d => d.mins), 1)
   const totalMins = days.reduce((s, d) => s + d.mins, 0)
   if (totalMins === 0) return null
   return (
-    <div style={{ marginTop: 8, display: 'flex', gap: 3, alignItems: 'flex-end', height: 36 }} title={`${totalMins}m this week`}>
+    <div style={{ marginTop: 8, display: 'flex', gap: 3, alignItems: 'flex-end', height: 36 }} title={t.instanceDetail.weekMinutes(totalMins)}>
       {days.map(d => (
         <div key={d.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
           <div
-            title={d.mins > 0 ? `${d.mins}m on ${d.label}` : d.label}
+            title={d.mins > 0 ? t.instanceDetail.minutesOnDay(d.mins, d.label) : d.label}
             style={{
               width: '100%', minHeight: 2,
               height: `${Math.max(2, (d.mins / max) * 24)}px`,

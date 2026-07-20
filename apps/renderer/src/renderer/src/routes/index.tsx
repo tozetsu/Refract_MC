@@ -156,17 +156,17 @@ const FALLBACK_WHATS_NEW: ChangelogEntry[] = [
 
 type ActivityEntry = { id: string; label: string; ts: number }
 
-function timeAgo(ts: number): string {
+function timeAgo(ts: number, t: T): string {
   const diff = Date.now() - ts
   const s = Math.floor(diff / 1000)
-  if (s < 60)  return 'Just now'
+  if (s < 60) return t.titleBar.justNow
   const m = Math.floor(s / 60)
-  if (m < 60)  return `${m} min ago`
+  if (m < 60) return t.titleBar.minutesAgo(m)
   const h = Math.floor(m / 60)
-  if (h < 24)  return `${h} hr ago`
+  if (h < 24) return t.titleBar.hoursAgo(h)
   const d = Math.floor(h / 24)
-  if (d === 1) return 'Yesterday'
-  if (d < 7)   return `${d} days ago`
+  if (d === 1) return t.instanceDetail.yesterday
+  if (d < 7) return t.instanceDetail.daysAgo(d)
   return new Date(ts).toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
@@ -2654,7 +2654,7 @@ function ActivityPanel({ items }: { items: ActivityEntry[] }) {
                 color: 'var(--ink-4)',
                 whiteSpace: 'nowrap',
               }}>
-                {timeAgo(item.ts)}
+                {timeAgo(item.ts, t)}
               </span>
             </div>
           ))}

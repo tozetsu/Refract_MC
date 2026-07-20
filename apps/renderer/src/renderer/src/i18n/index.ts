@@ -37,6 +37,15 @@ function build(l: Locale) {
       addedDaysAgo: (n: number) => i(l.sidebar.addedDaysAgo, { n }),
     },
 
+    titleBar: {
+      ...l.titleBar,
+      minutesAgo:        (n: number)       => i(l.titleBar.minutesAgo, { n }),
+      hoursAgo:          (n: number)       => i(l.titleBar.hoursAgo, { n }),
+      daysAgo:           (n: number)       => i(l.titleBar.daysAgo, { n }),
+      versionDownloaded: (version: string) => i(l.titleBar.versionDownloaded, { version }),
+      versionAvailable:  (version: string) => i(l.titleBar.versionAvailable, { version }),
+    },
+
     home: {
       ...l.home,
       licenseBody:   (name: string) => i(l.home.licenseBody, { name }),
@@ -143,6 +152,8 @@ function build(l: Locale) {
     account: {
       ...l.account,
       activeHeader: (name: string) => i(l.account.activeHeader, { name }),
+      secondsLeft: (seconds: number) => i(l.account.secondsLeft, { seconds }),
+      signedInAs:  (name: string) => i(l.account.signedInAs, { name }),
     },
 
     createInst: {
@@ -183,6 +194,13 @@ function build(l: Locale) {
       verifyAllOk:    (n: number) => i(l.instanceDetail.verifyAllOk, { n }),
       verifyIssues:   (n: number) => i(l.instanceDetail.verifyIssues, { n }),
       verifyRepaired: (n: number, total: number) => i(l.instanceDetail.verifyRepaired, { n, total }),
+      daysAgo:         (days: number) => i(l.instanceDetail.daysAgo, { days }),
+      exportedTo:      (path: string) => i(l.instanceDetail.exportedTo, { path }),
+      exportFailed:    (error: string) => i(l.instanceDetail.exportFailed, { error }),
+      applyProfileTip: (name: string, n: number) => i(l.instanceDetail.applyProfileTip, { name, n }),
+      weekMinutes:     (minutes: number) => i(l.instanceDetail.weekMinutes, { minutes }),
+      minutesOnDay:    (minutes: number, day: string) => i(l.instanceDetail.minutesOnDay, { minutes, day }),
+      serversTitle:    (name: string) => i(l.instanceDetail.serversTitle, { name }),
     },
 
     skins: {

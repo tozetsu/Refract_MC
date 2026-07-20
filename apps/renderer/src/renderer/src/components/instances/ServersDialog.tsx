@@ -3,6 +3,7 @@ import { api } from '@/lib/api'
 import type { Instance } from '@refract/core'
 import { Button } from '@/components/ui/Button'
 import { RowsSkeleton } from '@/components/ui/Skeleton'
+import { useT } from '@/i18n'
 
 type Server = { name: string; ip: string; icon?: string }
 
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function ServersDialog({ instance, open, onOpenChange }: Props) {
+  const t = useT()
   const [servers, setServers]   = useState<Server[]>([])
   const [loading, setLoading]   = useState(false)
   const [copied, setCopied]     = useState<string | null>(null)
@@ -47,8 +49,8 @@ export function ServersDialog({ instance, open, onOpenChange }: Props) {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border-r)', flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', letterSpacing: '.04em' }}>SERVERS — {instance.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>Saved in servers.dat · click to copy address</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', letterSpacing: '.04em' }}>{t.instanceDetail.serversTitle(instance.name)}</div>
+            <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 2 }}>{t.instanceDetail.serversSavedHint}</div>
           </div>
           <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} style={{ color: 'var(--ink-4)', fontSize: 18, lineHeight: 1 }}>✕</Button>
         </div>
@@ -59,10 +61,10 @@ export function ServersDialog({ instance, open, onOpenChange }: Props) {
             <RowsSkeleton rows={4} />
           ) : servers.length === 0 ? (
             <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-4)', letterSpacing: '.10em', marginBottom: 8 }}>NO SAVED SERVERS</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-4)', letterSpacing: '.10em', marginBottom: 8 }}>{t.instanceDetail.emptyServers}</div>
               <div style={{ fontSize: 12, color: 'var(--ink-4)', lineHeight: 1.5 }}>
-                Servers you add inside Minecraft appear here.<br />
-                Launch the instance and add servers in the multiplayer menu.
+                {t.instanceDetail.serversEmptyBodyLine1}<br />
+                {t.instanceDetail.serversEmptyBodyLine2}
               </div>
             </div>
           ) : servers.map((s, i) => (
@@ -75,6 +77,7 @@ export function ServersDialog({ instance, open, onOpenChange }: Props) {
 }
 
 function ServerRow({ server, copied, onCopy }: { server: Server; copied: boolean; onCopy: () => void }) {
+  const t = useT()
   const [hover, setHover] = useState(false)
 
   return (
@@ -111,7 +114,7 @@ function ServerRow({ server, copied, onCopy }: { server: Server; copied: boolean
         border: `1px solid ${copied ? 'var(--grass)' : hover ? 'var(--border-r)' : 'transparent'}`,
         borderRadius: 'var(--radius-sm)', flexShrink: 0, transition: 'all 120ms',
       }}>
-        {copied ? 'Copied!' : 'Copy IP'}
+        {copied ? t.instanceDetail.copied : t.instanceDetail.copyIp}
       </div>
     </div>
   )

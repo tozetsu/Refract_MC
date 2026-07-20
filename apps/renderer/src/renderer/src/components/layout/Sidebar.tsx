@@ -244,12 +244,12 @@ function FriendsPanel() {
       setFriends(list as Friend[])
       setMyUsername(active?.username ?? null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to refresh friends.')
+      setError(err instanceof Error ? err.message : t.sidebar.refreshFriendsFailed)
     } finally {
       if (showRefreshing) setRefreshing(false)
       else setListLoading(false)
     }
-  }, [])
+  }, [t.sidebar.refreshFriendsFailed])
 
   useEffect(() => {
     void refreshFriends(false)
@@ -289,7 +289,7 @@ function FriendsPanel() {
       setAdding(false)
       setInput('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add friend.')
+      setError(err instanceof Error ? err.message : t.sidebar.addFriendFailed)
     } finally {
       setLoading(false)
     }
@@ -312,7 +312,7 @@ function FriendsPanel() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <button
             onClick={() => void refreshFriends(true)}
-            title="Refresh friends"
+            title={t.sidebar.refreshFriends}
             disabled={refreshing || listLoading}
             style={{
               background: 'none', border: '1px solid var(--border-r)',
@@ -530,16 +530,16 @@ function FriendRow({ friend, onRemove, onNoteChange, onSkinClick }: {
         {/* Action buttons (visible on hover) */}
         {hovered && (
           <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-            <ActionBtn title="Copy username" active={copied === 'name'} onClick={() => copy(friend.username, 'name')}>
+            <ActionBtn title={t.sidebar.copyUsername} active={copied === 'name'} onClick={() => copy(friend.username, 'name')}>
               A
             </ActionBtn>
             <ActionBtn title={t.sidebar.copyUuid} active={copied === 'uuid'} onClick={() => copy(friend.uuid, 'uuid')}>
               #
             </ActionBtn>
-            <ActionBtn title="Copy NameMC profile link" active={copied === 'namemc'} onClick={() => copy(nameMcUrl, 'namemc')}>
+            <ActionBtn title={t.sidebar.copyNameMcLink} active={copied === 'namemc'} onClick={() => copy(nameMcUrl, 'namemc')}>
               N
             </ActionBtn>
-            <ActionBtn title="Copy /whitelist add command" active={copied === 'wl'} onClick={() => copy('/whitelist add ' + friend.username, 'wl')}>
+            <ActionBtn title={t.sidebar.copyWhitelistCommand} active={copied === 'wl'} onClick={() => copy('/whitelist add ' + friend.username, 'wl')}>
               +
             </ActionBtn>
             <ActionBtn title={t.sidebar.addNote} onClick={startNote}>✎</ActionBtn>
@@ -556,11 +556,11 @@ function FriendRow({ friend, onRemove, onNoteChange, onSkinClick }: {
           onChange={e => setNoteDraft(e.target.value)}
           onBlur={commitNote}
           onKeyDown={e => { if (e.key === 'Enter') commitNote(); if (e.key === 'Escape') { setEditingNote(false) } }}
-          placeholder="Add a note…"
+          placeholder={t.sidebar.notePlaceholder}
           style={{ marginTop: 4, width: '100%', fontSize: 10, padding: '2px 5px', background: 'var(--bg)', border: '1px solid var(--accent)', color: 'var(--ink)', borderRadius: 2, outline: 'none', boxSizing: 'border-box' }}
         />
       ) : friend.note ? (
-        <div onClick={startNote} title="Click to edit note" style={{ marginTop: 3, fontSize: 10, color: 'var(--ink-4)', fontStyle: 'italic', cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingLeft: 32 }}>
+        <div onClick={startNote} title={t.sidebar.editNote} style={{ marginTop: 3, fontSize: 10, color: 'var(--ink-4)', fontStyle: 'italic', cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingLeft: 32 }}>
           {friend.note}
         </div>
       ) : null}
@@ -711,7 +711,7 @@ export function Sidebar() {
       <div style={{ marginTop:'auto', flexShrink:0, display:'flex', flexDirection:'column', gap:2, paddingTop:10, borderTop:'1px solid var(--sb-line)' }}>
         <NavItem to="/settings" label={t.nav.settings} iconSrc={settingsIcon} exact={true} compact={compact} />
         <button
-          title={compact ? 'Discord' : undefined}
+          title={compact ? t.nav.discord : undefined}
           onClick={openDiscord}
           style={{ display:'flex', alignItems:'center', justifyContent: compact ? 'center' : 'flex-start', gap: compact ? 0 : 10, padding: compact ? '9px 0' : '8px 10px', borderRadius:4, color:'var(--ink-2)', fontSize:13, fontWeight:500, background:'none', border:'1px solid transparent', cursor:'pointer', textAlign:'left' }}
           onMouseEnter={e => { e.currentTarget.style.color = '#5865F2'; e.currentTarget.style.background = 'rgba(88,101,242,.1)' }}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useT } from '@/i18n'
 import { api } from '@/lib/api'
 
 type Rect = [number, number, number, number, string]
@@ -57,6 +58,7 @@ const MEOWS = ['meow~', 'mrrp!', 'purr…', 'mrow?', ':3']
 /// The Refract cat: an optional companion in the corner of the home screen
 /// (enable in Settings). Click it — it appreciates the attention.
 export function CornerCat() {
+  const t = useT()
   const [show, setShow] = useState(false)
   const [meow, setMeow] = useState<string | null>(null)
   const [wiggle, setWiggle] = useState(false)
@@ -77,7 +79,7 @@ export function CornerCat() {
   return (
     <div
       onClick={pet}
-      title="meow"
+      title={t.settings.catTooltip}
       style={{
         position: 'fixed', right: 18, bottom: 12, zIndex: 40,
         cursor: 'pointer', userSelect: 'none',
