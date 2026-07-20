@@ -64,16 +64,15 @@ The most important architectural rule is: UI components call the stable `api.*` 
 | --- | --- | --- |
 | `apps/renderer` | Shared React renderer | The live UI source is nested under `src/renderer/src`. |
 | `apps/tauri` | Production desktop application | Vite host plus the Rust/Tauri backend. |
-| `apps/electron-bridge` | One-time migration installer | Windows-only bridge for old Electron installs. Not the main app. |
 | `packages/core` | Shared TypeScript models and helpers | Contains instance/content types and some older Node-oriented launcher code. Rust is authoritative for native runtime behavior. |
 | `packages/plugin-api` | Minimal public plugin type contract | Interfaces exist, but no complete runtime plugin loader is present. |
 | `locales` | Translation JSON | English is the schema/fallback; Ukrainian and Simplified Chinese are registered. |
 | `logo` | Brand and README assets | Includes icons and the current screenshot. |
 | `packaging/aur` | Arch User Repository package | Binary package consumes the stable RPM release asset. |
-| `.github/workflows` | Build, audit, release, AUR, bridge, and Discord automation | CI uses Node 24 and pnpm 11. |
+| `.github/workflows` | Build, audit, release, AUR, and Discord automation | CI uses Node 24 and pnpm 11. |
 | `README.md` | Product overview and public setup | Start here for users. |
 | `CONTRIBUTING.md` | Contributor rules and checks | Keep changes focused and report verification. |
-| `apps/tauri/RELEASING.md` | Release operations | Signing, publishing, AUR, and Electron migration. |
+| `apps/tauri/RELEASING.md` | Release operations | Signing, publishing, and AUR automation. |
 | `CHANGELOG.md` | User-visible release history | Add short, concrete release entries. |
 | `SECURITY.md` | Vulnerability reporting and audit exceptions | Security reports should be private. |
 
@@ -89,8 +88,6 @@ The most important architectural rule is: UI components call the stable `api.*` 
 - Tauri configuration: `apps/tauri/src-tauri/tauri.conf.json`
 - Native capabilities: `apps/tauri/src-tauri/capabilities/default.json`
 - Core instance model: `packages/core/src/instance-manager/index.ts`
-
-`apps/renderer/src/renderer/src/App.tsx` is a small unused scaffold. The router mounted in `main.tsx`, not `App.tsx`, is the real UI entry point.
 
 ## Runtime behavior
 
@@ -341,7 +338,7 @@ The exact active ignores live in `.github/workflows/security-audit.yml`; revisit
 | CurseForge API/CDN/site | Search, metadata, mod/modpack files, and manual restricted-download flow. |
 | FTB `api.modpacks.ch` | FTB pack search, metadata, and files. |
 | Adoptium | Managed Temurin JRE downloads. |
-| GitHub Releases | Application updater, installers, changelog fetch, and migration bridge manifest. |
+| GitHub Releases | Application updater, installers, and changelog fetch. |
 | Minecraft.net news endpoints | News page. |
 | mclo.gs | User-triggered log uploads. |
 | Discord | Invite link, Rich Presence, and release webhook automation. |
@@ -375,7 +372,6 @@ pnpm --filter @refract/tauri-poc dev
 pnpm --filter @refract/tauri-poc build:real
 pnpm --filter @refract/tauri-poc build
 pnpm --filter @refract/tauri-poc build:signed
-pnpm --filter @refract/electron-bridge build
 ```
 
 Rust checks from `apps/tauri/src-tauri`:
@@ -418,19 +414,17 @@ There is no dedicated JavaScript test suite in package scripts. Rust has embedde
 | `development-builds.yml` | Push to `main` or manual | Unsigned Windows, macOS ARM/Intel, and Linux artifacts retained for 14 days. |
 | `security-audit.yml` | PR and push to `main` | pnpm audit, cargo audit with documented ignores, cargo check, and renderer typecheck. |
 | `release-tauri.yml` | `v*.*.*` tag or manual | Multi-platform draft GitHub release, updater artifacts, stable filenames, and rewritten `latest.json`. |
-| `release-electron-bridge.yml` | Manual | Attaches Windows Electron bridge installer, blockmap, and `latest.yml` to an existing Tauri release. |
 | `publish-aur.yml` | Published stable release or manual | Downloads the stable RPM, updates PKGBUILD/checksum and `.SRCINFO`, then pushes `refract-launcher-bin` to AUR. |
 | `discord-changelog.yml` | Published release or manual | Posts the matching `CHANGELOG.md` section through a Discord webhook. |
 
 ### Release sequence
 
 1. Update user-visible entries in `CHANGELOG.md`.
-2. Synchronize the desktop version across renderer, Tauri package, Rust crate/Tauri config, Electron bridge when applicable, and packaging metadata. Do not use the old root package version as the release source.
+2. Synchronize the desktop version across renderer, Tauri package, Rust crate/Tauri config, and packaging metadata. Do not use the old root package version as the release source.
 3. Commit and tag `vX.Y.Z`, or manually dispatch the Tauri release workflow with the intended tag.
 4. Wait for Windows x64, macOS ARM64, macOS Intel, and Linux x64 builds.
 5. Review the draft release and its `latest.json`, signatures, stable filenames, and installers before publishing.
 6. Publishing triggers the Discord announcement and stable AUR package workflow.
-7. Run the Electron bridge workflow only when serving the one-time migration to old Electron clients.
 
 The finalizer rewrites updater URLs to stable filenames such as `Refract-Windows-x64.exe`, `Refract-macOS-arm64.dmg`, `Refract-Linux-x86_64.AppImage`, `Refract-Linux-amd64.deb`, and `Refract-Linux-x86_64.rpm`, then removes versioned duplicates while keeping updater archives and `latest.json`.
 
@@ -445,13 +439,11 @@ The finalizer rewrites updater URLs to stable filenames such as `Refract-Windows
 
 Never commit private signing material. The updater public key in `tauri.conf.json` and `install.config.json` is intentionally public and must remain synchronized.
 
-## Electron-to-Tauri migration
+## Legacy desktop migration compatibility
 
 - Version `1.2.0` moved the production app from Electron to Tauri while preserving the app identity and data directory.
 - Existing files, instances, settings, themes, worlds, screenshots, options, and servers carry over because both runtimes use the same data root and formats.
 - Microsoft users must sign in once after migration because Tauri stores tokens in the new Stronghold/keyring system. Offline accounts continue to work.
-- The bridge is packaged only for Windows. It fetches `latest.json`, downloads the Windows x64 Tauri installer to a temporary directory, starts it with `/S` by default, and quits.
-- Runtime overrides for bridge testing are `REFRACT_TAURI_MANIFEST_URL` and `REFRACT_TAURI_INSTALLER_ARGS`.
 
 ## Project conventions
 
@@ -528,7 +520,6 @@ Refract began as an Electron-based launcher and accumulated instance management,
 - [Security policy](SECURITY.md)
 - [Tauri app notes](apps/tauri/README.md)
 - [Release guide](apps/tauri/RELEASING.md)
-- [Electron bridge notes](apps/electron-bridge/README.md)
 - [Translation guide](locales/README.md)
 - [Renderer API facade](apps/renderer/src/renderer/src/lib/api.ts)
 - [Renderer API types](apps/renderer/src/renderer/src/env.d.ts)

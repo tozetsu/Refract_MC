@@ -5,7 +5,6 @@
   "scripts": {
     "dev": "pnpm --filter @refract/tauri-poc dev",
     "build": "pnpm --filter @refract/tauri-poc build",
-    "build:electron-bridge": "pnpm --filter @refract/electron-bridge build",
     "lint": "eslint . --ext .ts,.tsx",
     "format": "prettier --write ."
   },

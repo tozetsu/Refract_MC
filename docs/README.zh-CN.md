@@ -164,7 +164,6 @@ pnpm build
 
 * `apps/renderer` 包含共享的 React 渲染层。
 * `apps/tauri` 包含 Tauri 外壳和 Rust 后端。
-* `apps/electron-bridge` 将旧版 Electron 安装迁移到 Tauri。
 * `packages/core` 包含共享的启动器逻辑。
 * `packages/plugin-api` 包含公共插件 API。
 * `locales` 包含翻译文件。

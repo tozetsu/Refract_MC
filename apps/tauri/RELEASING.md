@@ -179,7 +179,7 @@ stable releases update that same AUR repository automatically. The workflow
 pins the SSH host fingerprint published by Arch and refuses drafts and
 prereleases, so the package never points at private release assets.
 
-## #26 - upgrading existing installs to the Tauri build
+## #26 - upgrading legacy installs to the Tauri build
 
 - **App id is the same** (`com.refract`) and the Tauri backend reads/writes the
   **same** `%APPDATA%/Refract` data dir, so **instances, config, Java, themes
@@ -187,11 +187,6 @@ prereleases, so the package never points at private release assets.
 - **Accounts need a one-time re-login**: tokens live in the keyring-backed
   Stronghold vault, so old encrypted tokens aren't readable. Offline accounts
   still work; Microsoft accounts must sign in again once.
-- Preferred automatic path: publish the signed Tauri release first, then run the
-  `Release (Electron bridge)` workflow with the same tag. It uploads
-  `latest.yml`, the bridge installer, and its blockmap to the release for old
-  Electron clients. The bridge downloads the Tauri `latest.json` installer,
-  starts it, quits, and future updates are handled by Tauri.
 - Manual fallback: ship the Tauri NSIS installer as the next version. Users run
   it once over the existing install at the same install path/app id, then
   auto-update takes over.

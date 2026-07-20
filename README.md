@@ -171,7 +171,6 @@ project conventions, and pull request guidelines.
 
 * `apps/renderer` contains the shared React renderer.
 * `apps/tauri` contains the Tauri shell and Rust backend.
-* `apps/electron-bridge` migrates older Electron installs to Tauri.
 * `packages/core` contains shared launcher logic.
 * `packages/plugin-api` contains the public plugin API.
 * `locales` contains translation files.

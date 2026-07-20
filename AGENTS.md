@@ -8,7 +8,7 @@ For substantial work, read these files before editing:
 
 1. `PROJECT_KNOWLEDGE.md` - architecture, runtime flows, persistent data, APIs, events, CI, releases, and known cautions.
 2. `CONTRIBUTING.md` - contributor rules and verification expectations.
-3. The closest package README, especially `apps/tauri/README.md` or `apps/electron-bridge/README.md`.
+3. The closest package README, especially `apps/tauri/README.md`.
 4. `apps/tauri/RELEASING.md` only for packaging, signing, updater, or release work.
 
 Keep `PROJECT_KNOWLEDGE.md` accurate when a change modifies architecture, important commands, persisted data, security assumptions, or release workflows.
@@ -19,13 +19,12 @@ Refract is a pnpm monorepo for a Minecraft Java Edition launcher.
 
 - `apps/renderer` is the shared React/TypeScript UI.
 - `apps/tauri` is the production Tauri 2 shell and Rust backend.
-- `apps/electron-bridge` is a Windows-only migration bridge for old Electron installs, not the main application.
 - `packages/core` provides shared TypeScript models and helpers. Some Node-oriented files are historical; Rust is authoritative for production native behavior.
 - `packages/plugin-api` is currently a minimal type contract, not a complete plugin runtime.
 - `locales` contains the UI translations.
 - `.github/workflows` and `packaging` own CI, releases, and Linux packaging.
 
-The real renderer entry point is `apps/renderer/src/renderer/src/main.tsx`. The small `App.tsx` scaffold is not the mounted application.
+The real renderer entry point is `apps/renderer/src/renderer/src/main.tsx`.
 
 ## Architectural boundaries
 
@@ -134,12 +133,6 @@ cargo check
 cargo test
 ```
 
-For the migration bridge:
-
-```sh
-pnpm --filter @refract/electron-bridge build
-```
-
 Use `pnpm --filter @refract/tauri-poc build` when packaging behavior is in scope. Do not run signed builds, create tags, publish releases, upload assets, push AUR changes, or post Discord announcements unless the user explicitly requests the external action.
 
 Do not run `pnpm format` for a small change unless broad formatting is intended; it writes across the repository.
@@ -175,7 +168,7 @@ There is no dedicated JavaScript test suite in package scripts. Rust unit tests 
 - The package name `@refract/tauri-poc` is historical but still wired into scripts and workflows. Do not rename it casually.
 - The updater public key in `tauri.conf.json` and `install.config.json` is public and intentional; private signing material must remain outside the repository.
 - User-visible release work should update `CHANGELOG.md` with short, concrete entries.
-- Read `apps/tauri/RELEASING.md` before changing signing, stable asset names, `latest.json`, AUR automation, or the Electron migration flow.
+- Read `apps/tauri/RELEASING.md` before changing signing, stable asset names, `latest.json`, or AUR automation.
 
 ## Handoff
 

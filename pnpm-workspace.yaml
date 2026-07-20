@@ -9,9 +9,5 @@ overrides:
   ws: ^8.21.0
 onlyBuiltDependencies:
   - esbuild
-  - electron
-  - electron-winstaller
 allowBuilds:
-  electron: true
-  electron-winstaller: true
   esbuild: true
