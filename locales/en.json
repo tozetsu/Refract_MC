@@ -227,6 +227,7 @@
     "searchInstances": "Search instances…",
     "allLoaders": "All loaders",
     "allVersions": "All versions",
+    "vanilla": "Vanilla",
     "selectBtn": "Select",
     "syncTip": "Sync instances from other launchers",
     "syncBtn": "Sync",
@@ -253,7 +254,22 @@
     "finishingOperation": "Finishing current operation…",
     "installMayTake": "This may take a few minutes depending on your connection.",
     "cancelling": "Cancelling…",
-    "installingMinecraft": "Installing Minecraft"
+    "installingMinecraft": "Installing Minecraft",
+    "stepFetchingVersionData": "Fetching version data",
+    "stepDownloadingClient": "Downloading client",
+    "stepExtractingNatives": "Extracting natives",
+    "stepDownloadingAssets": "Downloading assets",
+    "stepInstallingFabric": "Installing Fabric loader",
+    "stepInstallingQuilt": "Installing Quilt loader",
+    "stepInstallingLoaderLibs": "Installing loader libraries",
+    "stepDone": "Done",
+    "stepDownloadingForgeInstaller": "Downloading Forge installer",
+    "stepExtractingForgeInstaller": "Extracting Forge installer",
+    "stepDownloadingForgeLibs": "Downloading Forge libraries",
+    "stepDownloadingForgeTools": "Downloading Forge tools",
+    "stepPreparingJavaForge": "Preparing Java for Forge processors",
+    "stepRunningForgeProcessors": "Running Forge processors",
+    "stepForgeInstalled": "Forge installed"
   },
   "browse": {
     "title": "Browse Mods",
@@ -677,7 +693,7 @@
     "create": "CREATE",
     "creating": "CREATING...",
     "cancel": "Cancel",
-    "vanilla": "VANILLA",
+    "vanilla": "Vanilla",
     "ramGb": "{{gb}}G",
     "ramMb": "{{mb}}M",
     "tplVanillaDesc": "Latest vanilla",
@@ -745,7 +761,7 @@
     "confirmDelete": "CONFIRM DELETE?",
     "repair": "Repair",
     "duplicate": "Duplicate",
-    "vanilla": "VANILLA",
+    "vanilla": "Vanilla",
     "ramGb": "{{gb}}G",
     "ramMb": "{{mb}}M",
     "javaVersion": "Java {{v}} — {{vendor}}",
@@ -994,5 +1010,22 @@
     "colorSuccess": "Success",
     "colorWarning": "Warning",
     "colorError": "Error"
+  },
+  "statusbar": {
+    "online": "Online",
+    "offline": "Offline",
+    "javaVersion": "Java {{v}}"
+  },
+  "mcVersionSelect": {
+    "loadingOption": "{{value}} (loading…)",
+    "snapshotSuffix": " (snapshot)",
+    "showSnapshots": "SHOW SNAPSHOTS"
+  },
+  "cornerCat": {
+    "meow": "meow~",
+    "mrrp": "mrrp!",
+    "purr": "purr…",
+    "mrow": "mrow?",
+    "kittyFace": ":3"
   }
 }
